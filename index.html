@@ -61,17 +61,18 @@ window.dispatchEvent(new Event('fbready'));
 body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
 
 /* ══ AUTH SCREEN ══ */
-#authScreen{position:fixed;inset:0;background:var(--sb);display:flex;align-items:center;justify-content:center;z-index:9999;overflow-y:auto;padding:20px;}
+#authScreen{position:fixed;inset:0;background:var(--sb);z-index:9999;overflow-y:auto;padding:20px;display:block;}
+.auth-center{min-height:100%;display:flex;align-items:center;justify-content:center;}
 .auth-box{background:#fff;border-radius:18px;width:440px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden;margin:auto;}
-.auth-logo{background:var(--sb);padding:24px 28px;display:flex;align-items:center;gap:12px;}
+.auth-logo{background:var(--sb);padding:22px 28px;display:flex;align-items:center;gap:12px;}
 .auth-brand{font-family:'Cormorant Garamond',serif;font-size:28px;color:#6de090;letter-spacing:5px;font-weight:700;}
 .auth-tag{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);}
-.auth-tabs{display:flex;border-bottom:2px solid var(--bdr);}
-.auth-tab{flex:1;padding:13px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:var(--t3);transition:.15s;border-bottom:2px solid transparent;margin-bottom:-2px;}
+.auth-tabs{display:flex;border-bottom:2px solid var(--bdr);background:#fff;}
+.auth-tab{flex:1;padding:13px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:var(--t3);transition:.15s;border-bottom:2px solid transparent;margin-bottom:-2px;user-select:none;}
 .auth-tab:hover{color:var(--txt);}
 .auth-tab.on{color:var(--sb);border-bottom-color:var(--G);}
-.auth-panel{padding:24px 28px;display:none;}
-.auth-panel.on{display:block;}
+.auth-panel{padding:22px 28px;display:none !important;}
+.auth-panel.on{display:block !important;}
 .auth-role{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
 .role-btn{padding:11px;border-radius:var(--rs);border:2px solid var(--bdr);background:var(--bg);cursor:pointer;text-align:center;transition:.15s;}
 .role-btn:hover{border-color:var(--G);background:var(--G3);}
@@ -291,6 +292,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
      TELA DE AUTH
 ══════════════════════════ -->
 <div id="authScreen">
+ <div class="auth-center">
  <div class="auth-box">
   <div class="auth-logo">
    <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
@@ -346,6 +348,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
   <button class="btn-auth" onclick="doCadastro()">Criar Conta</button>
   </div>
  </div>
+ </div><!-- auth-center -->
 </div>
 
 <!-- ══════════════════════════
@@ -693,16 +696,20 @@ function fmtHora(t){ if(!t) return ''; var d=new Date('1970-01-01T'+t); return d
 waitFB(function(){
   window._fb.onAuthStateChanged(window._fb.auth, function(user){
     if(user){ S.user=user; initApp(); }
-    else { hide('app'); show('authScreen'); }
+    else { showAuth(); }
   });
 });
 
 function authTab(t){
   ['login','cadastro'].forEach(function(x){
     document.getElementById('atab-'+x).classList.toggle('on',x===t);
-    document.getElementById('ap-'+x).classList.toggle('on',x===t);
+    var panel=document.getElementById('ap-'+x);
+    panel.classList.toggle('on',x===t);
   });
 }
+
+function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
+function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
 
 var cRole='paciente';
 function selCRole(r){
@@ -763,7 +770,7 @@ async function doCadastro(){
   unload();
 }
 
-function doLogout(){ window._fb.signOut(window._fb.auth); }
+function doLogout(){ window._fb.signOut(window._fb.auth).then(function(){ showAuth(); }); }
 
 // ════════════════════════
 //  INIT APP
@@ -782,9 +789,7 @@ async function initApp(){
       S.tipo='medico';
       await fb.setDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'),S.perfil);
     }
-    hide('authScreen');
-    show('app');
-    document.getElementById('app').style.display='block';
+    showApp();
     setupUI();
     if(S.tipo==='medico'){
       await Promise.all([loadPacientes(), loadAreas()]);
@@ -1795,9 +1800,7 @@ async function initApp(){
       S.tipo='medico';
       await fb.setDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'),S.perfil);
     }
-    hide('authScreen');
-    show('app');
-    document.getElementById('app').style.display='block';
+    showApp();
     setupUI();
     if(S.tipo==='admin'){
       document.getElementById('admDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
@@ -2091,8 +2094,8 @@ async function admCriarMedico(){
     closeMo('adm-novo-med');
     // Relog — o createUserWithEmailAndPassword faz login com o novo user
     // precisamos re-logar com o admin. Forçar reload.
-    toast('Médico '+nm+' criado! Recarregando...');
-    setTimeout(function(){ window.location.reload(); },1500);
+    toast('Médico '+nm+' criado! Fazendo logout para re-entrar como admin...');
+    setTimeout(function(){ window._fb.signOut(window._fb.auth); },1500);
   } catch(e){ toast('Erro: '+e.message,'err'); }
   unload();
 }
