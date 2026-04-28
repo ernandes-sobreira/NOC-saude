@@ -71,8 +71,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 .auth-tab{flex:1;padding:13px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:var(--t3);transition:.15s;border-bottom:2px solid transparent;margin-bottom:-2px;user-select:none;}
 .auth-tab:hover{color:var(--txt);}
 .auth-tab.on{color:var(--sb);border-bottom-color:var(--G);}
-.auth-panel{padding:22px 28px;display:none !important;}
-.auth-panel.on{display:block !important;}
+.auth-panel{padding:22px 28px;display:none;}
+.auth-panel.on{display:block;}
 .auth-role{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
 .role-btn{padding:11px;border-radius:var(--rs);border:2px solid var(--bdr);background:var(--bg);cursor:pointer;text-align:center;transition:.15s;}
 .role-btn:hover{border-color:var(--G);background:var(--G3);}
@@ -309,7 +309,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
   </div>
 
   <!-- LOGIN -->
-  <div class="auth-panel on" id="ap-login">
+  <div class="auth-panel on" id="ap-login" style="display:block;">
    <div style="margin:4px 0 16px;font-size:12.5px;color:var(--t3);">Médico ou paciente? Basta fazer login — identificamos automaticamente pelo cadastro.</div>
    <div class="auth-err" id="lerr"></div>
    <div class="fld"><label>E-mail</label><input id="l-email" type="email" placeholder="seu@email.com" autocomplete="email"></div>
@@ -318,7 +318,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
   </div>
 
   <!-- CADASTRO -->
-  <div class="auth-panel" id="ap-cadastro">
+  <div class="auth-panel" id="ap-cadastro" style="display:none;">
    <div class="auth-err" id="cerr"></div>
    <div class="auth-role" style="margin-bottom:16px;">
     <div class="role-btn on" id="crole-pac" onclick="selCRole('paciente')">
@@ -701,11 +701,10 @@ waitFB(function(){
 });
 
 function authTab(t){
-  ['login','cadastro'].forEach(function(x){
-    document.getElementById('atab-'+x).classList.toggle('on',x===t);
-    var panel=document.getElementById('ap-'+x);
-    panel.classList.toggle('on',x===t);
-  });
+  document.getElementById('atab-login').classList.toggle('on', t==='login');
+  document.getElementById('atab-cadastro').classList.toggle('on', t==='cadastro');
+  document.getElementById('ap-login').style.display = t==='login' ? 'block' : 'none';
+  document.getElementById('ap-cadastro').style.display = t==='cadastro' ? 'block' : 'none';
 }
 
 function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
