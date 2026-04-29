@@ -1018,119 +1018,336 @@ async function salvarRes() {
   unload();
 }
 
+
+// ══════════════════════════════════════════
+//  UNIFICAR EXAMES POR NOME (todas as áreas)
+// ══════════════════════════════════════════
+function unificarExames(resultados) {
+  // Retorna { nomeParam: { unidade, refMin, refMax, historico:[{data,valor,lab}] } }
+  var mapa = {};
+  resultados.forEach(function(r) {
+    Object.keys(r.valores || {}).forEach(function(nome) {
+      var info = r.valores[nome];
+      var key  = nome.trim().toLowerCase();
+      if (!mapa[key]) mapa[key] = {
+        nome: nome, unidade: info.unidade,
+        refMin: info.refMin, refMax: info.refMax,
+        historico: []
+      };
+      mapa[key].historico.push({ data: r.data, valor: info.valor, lab: r.lab || '' });
+    });
+  });
+  // Ordenar histórico por data
+  Object.values(mapa).forEach(function(p) {
+    p.historico.sort(function(a,b){ return a.data.localeCompare(b.data); });
+  });
+  return mapa;
+}
+
+// ══════════════════════════════════════════
+//  RENDERIZAR RESUMO — MÉDICO (técnico)
+// ══════════════════════════════════════════
+var _chartInstances = {};
+
 function renderResAreas() {
   var el = document.getElementById('resAreas'); if (!el) return;
+  // Destruir gráficos antigos
+  Object.values(_chartInstances).forEach(function(ch){ try{ch.destroy();}catch(e){} });
+  _chartInstances = {};
+
   if (!RESULTADOS.length) {
-    el.innerHTML = '<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;">'
-      + '<div style="font-size:36px;margin-bottom:10px;">🧪</div>'
-      + '<p style="color:#aaa;font-size:13px;">Nenhum resultado ainda.<br>Clique em <b>+ Exame</b> ou envie um laudo PDF.</p></div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;">'
+      + '<div style="font-size:40px;margin-bottom:10px;">🧪</div>'
+      + '<p style="color:#aaa;font-size:13px;">Nenhum resultado ainda.<br>Clique em <b>+ Exame</b> ou envie um laudo pela aba Laudos.</p></div>';
     return;
   }
 
-  // Agrupar por área
-  var byArea = {};
-  RESULTADOS.forEach(function(r) {
-    var key = r.areaNome || r.areaId;
-    if (!byArea[key]) byArea[key] = { areaNome: r.areaNome, areaIco: r.areaIco, areaCor: r.areaCor || '#154fa0', resultados: [] };
-    byArea[key].resultados.push(r);
+  var mapa = unificarExames(RESULTADOS);
+  var params = Object.values(mapa);
+
+  // Separar em grupos: alterados / atenção / normais
+  var alterados = [], atencao = [], normais = [];
+  params.forEach(function(p) {
+    var ult = p.historico[p.historico.length - 1];
+    var st  = statusVal(ult.valor, p.refMin, p.refMax);
+    p._ultimo = ult; p._st = st;
+    if (st.c === 'tag-ru')  alterados.push(p);
+    else if (st.c === 'tag-alt') atencao.push(p);
+    else                         normais.push(p);
   });
 
-  el.innerHTML = Object.values(byArea).map(function(grupo) {
-    var cor = grupo.areaCor;
-    var corLight = cor + '18';
+  var html = '';
 
-    // Coletar todos os parâmetros únicos desta área
-    var params = {};
-    grupo.resultados.forEach(function(r) {
-      Object.keys(r.valores || {}).forEach(function(k) {
-        if (!params[k]) params[k] = { info: r.valores[k], valores: [] };
-        params[k].valores.push({ data: r.data, valor: r.valores[k].valor });
-      });
-    });
+  // Seção: Atenção imediata
+  if (alterados.length) {
+    html += secaoParams('🔴 Requer Atenção', alterados, '#cc2222', '#fff0f0');
+  }
+  if (atencao.length) {
+    html += secaoParams('⚠️ Atenção', atencao, '#c87800', '#fff7e0');
+  }
+  if (normais.length) {
+    html += secaoParams('✅ Dentro do Normal', normais, '#1a7a40', '#e8f5ed');
+  }
 
-    var datas = grupo.resultados.map(function(r) { return r.data; }).sort();
+  el.innerHTML = '<div style="grid-column:1/-1;">' + html + '</div>';
 
-    return '<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:16px;grid-column:1/-1;">'
-      // Header da área
-      + '<div style="background:' + cor + ';padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">'
-      + '<div style="display:flex;align-items:center;gap:10px;">'
-      + '<span style="font-size:22px;">' + esc(grupo.areaIco) + '</span>'
-      + '<div><div style="font-size:15px;font-weight:700;color:#fff;">' + esc(grupo.areaNome) + '</div>'
-      + '<div style="font-size:11px;color:rgba(255,255,255,.7);">' + grupo.resultados.length + ' coleta(s)</div></div>'
-      + '</div></div>'
-      // Cards de parâmetros
-      + '<div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">'
-      + Object.keys(params).map(function(nome) {
-          var p = params[nome];
-          var info = p.info;
-          var vals = p.valores.sort(function(a,b){return a.data.localeCompare(b.data);});
-          var ultimo = vals[vals.length - 1];
-          var v = ultimo.valor;
-          var mn = info.refMin, mx = info.refMax;
-          var st = statusVal(v, mn, mx);
-
-          // Calcular posição na barra (0-100%)
-          var range = mx - mn;
-          var pct = range > 0 ? Math.min(100, Math.max(0, ((v - mn) / range) * 70 + 15)) : 50;
-          // Cor da barra
-          var barCor = st.c === 'tag-ok' ? '#1a7a40' : st.c === 'tag-alt' ? '#c87800' : '#cc2222';
-
-          // Emoji de status
-          var emoji = st.c === 'tag-ok' ? '✅' : st.c === 'tag-alt' ? '⚠️' : '🔴';
-
-          // Tendência (se tem mais de 1 valor)
-          var tendencia = '';
-          if (vals.length > 1) {
-            var penultimo = vals[vals.length - 2].valor;
-            if (v > penultimo) tendencia = ' <span style="color:#cc2222;font-size:11px;">↑</span>';
-            else if (v < penultimo) tendencia = ' <span style="color:#1a7a40;font-size:11px;">↓</span>';
-            else tendencia = ' <span style="color:#888;font-size:11px;">→</span>';
+  // Renderizar mini-gráficos
+  params.forEach(function(p) {
+    if (p.historico.length < 2) return;
+    var canvasId = 'ch-' + p.nome.replace(/[^a-zA-Z0-9]/g,'');
+    var canvas   = document.getElementById(canvasId);
+    if (!canvas) return;
+    var cor = p._st.c === 'tag-ok' ? '#1a7a40' : p._st.c === 'tag-alt' ? '#c87800' : '#cc2222';
+    _chartInstances[canvasId] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: p.historico.map(function(h){ return fdt(h.data).split('/').slice(0,2).join('/'); }),
+        datasets: [{
+          data:   p.historico.map(function(h){ return h.valor; }),
+          borderColor: cor, backgroundColor: cor + '22',
+          borderWidth: 2, pointRadius: 4, pointBackgroundColor: cor,
+          tension: 0.3, fill: true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#aaa' } },
+          y: {
+            grid: { color: '#f0ede8' },
+            ticks: { font: { size: 9 }, color: '#aaa' },
+            suggestedMin: p.refMin * 0.7,
+            suggestedMax: p.refMax * 1.3
           }
+        }
+      }
+    });
+  });
+}
 
-          return '<div style="background:#f9f8f6;border-radius:10px;padding:14px;border:1.5px solid #eee;">'
-            // Nome e status
-            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-            + '<div style="font-size:12.5px;font-weight:700;color:#333;">' + esc(nome) + '</div>'
-            + '<span style="font-size:13px;">' + emoji + '</span>'
-            + '</div>'
-            // Valor grande
-            + '<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:12px;">'
-            + '<span style="font-family:Georgia,serif;font-size:32px;font-weight:700;color:' + barCor + ';">' + v + '</span>'
-            + '<span style="font-size:11px;color:#aaa;">' + esc(info.unidade) + '</span>'
-            + tendencia
-            + '</div>'
-            // Barra visual com min/max
-            + '<div style="margin-bottom:6px;">'
-            + '<div style="position:relative;height:8px;background:#e8e4de;border-radius:4px;margin-bottom:4px;">'
-            // Zona normal (verde)
-            + '<div style="position:absolute;left:15%;width:70%;height:100%;background:#1a7a4020;border-radius:4px;"></div>'
-            // Marcador do valor
-            + '<div style="position:absolute;left:' + pct + '%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:' + barCor + ';border:2px solid #fff;box-shadow:0 0 0 2px ' + barCor + ';z-index:2;"></div>'
-            + '</div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:#aaa;font-weight:600;">'
-            + '<span>' + mn + '</span>'
-            + '<span style="color:#1a7a40;">Normal: ' + mn + '–' + mx + ' ' + esc(info.unidade) + '</span>'
-            + '<span>' + mx + '</span>'
-            + '</div>'
-            + '</div>'
-            // Histórico compacto se tiver mais de 1
-            + (vals.length > 1 ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;">'
-              + '<div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;margin-bottom:6px;">Histórico</div>'
-              + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-              + vals.slice(-4).map(function(vi) {
-                  var stH = statusVal(vi.valor, mn, mx);
-                  var cH = stH.c === 'tag-ok' ? '#1a7a40' : stH.c === 'tag-alt' ? '#c87800' : '#cc2222';
-                  return '<div style="text-align:center;">'
-                    + '<div style="font-size:10.5px;font-weight:700;color:' + cH + ';">' + vi.valor + '</div>'
-                    + '<div style="font-size:9px;color:#aaa;">' + fdt(vi.data).split('/').slice(0,2).join('/') + '</div>'
-                    + '</div>';
-                }).join('')
-              + '</div></div>' : '')
+function secaoParams(titulo, params, cor, bgCor) {
+  return '<div style="margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:' + cor + ';'
+    + 'padding:8px 14px;background:' + bgCor + ';border-radius:8px;margin-bottom:10px;border-left:4px solid ' + cor + ';">' + titulo + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">'
+    + params.map(function(p) { return cardParam(p); }).join('')
+    + '</div></div>';
+}
+
+function cardParam(p) {
+  var ult = p._ultimo, st = p._st;
+  var v = ult.valor, mn = p.refMin, mx = p.refMax;
+  var cor = st.c === 'tag-ok' ? '#1a7a40' : st.c === 'tag-alt' ? '#c87800' : '#cc2222';
+  var bgCor = st.c === 'tag-ok' ? '#e8f5ed' : st.c === 'tag-alt' ? '#fff7e0' : '#fff0f0';
+  var emoji = st.c === 'tag-ok' ? '✅' : st.c === 'tag-alt' ? '⚠️' : '🔴';
+
+  // Posição na barra
+  var range = mx - mn;
+  var pct = range > 0 ? Math.min(95, Math.max(5, ((v - mn) / range) * 80 + 10)) : 50;
+
+  // Tendência
+  var tend = '';
+  if (p.historico.length > 1) {
+    var prev = p.historico[p.historico.length - 2].valor;
+    var diff = ((v - prev) / (prev || 1) * 100).toFixed(1);
+    var seta = v > prev ? '↑' : v < prev ? '↓' : '→';
+    var corSeta = v > prev && v > mx ? '#cc2222' : v < prev && v < mn ? '#cc2222' : '#1a7a40';
+    tend = '<span style="font-size:11px;color:' + corSeta + ';font-weight:700;">'
+         + seta + ' ' + Math.abs(diff) + '%</span>';
+  }
+
+  var canvasId = 'ch-' + p.nome.replace(/[^a-zA-Z0-9]/g,'');
+  var hasGrafico = p.historico.length >= 2;
+
+  return '<div style="background:#fff;border-radius:12px;padding:15px;border:1.5px solid #eee;'
+    + 'box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s;" '
+    + 'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,.1)\'" '
+    + 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.06)\'">'
+    // Linha de título
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:700;color:#333;">' + esc(p.nome) + '</span>'
+    + '<span>' + emoji + '</span></div>'
+    // Valor principal
+    + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:11px;">'
+    + '<span style="font-family:Georgia,serif;font-size:34px;font-weight:700;line-height:1;color:' + cor + ';">' + v + '</span>'
+    + '<span style="font-size:11px;color:#aaa;">' + esc(p.unidade) + '</span>'
+    + '<span style="margin-left:auto;">' + tend + '</span></div>'
+    // Barra
+    + '<div style="margin-bottom:8px;">'
+    + '<div style="position:relative;height:7px;background:#e8e4de;border-radius:4px;margin-bottom:4px;">'
+    + '<div style="position:absolute;left:10%;width:80%;height:100%;background:' + cor + '15;border-radius:4px;"></div>'
+    + '<div style="position:absolute;left:' + pct + '%;top:50%;transform:translate(-50%,-50%);'
+    + 'width:13px;height:13px;border-radius:50%;background:' + cor + ';border:2px solid #fff;'
+    + 'box-shadow:0 0 0 2px ' + cor + ';z-index:2;"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:9px;color:#bbb;">'
+    + '<span>' + mn + '</span>'
+    + '<span style="color:#1a7a40;font-weight:600;">Normal: ' + mn + '–' + mx + '</span>'
+    + '<span>' + mx + '</span></div></div>'
+    // Mini gráfico
+    + (hasGrafico ? '<div style="height:60px;margin-top:8px;"><canvas id="' + canvasId + '"></canvas></div>' : '')
+    // Data
+    + '<div style="font-size:10px;color:#bbb;margin-top:8px;text-align:right;">'
+    + fdt(ult.data) + (ult.lab ? ' · ' + esc(ult.lab) : '') + '</div>'
+    + '</div>';
+}
+
+// ══════════════════════════════════════════
+//  DASHBOARD PACIENTE — LÚDICO
+// ══════════════════════════════════════════
+function renderComo() {
+  var el = document.getElementById('comoConteudo'); if (!el) return;
+
+  if (!RESULTADOS || !RESULTADOS.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;">'
+      + '<div style="font-size:48px;margin-bottom:12px;">👋</div>'
+      + '<h2 style="font-family:Georgia,serif;font-size:22px;margin-bottom:8px;">Olá!</h2>'
+      + '<p style="color:#666;font-size:13px;line-height:1.7;">Seus resultados de exames aparecerão aqui<br>assim que seu médico os cadastrar.</p></div>';
+    return;
+  }
+
+  var mapa   = unificarExames(RESULTADOS);
+  var params = Object.values(mapa);
+
+  var total  = params.length;
+  var ok     = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
+  var alerta = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
+  var ruim   = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
+
+  var pct    = total > 0 ? Math.round(ok / total * 100) : 0;
+
+  // Mensagem motivacional
+  var msg, emoji, bgGrad;
+  if (pct >= 90) {
+    msg = 'Seus exames estão excelentes! Continue assim! 🌟'; emoji = '🏆';
+    bgGrad = 'linear-gradient(135deg,#1a5230,#2e8a48)';
+  } else if (pct >= 70) {
+    msg = 'Você está indo bem! Alguns pontos merecem atenção.'; emoji = '💪';
+    bgGrad = 'linear-gradient(135deg,#7a5800,#c87800)';
+  } else if (pct >= 40) {
+    msg = 'Atenção! Vários exames precisam de cuidado.'; emoji = '⚠️';
+    bgGrad = 'linear-gradient(135deg,#7a2800,#cc4400)';
+  } else {
+    msg = 'Consulte seu médico. Vários exames estão alterados.'; emoji = '❤️';
+    bgGrad = 'linear-gradient(135deg,#7a0000,#cc0000)';
+  }
+
+  var html = '';
+
+  // Hero card
+  html += '<div style="background:' + bgGrad + ';border-radius:16px;padding:22px;margin-bottom:16px;color:#fff;">'
+    + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">'
+    + '<div style="font-size:44px;">' + emoji + '</div>'
+    + '<div><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;">'
+    + (EU.perfil ? 'Olá, ' + (EU.perfil.nome || '').split(' ')[0] + '!' : 'Olá!') + '</div>'
+    + '<div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:3px;">' + msg + '</div></div></div>'
+    // Barra de saúde geral
+    + '<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:6px;">'
+    + 'Índice de saúde geral · <b style="color:#fff;">' + pct + '%</b> dos exames normais</div>'
+    + '<div style="height:10px;background:rgba(0,0,0,.25);border-radius:5px;overflow:hidden;">'
+    + '<div style="height:100%;width:' + pct + '%;background:rgba(255,255,255,.9);border-radius:5px;transition:width 1s;"></div></div>'
+    + '<div style="display:flex;gap:12px;margin-top:14px;">'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
+    + '<div style="font-size:24px;font-weight:800;">' + ok + '</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">✅ Normais</div></div>'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
+    + '<div style="font-size:24px;font-weight:800;">' + alerta + '</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">⚠️ Atenção</div></div>'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
+    + '<div style="font-size:24px;font-weight:800;">' + ruim + '</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">🔴 Alterados</div></div>'
+    + '</div></div>';
+
+  // Cards lúdicos por parâmetro
+  var DESCRICOES = {
+    'hemoglobina': { ok:'Seu sangue está transportando oxigênio muito bem! 🩸', alt:'Hemoglobina um pouco fora do ideal. Fique de olho.', ru:'Hemoglobina alterada. Converse com seu médico.' },
+    'colesterol total': { ok:'Seu colesterol está controlado! Continue com a alimentação saudável. 🥗', alt:'Colesterol um pouco elevado. Reduza gorduras saturadas.', ru:'Colesterol alto. Importante consultar seu médico.' },
+    'hdl': { ok:'Colesterol bom (HDL) ótimo! 💚', alt:'HDL poderia ser mais alto. Exercícios ajudam!', ru:'HDL baixo. Pratique mais atividade física.' },
+    'ldl': { ok:'Colesterol ruim (LDL) sob controle! 👍', alt:'LDL um pouco acima. Cuide da alimentação.', ru:'LDL elevado. Consulte seu médico.' },
+    'triglicerídeos': { ok:'Triglicerídeos normais! Ótimo! 🎉', alt:'Triglicerídeos elevados. Reduza açúcar e álcool.', ru:'Triglicerídeos muito altos. Veja seu médico.' },
+    'glicose': { ok:'Sua glicemia está normal. Continue assim! 🍎', alt:'Glicemia um pouco alta. Cuidado com açúcar.', ru:'Glicemia alterada. Consulte seu médico urgente.' },
+    'tsh': { ok:'Sua tireoide está funcionando bem! 🦋', alt:'TSH ligeiramente alterado. Monitorar.', ru:'TSH alterado. Consulte seu médico.' },
+    'vitamina d': { ok:'Vitamina D em bom nível! ☀️', alt:'Vitamina D um pouco baixa. Tome mais sol!', ru:'Vitamina D baixa. Suplementação pode ser necessária.' },
+  };
+
+  var grupados = {ruim:[], atencao:[], ok:[]};
+  params.forEach(function(p) {
+    var ult = p.historico[p.historico.length-1];
+    var st  = statusVal(ult.valor, p.refMin, p.refMax);
+    p._ultimo = ult; p._st = st;
+    if (st.c==='tag-ru') grupados.ruim.push(p);
+    else if (st.c==='tag-alt') grupados.atencao.push(p);
+    else grupados.ok.push(p);
+  });
+
+  function renderGrupoLudico(titulo, lista, cor, bg) {
+    if (!lista.length) return '';
+    return '<div style="margin-bottom:16px;">'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;'
+      + 'color:' + cor + ';margin-bottom:8px;">' + titulo + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">'
+      + lista.map(function(p) {
+          var ult = p._ultimo, st = p._st;
+          var v   = ult.valor;
+          var key = p.nome.toLowerCase();
+          var descMap = DESCRICOES[key] || {};
+          var desc= st.c==='tag-ok' ? (descMap.ok||'Valor normal! ✅')
+                  : st.c==='tag-alt'? (descMap.alt||'Valor ligeiramente fora do ideal. ⚠️')
+                  : (descMap.ru||'Valor alterado. Consulte seu médico. 🔴');
+
+          // Pct barra
+          var range = p.refMax - p.refMin;
+          var pct2  = range>0 ? Math.min(95,Math.max(5,((v-p.refMin)/range*80)+10)) : 50;
+          var emoji2= st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
+
+          return '<div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #eee;'
+            + 'box-shadow:0 2px 8px rgba(0,0,0,.05);">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+            + '<span style="font-size:12px;font-weight:700;color:#333;">' + esc(p.nome) + '</span>'
+            + '<span>' + emoji2 + '</span></div>'
+            + '<div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:' + cor + ';margin-bottom:3px;">'
+            + v + ' <span style="font-size:11px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade) + '</span></div>'
+            + '<div style="position:relative;height:6px;background:#e8e4de;border-radius:3px;margin:8px 0;">'
+            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:' + cor + '20;border-radius:3px;"></div>'
+            + '<div style="position:absolute;left:' + pct2 + '%;top:50%;transform:translate(-50%,-50%);'
+            + 'width:12px;height:12px;border-radius:50%;background:' + cor + ';border:2px solid #fff;"></div></div>'
+            + '<div style="font-size:11px;color:#666;line-height:1.5;margin-top:6px;">' + desc + '</div>'
             + '</div>';
         }).join('')
       + '</div></div>';
+  }
+
+  html += renderGrupoLudico('🔴 Precisa de atenção', grupados.ruim, '#cc2222', '#fff0f0');
+  html += renderGrupoLudico('⚠️ Fique de olho', grupados.atencao, '#c87800', '#fff7e0');
+  html += renderGrupoLudico('✅ Tudo certo aqui!', grupados.ok, '#1a7a40', '#e8f5ed');
+
+  el.innerHTML = html;
+}
+
+function renderMeusExames() {
+  var el = document.getElementById('meusExames'); if (!el) return;
+  if (!RESULTADOS || !RESULTADOS.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;">'
+      + '<p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>';
+    return;
+  }
+  // Reusar renderComo mas versão mais técnica para paciente
+  var mapa   = unificarExames(RESULTADOS);
+  var params = Object.values(mapa);
+  el.innerHTML = params.map(function(p) {
+    var ult = p.historico[p.historico.length-1];
+    var st  = statusVal(ult.valor, p.refMin, p.refMax);
+    var cor = st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+    return '<div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #eee;">'
+      + '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">' + esc(p.nome) + '</div>'
+      + '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:' + cor + ';">'
+      + ult.valor + ' <span style="font-size:11px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade) + '</span></div>'
+      + '<div style="font-size:10px;color:#aaa;margin-top:4px;">Normal: ' + p.refMin + '–' + p.refMax + '</div>'
+      + (p.historico.length>1?'<div style="font-size:10px;color:#aaa;margin-top:2px;">' + p.historico.length + ' medições</div>':'')
+      + '</div>';
   }).join('');
 }
+
 
 function renderExTbl() {
   var el = document.getElementById('exTbl'); if(!el) return;
@@ -1473,15 +1690,34 @@ async function excluirAg(id) {
 
 // ═══════════════════ PORTAL PACIENTE ═══════════════════
 async function carregarPaciente() {
-  // Tentar encontrar dados do médico via medicoEmail
+  // Paciente vê seus próprios dados
+  // Por enquanto mostra dashboard com dados do médico se vinculado
+  try {
+    // Tentar carregar resultados de qualquer médico que tenha este paciente
+    var snap = await FD.collection('adminIndex').get();
+    for (var i = 0; i < snap.docs.length; i++) {
+      var d = snap.docs[i];
+      if (d.data().tipo === 'medico') {
+        var medUid = d.id;
+        // Buscar paciente com este email
+        var email = EU.perfil.email || '';
+        var pSnap = await FD.collection('users/'+medUid+'/pacientes').where('email','==',email).get();
+        if (!pSnap.empty) {
+          var pacDoc = pSnap.docs[0];
+          CUR_PAC_ID = pacDoc.id;
+          CUR_PAC = {_id: pacDoc.id, ...pacDoc.data()};
+          // Carregar resultados
+          var rSnap = await FD.collection('users/'+medUid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
+          RESULTADOS = [];
+          rSnap.forEach(function(rd){ RESULTADOS.push({_id:rd.id,...rd.data()}); });
+          RESULTADOS.sort(function(a,b){ return (b.data||'').localeCompare(a.data||''); });
+          break;
+        }
+      }
+    }
+  } catch(e) { console.log('carregarPaciente:', e.message); }
 }
 
-function renderComo() {
-  var el = document.getElementById('comoConteudo'); if(!el) return;
-  el.innerHTML = '<div class="card"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:8px;">Olá! 👋</div>'
-    +'<p style="color:#666;font-size:13px;line-height:1.7;">Seus exames e resultados aparecerão aqui assim que seu médico os adicionar ao sistema.</p></div>';
-}
-function renderMeusExames(){ var el=document.getElementById('meusExames'); if(el) el.innerHTML='<div class="card" style="grid-column:1/-1;"><p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>'; }
 function renderSintHist(){ var el=document.getElementById('sintHist'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum sintoma registrado.</p></div>'; }
 function renderMinhaAgenda(){ var el=document.getElementById('minhaAgenda'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum agendamento.</p></div>'; }
 async function salvarSintoma(){
