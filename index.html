@@ -250,12 +250,13 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
 </style>
-<!-- Firebase Compat SDK -->
+<!-- NOC Firebase + UI -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script>
+// ── Firebase init ──
 firebase.initializeApp({
   apiKey:"AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
   authDomain:"sopa-fd8b8.firebaseapp.com",
@@ -264,82 +265,44 @@ firebase.initializeApp({
   messagingSenderId:"962393498465",
   appId:"1:962393498465:web:fc2023af290ce9b6a31b20"
 });
+var _FA=firebase.auth(), _FD=firebase.firestore(), _FS=firebase.storage();
 
-var _FA = firebase.auth();
-var _FD = firebase.firestore();
-var _FS = firebase.storage();
-
-// Resolve path tipo "users/uid/perfil" + id "dados"
-// => collection(users).doc(uid).collection(perfil).doc(dados)
-function _fbDoc(path, id) {
-  var segs = path.split('/');
-  var r = _FD;
-  for(var i=0;i<segs.length;i++){
-    if(i%2===0) r = r.collection(segs[i]);
-    else r = r.doc(segs[i]);
-  }
-  if(id) r = r.doc(id);
-  return r;
+function fbDoc(path,id){
+  var segs=path.split('/'), r=_FD;
+  for(var i=0;i<segs.length;i++) r=(i%2===0)?r.collection(segs[i]):r.doc(segs[i]);
+  return id?r.doc(id):r;
+}
+async function fbGet(path,id){ var s=await fbDoc(path,id).get(); return {ok:s.exists, val:s.data(), id:s.id}; }
+async function fbSet(path,id,data,merge){ var ref=fbDoc(path,id); return merge?ref.set(data,{merge:true}):ref.set(data); }
+async function fbAdd(path,data){ var r=await _FD.collection(path).add(data); return r.id; }
+async function fbList(path,wheres,orders){
+  var q=_FD.collection(path);
+  (wheres||[]).forEach(function(w){ q=q.where(w[0],w[1],w[2]); });
+  (orders||[]).forEach(function(o){ q=q.orderBy(o[0],o[1]||'asc'); });
+  var s=await q.get(); var out=[];
+  s.forEach(function(d){ out.push(Object.assign({_id:d.id},d.data())); });
+  return out;
+}
+async function fbDel(path,id){ return fbDoc(path,id).delete(); }
+async function fbUpload(storagePath,file){
+  var ref=_FS.ref(storagePath); await ref.put(file); return ref.getDownloadURL();
 }
 
-window._fb = {
-  // Auth
-  signInWithEmailAndPassword: function(a,em,ps){ return _FA.signInWithEmailAndPassword(em,ps); },
-  createUserWithEmailAndPassword: function(a,em,ps){ return _FA.createUserWithEmailAndPassword(em,ps); },
-  signOut: function(){ return _FA.signOut(); },
-  onAuthStateChanged: function(a,cb){ return _FA.onAuthStateChanged(cb); },
-  // Firestore
-  collection: function(db,path){ return _FD.collection(path); },
-  doc: _fbDoc,
-  setDoc: function(ref,data,opts){ return (opts&&opts.merge)?ref.set(data,{merge:true}):ref.set(data); },
-  getDoc: async function(ref){
-    var s = await ref.get();
-    return { exists: function(){ return s.exists; }, data: function(){ return s.data(); }, id: s.id };
-  },
-  getDocs: async function(q){
-    var s = await q.get();
-    return { forEach: function(cb){
-      s.forEach(function(d){ cb({ id:d.id, data:function(){return d.data();}, exists:function(){return d.exists;} }); });
-    }};
-  },
-  addDoc: async function(ref,data){ var r = await ref.add(data); return { id: r.id }; },
-  updateDoc: function(ref,data){ return ref.update(data); },
-  deleteDoc: function(ref){ return ref.delete(); },
-  query: function(ref){
-    var q = ref;
-    for(var i=1;i<arguments.length;i++){
-      if(arguments[i] && arguments[i]._fn) q = arguments[i]._fn(q);
-    }
-    return q;
-  },
-  where: function(f,op,v){ return {_fn:function(q){return q.where(f,op,v);}}; },
-  orderBy: function(f,d){ return {_fn:function(q){return q.orderBy(f,d||'asc');}}; },
-  limit: function(n){ return {_fn:function(q){return q.limit(n);}}; },
-  serverTimestamp: function(){ return firebase.firestore.FieldValue.serverTimestamp(); },
-  // Storage
-  ref: function(s,path){ return _FS.ref(path); },
-  uploadBytes: function(ref,file){ return ref.put(file); },
-  getDownloadURL: function(ref){ return ref.getDownloadURL(); },
-  deleteObject: function(ref){ return ref.delete(); }
-};
-
-window._fbReady = true;
+window._fbReady=true;
 window.dispatchEvent(new Event('fbready'));
+
+// ── UI Auth tabs ── definido aqui para funcionar imediatamente ──
+function authTab(t){
+  ['login','cadastro','admin'].forEach(function(x){
+    var panel=document.getElementById('ap-'+x);
+    var tab=document.getElementById('atab-'+x);
+    if(panel) panel.style.display=(x===t)?'block':'none';
+    if(tab){ tab.classList.toggle('on',x===t); }
+  });
+}
 </script>
 </head>
 <body>
-<script>
-function authTab(t){
-  var pl = document.getElementById('ap-login');
-  var pc = document.getElementById('ap-cadastro');
-  var tl = document.getElementById('atab-login');
-  var tc = document.getElementById('atab-cadastro');
-  if(pl) pl.style.display = t==='login'?'block':'none';
-  if(pc) pc.style.display = t==='cadastro'?'block':'none';
-  if(tl){ tl.classList.toggle('on', t==='login'); }
-  if(tc){ tc.classList.toggle('on', t==='cadastro'); }
-}
-</script>
 
 <div id="loader"><div class="spin"></div><div id="loaderTxt" style="font-size:13px;color:var(--t3);">Carregando...</div></div>
 <div id="toast"></div>
@@ -347,64 +310,146 @@ function authTab(t){
 <!-- ══════════════════════════
      TELA DE AUTH
 ══════════════════════════ -->
-<div id="authScreen">
- <div class="auth-center">
- <div class="auth-box">
-  <div class="auth-logo">
-   <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-    <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
-    <path d="M17 34C17 24 20.5 14 24 12c3.5 2 7 12 7 22" stroke="#6de090" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M20.5 32C20.5 24 22 16 24 14c2 2 3.5 10 3.5 18" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.2)" stroke-linecap="round"/>
-   </svg>
-   <div><div class="auth-brand">NOC</div><div class="auth-tag">sistema clínico</div></div>
+<div id="authScreen" style="position:fixed;inset:0;background:#111820;z-index:9999;overflow-y:auto;padding:20px;display:flex;align-items:center;justify-content:center;">
+<div style="background:#fff;border-radius:18px;width:440px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden;margin:auto;">
+
+  <!-- Logo -->
+  <div style="background:#111820;padding:20px 24px;display:flex;align-items:center;gap:12px;">
+    <svg width="34" height="34" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
+      <path d="M17 34C17 24 20.5 14 24 12c3.5 2 7 12 7 22" stroke="#6de090" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#6de090;letter-spacing:5px;font-weight:700;">NOC</div>
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);">sistema clínico</div>
+    </div>
   </div>
 
-  <div class="auth-tabs">
-   <div class="auth-tab on" id="atab-login" onclick="authTab('login')">Entrar</div>
-   <div class="auth-tab" id="atab-cadastro" onclick="authTab('cadastro')">Criar Conta</div>
+  <!-- Abas -->
+  <div style="display:flex;border-bottom:2px solid #e0dbd4;">
+    <div id="atab-login" class="auth-tab on" onclick="authTab('login')" style="cursor:pointer;">Entrar</div>
+    <div id="atab-cadastro" class="auth-tab" onclick="authTab('cadastro')" style="cursor:pointer;">Criar Conta</div>
+    <div id="atab-admin" class="auth-tab" onclick="authTab('admin')" style="cursor:pointer;">🔑 Admin</div>
   </div>
 
-  <!-- LOGIN -->
-  <div class="auth-panel on" id="ap-login" style="display:block" style="display:block;">
-   <div style="margin:4px 0 16px;font-size:12.5px;color:var(--t3);">Médico ou paciente? Basta fazer login — identificamos automaticamente pelo cadastro.</div>
-   <div class="auth-err" id="lerr"></div>
-   <div class="fld"><label>E-mail</label><input id="l-email" type="email" placeholder="seu@email.com" autocomplete="email"></div>
-   <div class="fld"><label>Senha</label><input id="l-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-   <button class="btn-auth" id="btnLogin" onclick="doLogin()">Entrar no Sistema</button>
+  <!-- Erro global -->
+  <div id="auth-err" style="display:none;margin:12px 24px 0;padding:10px 14px;background:#fff0f0;border:1.5px solid #cc2222;border-radius:8px;font-size:13px;color:#880000;font-weight:600;"></div>
+
+  <!-- ── ENTRAR ── -->
+  <div id="ap-login" style="padding:22px 24px;display:block;">
+    <p style="font-size:12.5px;color:#666;margin-bottom:16px;">Médico ou paciente? Identificamos pelo cadastro.</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-mail</label>
+      <input id="l-email" type="email" placeholder="seu@email.com" autocomplete="email"
+        style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Senha</label>
+      <input id="l-pass" type="password" placeholder="••••••••"
+        style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button onclick="doLogin()" style="width:100%;padding:12px;border-radius:7px;background:#111820;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+      Entrar no Sistema
+    </button>
   </div>
 
-  <!-- CADASTRO -->
-  <div class="auth-panel" id="ap-cadastro" style="display:none" style="display:none;">
-   <div class="auth-err" id="cerr"></div>
-   <div class="auth-role" style="margin-bottom:16px;">
-    <div class="role-btn on" id="crole-pac" onclick="selCRole('paciente')">
-     <div class="role-ico">🧑‍⚕️</div><div class="role-nm">Sou Paciente</div><div class="role-ds">Ver meus exames</div>
+  <!-- ── CRIAR CONTA ── -->
+  <div id="ap-cadastro" style="padding:22px 24px;display:none;">
+    <!-- Tipo de conta -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div id="crole-pac" onclick="selCRole('paciente')"
+        style="padding:11px;border-radius:7px;border:2px solid #2e8a48;background:#e8f5ed;cursor:pointer;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">🧑‍⚕️</div>
+        <div style="font-size:12.5px;font-weight:700;">Sou Paciente</div>
+        <div style="font-size:10.5px;color:#666;">Ver meus exames</div>
+      </div>
+      <div id="crole-med" onclick="selCRole('medico')"
+        style="padding:11px;border-radius:7px;border:2px solid #ddd;background:#f7f5f2;cursor:pointer;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">👨‍⚕️</div>
+        <div style="font-size:12.5px;font-weight:700;">Sou Médico</div>
+        <div style="font-size:10.5px;color:#666;">Gerenciar pacientes</div>
+      </div>
     </div>
-    <div class="role-btn" id="crole-med" onclick="selCRole('medico')">
-     <div class="role-ico">👨‍⚕️</div><div class="role-nm">Sou Médico</div><div class="role-ds">Gerenciar pacientes</div>
+
+    <div style="margin-bottom:11px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Nome Completo *</label>
+      <input id="c-nome" placeholder="Seu nome completo" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
     </div>
-   </div>
-   <div class="fld"><label>Nome Completo</label><input id="c-nome" placeholder="Seu nome completo"></div>
-   <div id="c-med-fields" style="display:none;">
-    <div class="fld"><label>Especialidade</label>
-     <select id="c-esp"><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option><option value="ambas">Endocrinologia + Dermatologia</option></select>
+
+    <div id="c-med-fields" style="display:none;">
+      <div style="margin-bottom:11px;">
+        <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Especialidade</label>
+        <select id="c-esp" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+          <option value="endo">Endocrinologia</option>
+          <option value="derm">Dermatologia</option>
+          <option value="ambas">Endocrinologia + Dermatologia</option>
+        </select>
+      </div>
+      <div style="margin-bottom:11px;">
+        <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Clínica</label>
+        <input id="c-clinica" value="NOC Cuiabá" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+      </div>
     </div>
-    <div class="fld"><label>Clínica / Hospital</label><input id="c-clinica" placeholder="NOC Cuiabá"></div>
-   </div>
-   <div id="c-pac-fields">
-    <div class="fld"><label>Código do Médico <span style="font-size:10px;color:var(--t4);">(recebido na consulta)</span></label><input id="c-medcode" placeholder="Ex: caio@noc.com.br"></div>
-   </div>
-   <div class="fld"><label>E-mail</label><input id="c-email" type="email" placeholder="seu@email.com"></div>
-   <div class="fld"><label>Senha</label><input id="c-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-   <div class="fld" id="fld-admin-code" style="display:none;">
-   <label>Código Administrativo</label>
-   <input id="c-admin-code" placeholder="Código secreto NOC" type="password">
+
+    <div id="c-pac-fields">
+      <div style="margin-bottom:11px;">
+        <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-mail do seu médico</label>
+        <input id="c-medcode" placeholder="Ex: caio@noc.com.br" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:11px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-mail *</label>
+      <input id="c-email" type="email" placeholder="seu@email.com" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Senha * (mín. 6 caracteres)</label>
+      <input id="c-pass" type="password" placeholder="••••••••" style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+
+    <button onclick="doCadastro()"
+      style="width:100%;padding:12px;border-radius:7px;background:#1a7a40;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+      Criar Conta
+    </button>
   </div>
-  <div style="margin-bottom:12px;text-align:right;"><a href="#" style="font-size:11px;color:var(--t4);" onclick="document.getElementById('fld-admin-code').style.display=document.getElementById('fld-admin-code').style.display==='none'?'block':'none';return false;">Tenho código de administrador</a></div>
-  <button class="btn-auth" onclick="doCadastro()">Criar Conta</button>
+
+  <!-- ── ADMIN ── -->
+  <div id="ap-admin" style="padding:22px 24px;display:none;">
+    <div style="text-align:center;margin-bottom:18px;">
+      <div style="font-size:32px;margin-bottom:6px;">🔑</div>
+      <div style="font-size:15px;font-weight:700;color:#111820;">Acesso Administrativo</div>
+      <div style="font-size:12px;color:#666;margin-top:4px;">Para Ernandes e equipe NOC</div>
+    </div>
+    <div style="margin-bottom:11px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-mail Admin</label>
+      <input id="adm-email" type="email" placeholder="admin@noc.com.br"
+        style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+    <div style="margin-bottom:11px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Senha</label>
+      <input id="adm-pass" type="password" placeholder="••••••••"
+        style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">Código Admin</label>
+      <input id="adm-code" type="password" placeholder="Código secreto NOC"
+        style="width:100%;padding:10px 13px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="doAdminLogin()"
+        style="padding:12px;border-radius:7px;background:#111820;color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Entrar como Admin
+      </button>
+      <button onclick="doAdminCadastro()"
+        style="padding:12px;border-radius:7px;background:#980000;color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Criar conta Admin
+      </button>
+    </div>
+    <div style="margin-top:12px;font-size:10.5px;color:#999;text-align:center;">Código: NOC@admin2025</div>
   </div>
- </div>
- </div><!-- auth-center -->
+
+</div>
 </div>
 
 <!-- ══════════════════════════
@@ -746,102 +791,155 @@ function waitFB(cb){ if(window._fbReady) cb(); else window.addEventListener('fbr
 function mPath(uid){ return 'users/'+uid; }  // médico: users/{uid}
 function fmtHora(t){ if(!t) return ''; var d=new Date('1970-01-01T'+t); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 
+
+// ════════════════════════
+//  AUTH FUNCTIONS
+// ════════════════════════
+var cRole = 'paciente';
+
+function selCRole(r){
+  cRole = r;
+  var pac = document.getElementById('crole-pac');
+  var med = document.getElementById('crole-med');
+  var mf  = document.getElementById('c-med-fields');
+  var pf  = document.getElementById('c-pac-fields');
+  if(pac){ pac.style.border = r==='paciente'?'2px solid #2e8a48':'2px solid #ddd'; pac.style.background = r==='paciente'?'#e8f5ed':'#f7f5f2'; }
+  if(med){ med.style.border = r==='medico'?'2px solid #154fa0':'2px solid #ddd'; med.style.background = r==='medico'?'#e8f0fb':'#f7f5f2'; }
+  if(mf) mf.style.display = r==='medico'?'block':'none';
+  if(pf) pf.style.display = r==='paciente'?'block':'none';
+}
+
+function showErr(msg){
+  var el = document.getElementById('auth-err');
+  if(!el) { alert(msg); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(function(){ el.style.display='none'; }, 6000);
+}
+
+function showOk(msg){ toast(msg,'ok'); }
+
+async function doLogin(){
+  var em = (document.getElementById('l-email').value||'').trim();
+  var ps = document.getElementById('l-pass').value;
+  if(!em||!ps){ showErr('Preencha e-mail e senha.'); return; }
+  load('Entrando...');
+  try {
+    await _FA.signInWithEmailAndPassword(em, ps);
+    // onAuthStateChanged vai chamar initApp
+  } catch(e){
+    var msg = e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
+      ? 'E-mail ou senha incorretos.'
+      : (e.message||String(e));
+    showErr(msg);
+    unload();
+  }
+}
+
+async function doCadastro(){
+  var nm = (document.getElementById('c-nome').value||'').trim();
+  var em = (document.getElementById('c-email').value||'').trim();
+  var ps = document.getElementById('c-pass').value||'';
+  if(!nm){ showErr('Digite seu nome completo.'); return; }
+  if(!em){ showErr('Digite seu e-mail.'); return; }
+  if(ps.length < 6){ showErr('Senha precisa ter pelo menos 6 caracteres.'); return; }
+  load('Criando conta...');
+  try {
+    var cred = await _FA.createUserWithEmailAndPassword(em, ps);
+    var uid  = cred.user.uid;
+    var perfil = { nome:nm, tipo:cRole, email:em };
+    if(cRole === 'medico'){
+      perfil.especialidade = (document.getElementById('c-esp')||{}).value || 'endo';
+      perfil.clinica       = ((document.getElementById('c-clinica')||{}).value||'').trim() || 'NOC';
+      // Registrar no adminIndex para listagem
+      await fbDoc('adminIndex', uid).set({tipo:'medico', email:em, nome:nm});
+    } else {
+      perfil.medicoEmail = ((document.getElementById('c-medcode')||{}).value||'').trim();
+    }
+    await fbDoc('users/'+uid+'/perfil', 'dados').set(perfil);
+    showOk('Conta criada! Entrando...');
+    // onAuthStateChanged vai abrir o app automaticamente
+  } catch(e){
+    unload();
+    var msg = e.message||String(e);
+    if(e.code==='auth/email-already-in-use') msg='Este e-mail já está cadastrado. Use "Entrar".';
+    if(e.code==='auth/invalid-email')        msg='E-mail inválido.';
+    if(e.code==='auth/weak-password')        msg='Senha fraca. Use pelo menos 6 caracteres.';
+    showErr(msg);
+  }
+}
+
+async function doAdminLogin(){
+  var em   = (document.getElementById('adm-email').value||'').trim();
+  var ps   = document.getElementById('adm-pass').value||'';
+  var code = document.getElementById('adm-code').value||'';
+  if(code !== 'NOC@admin2025'){ showErr('Código admin incorreto.'); return; }
+  if(!em||!ps){ showErr('Preencha e-mail e senha.'); return; }
+  load('Entrando como admin...');
+  try {
+    await _FA.signInWithEmailAndPassword(em, ps);
+  } catch(e){
+    showErr(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
+      ? 'E-mail ou senha incorretos.' : (e.message||String(e)));
+    unload();
+  }
+}
+
+async function doAdminCadastro(){
+  var em   = (document.getElementById('adm-email').value||'').trim();
+  var ps   = document.getElementById('adm-pass').value||'';
+  var code = document.getElementById('adm-code').value||'';
+  var nm   = em.split('@')[0] || 'Admin NOC';
+  if(code !== 'NOC@admin2025'){ showErr('Código admin incorreto.'); return; }
+  if(!em||!ps){ showErr('Preencha e-mail e senha.'); return; }
+  if(ps.length<6){ showErr('Senha mínimo 6 caracteres.'); return; }
+  load('Criando conta admin...');
+  try {
+    var cred = await _FA.createUserWithEmailAndPassword(em, ps);
+    var uid  = cred.user.uid;
+    await fbDoc('users/'+uid+'/perfil','dados').set({nome:nm, tipo:'admin', email:em});
+    await fbDoc('adminIndex', uid).set({tipo:'admin', email:em, nome:nm});
+    showOk('Conta admin criada! Entrando...');
+  } catch(e){
+    unload();
+    var msg = e.message||String(e);
+    if(e.code==='auth/email-already-in-use') msg='Este e-mail já está cadastrado. Use "Entrar como Admin".';
+    showErr(msg);
+  }
+}
+
+function doLogout(){
+  _FA.signOut().then(function(){
+    document.getElementById('app').style.display='none';
+    document.getElementById('authScreen').style.display='flex';
+    authTab('login');
+  });
+}
+
 // ════════════════════════
 //  AUTH
 // ════════════════════════
 waitFB(function(){
-  window._fb.onAuthStateChanged(window._fb.auth, function(user){
+  _FA.onAuthStateChanged(function(user){
     if(user){ S.user=user; initApp(); }
     else { showAuth(); }
   });
 });
 
-/* authTab no topo */
+function authTab(t){
+  document.getElementById('atab-login').classList.toggle('on', t==='login');
+  document.getElementById('atab-cadastro').classList.toggle('on', t==='cadastro');
+  document.getElementById('ap-login').style.display = t==='login' ? 'block' : 'none';
+  document.getElementById('ap-cadastro').style.display = t==='cadastro' ? 'block' : 'none';
+}
 
 function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
 function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
 
-var cRole='paciente';
-function selCRole(r){
-  cRole=r;
-  document.getElementById('crole-pac').classList.toggle('on',r==='paciente');
-  document.getElementById('crole-med').classList.toggle('on',r==='medico');
-  document.getElementById('c-med-fields').style.display=r==='medico'?'block':'none';
-  document.getElementById('c-pac-fields').style.display=r==='paciente'?'block':'none';
-}
 
-async function doLogin(){
-  var em=document.getElementById('l-email').value.trim();
-  var ps=document.getElementById('l-pass').value;
-  var err=document.getElementById('lerr');
-  err.style.display='none';
-  if(!em||!ps){ err.textContent='Preencha e-mail e senha.'; err.style.display='block'; return; }
-  var btn=document.getElementById('btnLogin'); btn.disabled=true; btn.textContent='Entrando...';
-  waitFB(function(){
-    window._fb.signInWithEmailAndPassword(window._fb.auth,em,ps).catch(function(e){
-      err.textContent='E-mail ou senha incorretos.'; err.style.display='block';
-      btn.disabled=false; btn.textContent='Entrar no Sistema';
-    });
-  });
-}
 
-async function doCadastro(){
-  var nm  = document.getElementById('c-nome').value.trim();
-  var em  = document.getElementById('c-email').value.trim();
-  var ps  = document.getElementById('c-pass').value;
-  var err = document.getElementById('cerr');
-  err.style.display='none';
-  if(!nm){ err.textContent='Digite seu nome.'; err.style.display='block'; return; }
-  if(!em){ err.textContent='Digite seu e-mail.'; err.style.display='block'; return; }
-  if(!ps||ps.length<6){ err.textContent='Senha precisa ter pelo menos 6 caracteres.'; err.style.display='block'; return; }
-  // Verificar se Firebase está pronto
-  if(!window._fb||!window._fbReady){ err.textContent='Sistema ainda carregando. Aguarde 2 segundos e tente de novo.'; err.style.display='block'; return; }
-  load('Criando conta...');
-  try {
-    // Criar conta no Firebase Auth
-    var cred = await window._fb.createUserWithEmailAndPassword(null, em, ps);
-    var uid  = cred.user.uid;
-    // Verificar papel
-    var cRoleFinal = cRole || 'paciente';
-    var adminCode  = document.getElementById('c-admin-code');
-    if(adminCode && adminCode.value === 'NOC@admin2025') cRoleFinal = 'admin';
-    // Montar perfil
-    var perfil = { nome:nm, tipo:cRoleFinal, email:em };
-    if(cRoleFinal === 'medico'){
-      var espEl = document.getElementById('c-esp');
-      var clEl  = document.getElementById('c-clinica');
-      perfil.especialidade = espEl ? espEl.value : 'endo';
-      perfil.clinica       = clEl  ? clEl.value.trim() : 'NOC';
-    } else if(cRoleFinal === 'paciente'){
-      var mcEl = document.getElementById('c-medcode');
-      perfil.medicoEmail = mcEl ? mcEl.value.trim() : '';
-    }
-    // Salvar perfil no Firestore
-    var perfilRef = _fbDoc('users/'+uid+'/perfil', 'dados');
-    await perfilRef.set(perfil);
-    // Se admin, registrar no índice
-    if(cRoleFinal === 'admin'){
-      var admRef = _fbDoc('adminIndex', uid);
-      await admRef.set({tipo:'admin', email:em, nome:nm});
-    }
-    // Registrar médico no adminIndex para listagem
-    if(cRoleFinal === 'medico'){
-      var medRef = _fbDoc('adminIndex', uid);
-      await medRef.set({tipo:'medico', email:em, nome:nm});
-    }
-    toast('Conta criada com sucesso! Entrando...');
-  } catch(e){
-    var msg = e.message || String(e);
-    if(msg.includes('email-already-in-use')) msg = 'Este e-mail já tem uma conta. Use "Entrar".';
-    if(msg.includes('invalid-email'))       msg = 'E-mail inválido.';
-    if(msg.includes('weak-password'))       msg = 'Senha fraca. Use pelo menos 6 caracteres.';
-    err.textContent = msg;
-    err.style.display = 'block';
-  }
-  unload();
-}
 
-function doLogout(){ window._fb.signOut(window._fb.auth).then(function(){ showAuth(); }); }
+// doLogout definido acima
 
 // ════════════════════════
 //  INIT APP
@@ -2166,7 +2264,7 @@ async function admCriarMedico(){
     // Relog — o createUserWithEmailAndPassword faz login com o novo user
     // precisamos re-logar com o admin. Forçar reload.
     toast('Médico '+nm+' criado! Fazendo logout para re-entrar como admin...');
-    setTimeout(function(){ window._fb.signOut(window._fb.auth); },1500);
+    setTimeout(function(){ _FA.signOut(); },1500);
   } catch(e){ toast('Erro: '+e.message,'err'); }
   unload();
 }
