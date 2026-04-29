@@ -31,9 +31,111 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;ali
 .papeis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
 .papel{padding:11px;border-radius:7px;border:2px solid #ddd;background:#f9f9f9;cursor:pointer;text-align:center;font-size:12px;font-weight:700;}
 .papel.on{border-color:#1a7a40;background:#e8f5ed;}
-#app{display:none;position:fixed;inset:0;background:#f6f4f1;overflow-y:auto;padding:16px;}
-.app-top{background:#111820;color:#fff;padding:12px 16px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+#app{display:none;position:fixed;inset:0;background:#f6f4f1;overflow-y:auto;}
 .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.07);margin-bottom:12px;}
+/* SHELL */
+.shell{display:flex;min-height:100vh;}
+.sb{width:200px;background:#111820;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;overflow-y:auto;z-index:10;}
+.sb-logo{padding:16px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sb-marca{font-family:Georgia,serif;font-size:20px;color:#6de090;letter-spacing:4px;font-weight:700;}
+.sb-sub{font-size:7px;letter-spacing:2px;color:rgba(255,255,255,.3);text-transform:uppercase;}
+.sb-user{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sb-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;margin-bottom:6px;}
+.sb-nm{font-size:12px;color:rgba(255,255,255,.8);font-weight:600;}
+.sb-tp{font-size:9px;color:rgba(255,255,255,.35);}
+.sb-nav{flex:1;padding:8px 0;}
+.ni{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;color:rgba(255,255,255,.45);font-size:12.5px;transition:.15s;border-left:2px solid transparent;}
+.ni:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.8);}
+.ni.on{background:rgba(80,180,120,.13);color:#6de090;border-left-color:#3a9a60;}
+.sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);}
+.btn-sair{width:100%;padding:7px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.45);font-size:11.5px;cursor:pointer;font-family:sans-serif;transition:.15s;}
+.btn-sair:hover{background:rgba(170,0,0,.2);color:#ff9090;}
+.main{margin-left:200px;flex:1;}
+.topbar{padding:12px 20px;border-bottom:1px solid #ddd;display:flex;align-items:center;justify-content:space-between;background:rgba(246,244,241,.97);position:sticky;top:0;z-index:5;backdrop-filter:blur(8px);}
+.tb-title{font-family:Georgia,serif;font-size:20px;font-weight:700;}
+.tb-sub{font-size:11px;color:#888;margin-top:1px;}
+.pg{padding:18px 20px;display:none;}
+.pg.on{display:block;}
+/* Botões ação */
+.bta{padding:7px 13px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif;display:inline-flex;align-items:center;gap:5px;}
+.bta-g{background:#111820;color:#fff;}
+.bta-g:hover{background:#1a4060;}
+.bta-gr{background:#1a7a40;color:#fff;}
+.bta-gr:hover{background:#145e30;}
+.bta-o{background:#fff;border:1.5px solid #c8c2b4;color:#444;}
+.bta-o:hover{border-color:#1a7a40;color:#1a7a40;}
+.bta-r{background:#fff0f0;border:1px solid #f8cece;color:#880000;font-size:11px;padding:5px 9px;}
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:18px;}
+.kpi{background:#fff;border:1.5px solid #ddd;border-radius:10px;padding:15px;cursor:pointer;transition:.2s;}
+.kpi:hover{box-shadow:0 4px 18px rgba(0,0,0,.1);transform:translateY(-1px);}
+.kpi-ico{font-size:20px;margin-bottom:6px;}
+.kpi-lbl{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;margin-bottom:2px;}
+.kpi-val{font-family:Georgia,serif;font-size:30px;font-weight:700;line-height:1;}
+.kpi-sub{font-size:11px;color:#888;margin-top:3px;}
+/* Tabelas */
+.tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.tbl th{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;padding:10px 14px;text-align:left;border-bottom:2px solid #eee;background:#f7f5f2;font-weight:700;}
+.tbl td{padding:12px 14px;font-size:13px;color:#444;border-bottom:1px solid #f0ede8;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:#f7f5f2;}
+.tbl .nm{font-weight:700;color:#111;}
+/* Tags */
+.tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;}
+.tag-adm{background:#fff0f0;color:#880000;border:1px solid #f8cece;}
+.tag-med{background:#e6eefb;color:#0d3d8a;border:1px solid #ccdaf5;}
+.tag-pac{background:#e8f5ed;color:#1a5230;border:1px solid #d0edd8;}
+.tag-ok{background:#e8f5ed;color:#1a5230;border:1px solid #2e8a48;}
+.tag-alt{background:#fff7e0;color:#7a4500;border:1px solid #fce5a8;}
+.tag-ru{background:#fff0f0;color:#880000;border:1px solid #f8cece;}
+/* Busca */
+.search-row{display:flex;gap:9px;margin-bottom:14px;align-items:center;}
+.search-row input{flex:1;padding:9px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13px;outline:none;font-family:sans-serif;}
+.search-row input:focus{border-color:#1a7a40;}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;}
+.mo.open{display:flex;}
+.mo-box{background:#fff;border-radius:14px;width:560px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto;}
+.mo-head{padding:15px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;}
+.mo-title{font-size:15px;font-weight:700;}
+.mo-x{width:28px;height:28px;border-radius:6px;border:1.5px solid #ddd;background:#f7f5f2;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#888;}
+.mo-x:hover{background:#fff0f0;color:#880000;}
+.mo-body{padding:18px;}
+.mo-foot{padding:12px 18px;border-top:1px solid #eee;display:flex;gap:7px;justify-content:flex-end;background:#f7f5f2;border-radius:0 0 14px 14px;}
+.fg{margin-bottom:12px;}
+.fg label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;}
+.fg input,.fg select,.fg textarea{width:100%;padding:9px 11px;border:1.5px solid #ccc;border-radius:7px;font-size:13px;font-family:sans-serif;outline:none;}
+.fg input:focus,.fg select:focus{border-color:#1a7a40;}
+.fg textarea{resize:vertical;min-height:70px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.fg2 .fg{margin-bottom:0;}
+.sep{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-weight:700;margin:14px 0 10px;padding-bottom:5px;border-bottom:1.5px solid #eee;grid-column:1/-1;}
+/* Prontuário */
+.pr-head{display:flex;align-items:flex-start;gap:14px;background:#fff;border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.pr-av{width:48px;height:48px;border-radius:50%;background:#111820;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#6de090;flex-shrink:0;}
+.ptabs{display:flex;gap:2px;border-bottom:2px solid #eee;margin-bottom:14px;overflow-x:auto;}
+.ptab{padding:9px 14px;font-size:12.5px;color:#aaa;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:600;white-space:nowrap;}
+.ptab:hover{color:#333;}
+.ptab.on{color:#111820;border-bottom-color:#1a7a40;font-weight:700;}
+/* Upload */
+.up-zone{border:2px dashed #ccc;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.2s;background:#fff;margin-bottom:12px;}
+.up-zone:hover{border-color:#1a7a40;background:#e8f5ed;}
+.up-list{background:#fff;border:1px solid #eee;border-radius:10px;overflow:hidden;}
+.up-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #f0ede8;transition:.12s;}
+.up-item:last-child{border-bottom:none;}
+.up-item:hover{background:#f7f5f2;}
+/* Área cards */
+.area-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:11px;margin-bottom:16px;}
+.ac{background:#fff;border:1px solid #eee;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.ac-head{padding:11px 14px;display:flex;align-items:center;justify-content:space-between;}
+.ac-body{padding:0 14px 12px;}
+.ac-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f7f5f2;font-size:12px;}
+.ac-row:last-child{border-bottom:none;}
+/* Spinner */
+#loader{position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:9000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;backdrop-filter:blur(4px);}
+#loader.on{display:flex;}
+.spin{width:32px;height:32px;border:3px solid #ddd;border-top-color:#1a7a40;border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -106,15 +208,270 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;ali
   </div>
 </div>
 
+<div id="loader"><div class="spin"></div><span style="font-size:13px;color:#666;">Carregando...</span></div>
+
 <div id="app">
-  <div class="app-top">
-    <span style="font-family:Georgia,serif;font-size:18px;color:#6de090;letter-spacing:3px;">NOC</span>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span id="app-nome" style="font-size:12px;color:rgba(255,255,255,.7)"></span>
-      <button onclick="sair()" style="padding:5px 10px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:11px;cursor:pointer;">Sair</button>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <div class="sb">
+    <div class="sb-logo">
+      <div class="sb-marca">NOC</div>
+      <div class="sb-sub">sistema clínico</div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-av" id="sbAv" style="background:#111820;">?</div>
+      <div class="sb-nm" id="sbNm">—</div>
+      <div class="sb-tp" id="sbTp">—</div>
+    </div>
+    <nav class="sb-nav" id="sbNav"></nav>
+    <div class="sb-foot">
+      <button class="btn-sair" onclick="sair()">↩ Sair</button>
     </div>
   </div>
-  <div id="app-corpo"></div>
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="tb-title" id="topTitle">—</div>
+        <div class="tb-sub" id="topSub">NOC Sistema Clínico</div>
+      </div>
+      <div id="topActs" style="display:flex;gap:7px;align-items:center;"></div>
+    </div>
+
+    <!-- ══ ADMIN: DASHBOARD ══ -->
+    <div class="pg" id="pg-dash">
+      <div class="kpis">
+        <div class="kpi" onclick="irPg('medicos')"><div class="kpi-ico">👨‍⚕️</div><div class="kpi-lbl">Médicos</div><div class="kpi-val" id="kMed">—</div><div class="kpi-sub">Cadastrados</div></div>
+        <div class="kpi" onclick="irPg('pacientes-adm')"><div class="kpi-ico">👥</div><div class="kpi-lbl">Pacientes</div><div class="kpi-val" id="kPac">—</div><div class="kpi-sub">Total</div></div>
+        <div class="kpi"><div class="kpi-ico">🧪</div><div class="kpi-lbl">Exames</div><div class="kpi-val" id="kExm">—</div><div class="kpi-sub">Resultados</div></div>
+        <div class="kpi"><div class="kpi-ico">⚠️</div><div class="kpi-lbl">Atenção</div><div class="kpi-val" id="kAlt">—</div><div class="kpi-sub">Com alterações</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Médicos ativos</div>
+        <div id="dashMedicos"><p style="color:#aaa;font-size:13px;">Carregando...</p></div>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN: MÉDICOS ══ -->
+    <div class="pg" id="pg-medicos">
+      <div class="search-row">
+        <input id="srchMed" placeholder="Buscar médico..." oninput="filtrarMedicos()">
+        <button class="bta bta-gr" onclick="abrirMoMedico()">+ Novo Médico</button>
+      </div>
+      <div id="listaMedicos"><p style="color:#aaa;font-size:13px;">Carregando...</p></div>
+    </div>
+
+    <!-- ══ ADMIN: TODOS PACIENTES ══ -->
+    <div class="pg" id="pg-pacientes-adm">
+      <div class="search-row">
+        <input id="srchPacAdm" placeholder="Buscar paciente..." oninput="filtrarPacsAdm()">
+        <select id="filtroPacMed" style="padding:9px 11px;border:1.5px solid #ccc;border-radius:7px;font-size:13px;font-family:sans-serif;" onchange="filtrarPacsAdm()">
+          <option value="">Todos os médicos</option>
+        </select>
+      </div>
+      <div id="listaPacsAdm"><p style="color:#aaa;font-size:13px;">Carregando...</p></div>
+    </div>
+
+    <!-- ══ MÉDICO: PAINEL ══ -->
+    <div class="pg" id="pg-painel">
+      <div class="kpis">
+        <div class="kpi" onclick="irPg('pacientes')"><div class="kpi-ico">👥</div><div class="kpi-lbl">Pacientes</div><div class="kpi-val" id="mKPac">—</div><div class="kpi-sub">Meus pacientes</div></div>
+        <div class="kpi"><div class="kpi-ico">🧪</div><div class="kpi-lbl">Exames</div><div class="kpi-val" id="mKExm">—</div><div class="kpi-sub">Resultados</div></div>
+        <div class="kpi"><div class="kpi-ico">⚠️</div><div class="kpi-lbl">Alertas</div><div class="kpi-val" id="mKAlt">—</div><div class="kpi-sub">Com alterações</div></div>
+        <div class="kpi"><div class="kpi-ico">📁</div><div class="kpi-lbl">Laudos</div><div class="kpi-val" id="mKLau">—</div><div class="kpi-sub">Arquivos</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Pacientes recentes</div>
+        <div id="painelPacs"><p style="color:#aaa;font-size:13px;">Nenhum paciente ainda.</p></div>
+      </div>
+    </div>
+
+    <!-- ══ MÉDICO: PACIENTES ══ -->
+    <div class="pg" id="pg-pacientes">
+      <div class="search-row">
+        <input id="srchPac" placeholder="Buscar paciente..." oninput="filtrarPacs()">
+        <button class="bta bta-gr" onclick="abrirMoPac()">+ Novo Paciente</button>
+      </div>
+      <div id="listaPacs"><p style="color:#aaa;font-size:13px;">Nenhum paciente.</p></div>
+    </div>
+
+    <!-- ══ PRONTUÁRIO ══ -->
+    <div class="pg" id="pg-pront">
+      <div class="pr-head" id="prHead"></div>
+      <div class="ptabs" id="ptabs">
+        <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo</div>
+        <div class="ptab" onclick="ptab(this,'pt-exames')">🧪 Exames</div>
+        <div class="ptab" onclick="ptab(this,'pt-laudos')">📁 Laudos</div>
+        <div class="ptab" onclick="ptab(this,'pt-sint')">💬 Sintomas</div>
+        <div class="ptab" onclick="ptab(this,'pt-agenda')">📅 Agenda</div>
+      </div>
+      <div id="pt-res"><div class="area-grid" id="resAreas"></div></div>
+      <div id="pt-exames" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;">Resultados</span>
+          <button class="bta bta-gr" onclick="abrirMoRes()">+ Adicionar</button>
+        </div>
+        <div id="exTbl"></div>
+      </div>
+      <div id="pt-laudos" style="display:none;">
+        <div class="up-zone" onclick="document.getElementById('fileInp').click()"
+          ondragover="event.preventDefault();this.style.borderColor='#1a7a40'"
+          ondragleave="this.style.borderColor='#ccc'"
+          ondrop="onDrop(event)">
+          <div style="font-size:28px;margin-bottom:7px;">📄</div>
+          <div style="font-size:13px;font-weight:600;color:#555;">Clique ou arraste o arquivo</div>
+          <div style="font-size:11px;color:#aaa;margin-top:3px;">PDF · JPG · PNG · máx 10MB</div>
+          <input type="file" id="fileInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelect(this.files)">
+        </div>
+        <div id="laudoList"></div>
+      </div>
+      <div id="pt-sint" style="display:none;">
+        <div class="card"><p style="color:#aaa;font-size:13px;">Sintomas registrados pelo paciente aparecerão aqui.</p></div>
+      </div>
+      <div id="pt-agenda" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;">Agendamentos</span>
+          <button class="bta bta-gr" onclick="abrirMoAg()">+ Agendar</button>
+        </div>
+        <div id="agList"></div>
+      </div>
+    </div>
+
+    <!-- ══ CONFIG ÁREAS ══ -->
+    <div class="pg" id="pg-config">
+      <div style="margin-bottom:14px;display:flex;gap:8px;">
+        <button class="bta bta-gr" onclick="abrirMoArea()">+ Nova Área</button>
+        <button class="bta bta-o" onclick="carregarAreas()">↺ Atualizar</button>
+      </div>
+      <div id="configAreas"></div>
+    </div>
+
+    <!-- ══ PACIENTE: COMO ESTOU ══ -->
+    <div class="pg" id="pg-como">
+      <div id="comoConteudo"></div>
+    </div>
+
+    <!-- ══ PACIENTE: MEUS EXAMES ══ -->
+    <div class="pg" id="pg-meus-exames">
+      <div class="area-grid" id="meusExames"></div>
+    </div>
+
+    <!-- ══ PACIENTE: SINTOMAS ══ -->
+    <div class="pg" id="pg-sintomas">
+      <div class="card" style="margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:11px;">📝 Registrar Sintoma</div>
+        <div class="fg"><label>Descrição</label><textarea id="sintTxt" placeholder="Como você está se sentindo..."></textarea></div>
+        <div class="fg2" style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
+          <div class="fg"><label>Intensidade</label>
+            <select id="sintInt"><option value="leve">Leve</option><option value="moderado">Moderado</option><option value="intenso">Intenso</option></select>
+          </div>
+          <div class="fg"><label>Data</label><input id="sintDt" type="date"></div>
+        </div>
+        <button class="bta bta-gr" onclick="salvarSintoma()">Registrar</button>
+      </div>
+      <div id="sintHist"></div>
+    </div>
+
+    <!-- ══ PACIENTE: AGENDA ══ -->
+    <div class="pg" id="pg-minha-agenda">
+      <div id="minhaAgenda"></div>
+    </div>
+
+  </div><!-- main -->
+</div><!-- shell -->
+</div><!-- app -->
+
+<!-- MODAIS -->
+<div class="mo" id="mo-pac">
+  <div class="mo-box">
+    <div class="mo-head"><span class="mo-title">👤 Novo Paciente</span><button class="mo-x" onclick="fecharMo('pac')">✕</button></div>
+    <div class="mo-body">
+      <div class="fg2">
+        <div class="sep">Dados Pessoais</div>
+        <div class="fg" style="grid-column:1/-1"><label>Nome Completo *</label><input id="np-nm" placeholder="Nome do paciente"></div>
+        <div class="fg"><label>Data Nascimento</label><input id="np-dn" type="date"></div>
+        <div class="fg"><label>Sexo</label><select id="np-sx"><option value="">—</option><option>Masculino</option><option>Feminino</option></select></div>
+        <div class="fg"><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div>
+        <div class="fg"><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div>
+        <div class="fg" style="grid-column:1/-1"><label>E-mail do paciente</label><input id="np-em" type="email" placeholder="paciente@email.com"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Cidade</label><input id="np-cid" placeholder="Cuiabá, MT"></div>
+        <div class="sep">Acompanhamento</div>
+        <div class="fg"><label>Especialidade *</label><select id="np-esp"><option value="">—</option><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option><option value="ambas">Endo + Derm</option></select></div>
+        <div class="fg"><label>Primeira Consulta</label><input id="np-pc" type="date"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Queixa / Diagnóstico</label><textarea id="np-qx" placeholder="Queixa principal..."></textarea></div>
+        <div class="sep">Biometria</div>
+        <div class="fg"><label>Peso (kg)</label><input id="np-ps" type="number" step="0.1" placeholder="80.0"></div>
+        <div class="fg"><label>Altura (cm)</label><input id="np-al" type="number" placeholder="175"></div>
+      </div>
+    </div>
+    <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('pac')">Cancelar</button><button class="bta bta-gr" onclick="salvarPac()">Salvar</button></div>
+  </div>
+</div>
+
+<div class="mo" id="mo-res">
+  <div class="mo-box">
+    <div class="mo-head"><span class="mo-title">🧪 Adicionar Resultado</span><button class="mo-x" onclick="fecharMo('res')">✕</button></div>
+    <div class="mo-body">
+      <div class="fg2">
+        <div class="fg"><label>Data *</label><input id="re-dt" type="date"></div>
+        <div class="fg"><label>Laboratório</label><input id="re-lab" placeholder="Lab. São Matheus"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Área *</label><select id="re-area" onchange="carregarParamsArea()"><option value="">— Selecionar —</option></select></div>
+      </div>
+      <div id="re-params" style="margin-top:10px;"></div>
+      <div class="fg" style="margin-top:10px;"><label>Observação</label><textarea id="re-obs" placeholder="Interpretação clínica..."></textarea></div>
+    </div>
+    <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('res')">Cancelar</button><button class="bta bta-gr" onclick="salvarRes()">Salvar</button></div>
+  </div>
+</div>
+
+<div class="mo" id="mo-area">
+  <div class="mo-box" style="max-width:500px;">
+    <div class="mo-head"><span class="mo-title">⚙️ Nova Área de Exame</span><button class="mo-x" onclick="fecharMo('area')">✕</button></div>
+    <div class="mo-body">
+      <div class="fg2">
+        <div class="fg"><label>Nome *</label><input id="na-nm" placeholder="Ex: Perfil Lipídico"></div>
+        <div class="fg"><label>Ícone</label><input id="na-ico" placeholder="🩸" maxlength="4"></div>
+        <div class="fg"><label>Cor</label><select id="na-cor"><option value="#d44a20">Coral</option><option value="#b87800">Âmbar</option><option value="#1a7a40">Verde</option><option value="#154fa0">Azul</option><option value="#5020a0">Lilás</option></select></div>
+        <div class="fg"><label>Especialidade</label><select id="na-esp"><option value="ambas">Ambas</option><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option></select></div>
+        <div class="fg" style="grid-column:1/-1;"><label style="margin-bottom:8px;">Parâmetros</label><div id="na-params"></div><button class="bta bta-o" style="margin-top:7px;width:100%;" onclick="addParam()">+ Parâmetro</button></div>
+      </div>
+    </div>
+    <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('area')">Cancelar</button><button class="bta bta-gr" onclick="salvarArea()">Salvar</button></div>
+  </div>
+</div>
+
+<div class="mo" id="mo-ag">
+  <div class="mo-box" style="max-width:480px;">
+    <div class="mo-head"><span class="mo-title">📅 Agendar Consulta</span><button class="mo-x" onclick="fecharMo('ag')">✕</button></div>
+    <div class="mo-body">
+      <div class="fg2">
+        <div class="fg"><label>Data *</label><input id="ag-dt" type="date"></div>
+        <div class="fg"><label>Horário</label><input id="ag-hr" type="time"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Tipo</label><input id="ag-tp" placeholder="Retorno, Consulta inicial..."></div>
+        <div class="fg" style="grid-column:1/-1"><label>Local</label><input id="ag-lc" placeholder="NOC Cuiabá · Sala 3"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Observação</label><textarea id="ag-ob" rows="2" placeholder="Instruções para o paciente..."></textarea></div>
+      </div>
+    </div>
+    <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('ag')">Cancelar</button><button class="bta bta-gr" onclick="salvarAg()">Salvar</button></div>
+  </div>
+</div>
+
+<div class="mo" id="mo-medico">
+  <div class="mo-box" style="max-width:480px;">
+    <div class="mo-head"><span class="mo-title">👨‍⚕️ Cadastrar Médico</span><button class="mo-x" onclick="fecharMo('medico')">✕</button></div>
+    <div class="mo-body">
+      <div class="fg2">
+        <div class="fg" style="grid-column:1/-1"><label>Nome *</label><input id="am-nm" placeholder="Dr. Nome Completo"></div>
+        <div class="fg"><label>Especialidade</label><select id="am-esp"><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option><option value="ambas">Endo + Derm</option></select></div>
+        <div class="fg"><label>CRM</label><input id="am-crm" placeholder="00000/MT"></div>
+        <div class="fg" style="grid-column:1/-1"><label>Clínica</label><input id="am-cl" value="NOC Cuiabá"></div>
+        <div class="sep">Acesso ao Sistema</div>
+        <div class="fg"><label>E-mail *</label><input id="am-em" type="email" placeholder="medico@noc.com.br"></div>
+        <div class="fg"><label>Senha *</label><input id="am-ps" type="password" placeholder="Mín. 6 caracteres"></div>
+      </div>
+    </div>
+    <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('medico')">Cancelar</button><button class="bta bta-gr" onclick="salvarMedico()">Criar Médico</button></div>
+  </div>
 </div>
 
 <script>
@@ -126,152 +483,101 @@ firebase.initializeApp({
   messagingSenderId: "962393498465",
   appId: "1:962393498465:web:fc2023af290ce9b6a31b20"
 });
-
 var FA = firebase.auth();
 var FD = firebase.firestore();
+var FS = firebase.storage ? firebase.storage() : null;
 
 function fdoc(path, id) {
-  var parts = path.split('/');
-  var r = FD;
-  for (var i = 0; i < parts.length; i++) {
+  var parts = path.split('/'), r = FD;
+  for (var i = 0; i < parts.length; i++)
     r = (i % 2 === 0) ? r.collection(parts[i]) : r.doc(parts[i]);
-  }
   return id ? r.doc(id) : r;
 }
+function gv(id) { var e = document.getElementById(id); return e ? (e.value || '') : ''; }
+function setMsg(p, t, tp) { var e = document.getElementById('m-'+p); if(!e) return; e.textContent=t; e.className='msg '+(tp||'ok'); e.style.display='block'; }
+function clearMsg(p) { var e = document.getElementById('m-'+p); if(e) e.style.display='none'; }
+function load(t) { var l = document.getElementById('loader'); l.classList.add('on'); }
+function unload() { document.getElementById('loader').classList.remove('on'); }
+function esc(s) { return s ? String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function fdt(s) { if(!s) return '—'; return new Date(s+'T12:00:00').toLocaleDateString('pt-BR'); }
+function idade(n) { if(!n) return ''; var d=new Date(n+'T12:00:00'),h=new Date(),a=h.getFullYear()-d.getFullYear(); if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--; return a+' anos'; }
 
-function gv(id) {
-  var e = document.getElementById(id);
-  return e ? (e.value || '') : '';
-}
+// ═══════════════════ ESTADO ═══════════════════
+var EU = { uid: null, perfil: null, tipo: null };
+var PACS = [], AREAS = [], RESULTADOS = [], LAUDOS = [], AGENDAMENTOS = [];
+var CUR_PAC_ID = null, CUR_PAC = null;
+var MEDICOS_ADM = [], PACS_ADM = [];
 
-function setMsg(painel, texto, tipo) {
-  var el = document.getElementById('m-' + painel);
-  if (!el) return;
-  el.textContent = texto;
-  el.className = 'msg ' + (tipo || 'ok');
-  el.style.display = 'block';
-}
-
-function clearMsg(painel) {
-  var el = document.getElementById('m-' + painel);
-  if (el) el.style.display = 'none';
-}
-
+// ═══════════════════ AUTH ═══════════════════
 function irAba(t) {
-  var lista = ['entrar', 'criar', 'admin'];
+  var lista = ['entrar','criar','admin'];
   for (var i = 0; i < lista.length; i++) {
     var x = lista[i];
-    var aEl = document.getElementById('aba-' + x);
-    var pEl = document.getElementById('p-' + x);
-    if (aEl) aEl.className = 'aba' + (x === t ? ' on' : '');
-    if (pEl) pEl.className = 'painel' + (x === t ? ' on' : '');
+    var a = document.getElementById('aba-'+x), p = document.getElementById('p-'+x);
+    if(a) a.className = 'aba'+(x===t?' on':'');
+    if(p) p.className = 'painel'+(x===t?' on':'');
     clearMsg(x);
   }
 }
-
 var _papel = 'paciente';
 function setPapel(r) {
   _papel = r;
-  var ep = document.getElementById('r-pac');
-  var em2 = document.getElementById('r-med');
-  var fm = document.getElementById('f-med');
-  if (ep) ep.className = 'papel' + (r === 'paciente' ? ' on' : '');
-  if (em2) em2.className = 'papel' + (r === 'medico' ? ' on' : '');
-  if (fm) fm.style.display = r === 'medico' ? 'block' : 'none';
+  var ep = document.getElementById('r-pac'), em = document.getElementById('r-med'), fm = document.getElementById('f-med');
+  if(ep) ep.className = 'papel'+(r==='paciente'?' on':'');
+  if(em) em.className = 'papel'+(r==='medico'?' on':'');
+  if(fm) fm.style.display = r==='medico'?'block':'none';
 }
-
 async function entrar() {
   clearMsg('entrar');
-  var em = gv('e-email').trim();
-  var ps = gv('e-senha');
-  if (!em || !ps) { setMsg('entrar', 'Preencha e-mail e senha.', 'err'); return; }
-  setMsg('entrar', 'Entrando...', 'ok');
-  try {
-    await FA.signInWithEmailAndPassword(em, ps);
-  } catch (err) {
-    var m = 'E-mail ou senha incorretos.';
-    if (err.code && err.code !== 'auth/user-not-found' && err.code !== 'auth/wrong-password' && err.code !== 'auth/invalid-credential') {
-      m = err.message;
-    }
-    setMsg('entrar', m, 'err');
-  }
+  var em = gv('e-email').trim(), ps = gv('e-senha');
+  if(!em||!ps){setMsg('entrar','Preencha e-mail e senha.','err');return;}
+  setMsg('entrar','Entrando...','ok');
+  try { await FA.signInWithEmailAndPassword(em,ps); }
+  catch(err) { setMsg('entrar',err.code==='auth/invalid-credential'||err.code==='auth/user-not-found'||err.code==='auth/wrong-password'?'E-mail ou senha incorretos.':err.message,'err'); }
 }
-
 async function criar() {
   clearMsg('criar');
-  var nm = gv('c-nome').trim();
-  var em = gv('c-email').trim();
-  var ps = gv('c-senha');
-  if (!nm) { setMsg('criar', 'Digite seu nome.', 'err'); return; }
-  if (!em) { setMsg('criar', 'Digite seu e-mail.', 'err'); return; }
-  if (ps.length < 6) { setMsg('criar', 'Senha precisa ter pelo menos 6 caracteres.', 'err'); return; }
-  setMsg('criar', 'Criando conta...', 'ok');
+  var nm=gv('c-nome').trim(),em=gv('c-email').trim(),ps=gv('c-senha');
+  if(!nm){setMsg('criar','Digite seu nome.','err');return;}
+  if(!em){setMsg('criar','Digite seu e-mail.','err');return;}
+  if(ps.length<6){setMsg('criar','Senha mínimo 6 caracteres.','err');return;}
+  setMsg('criar','Criando conta...','ok');
   try {
-    var cr = await FA.createUserWithEmailAndPassword(em, ps);
-    var uid = cr.user.uid;
-    var p = { nome: nm, tipo: _papel, email: em };
-    if (_papel === 'medico') {
-      p.especialidade = gv('c-esp');
-      p.clinica = gv('c-clinica').trim();
-      await fdoc('adminIndex', uid).set({ tipo: 'medico', email: em, nome: nm });
-    }
-    await fdoc('users/' + uid + '/perfil', 'dados').set(p);
-    setMsg('criar', 'Conta criada com sucesso!', 'ok');
-  } catch (err) {
-    var m = err.message || 'Erro';
-    if (err.code === 'auth/email-already-in-use') m = 'E-mail já cadastrado. Use "Entrar".';
-    if (err.code === 'auth/weak-password') m = 'Senha muito fraca.';
-    if (err.code === 'auth/invalid-email') m = 'E-mail inválido.';
-    setMsg('criar', m, 'err');
-  }
+    var cr = await FA.createUserWithEmailAndPassword(em,ps);
+    var uid = cr.user.uid, p = {nome:nm,tipo:_papel,email:em};
+    if(_papel==='medico'){ p.especialidade=gv('c-esp'); p.clinica=gv('c-clinica').trim(); await fdoc('adminIndex',uid).set({tipo:'medico',email:em,nome:nm}); }
+    await fdoc('users/'+uid+'/perfil','dados').set(p);
+    setMsg('criar','Conta criada!','ok');
+  } catch(err) { var m=err.message; if(err.code==='auth/email-already-in-use') m='E-mail já cadastrado.'; setMsg('criar',m,'err'); }
 }
-
 async function adminEntrar() {
   clearMsg('admin');
-  var em   = gv('a-email').trim();
-  var ps   = gv('a-senha');
-  var code = gv('a-code');
-  if (code !== 'NOC@admin2025') { setMsg('admin', 'Código incorreto.', 'err'); return; }
-  if (!em || !ps) { setMsg('admin', 'Preencha e-mail e senha.', 'err'); return; }
-  setMsg('admin', 'Entrando...', 'ok');
-  try {
-    await FA.signInWithEmailAndPassword(em, ps);
-  } catch (err) {
-    var m = 'E-mail ou senha incorretos.';
-    if (err.code && err.code !== 'auth/user-not-found' && err.code !== 'auth/wrong-password' && err.code !== 'auth/invalid-credential') {
-      m = err.message;
-    }
-    setMsg('admin', m, 'err');
-  }
+  var em=gv('a-email').trim(),ps=gv('a-senha'),code=gv('a-code');
+  if(code!=='NOC@admin2025'){setMsg('admin','Código incorreto.','err');return;}
+  if(!em||!ps){setMsg('admin','Preencha e-mail e senha.','err');return;}
+  setMsg('admin','Entrando...','ok');
+  try { await FA.signInWithEmailAndPassword(em,ps); }
+  catch(err) { setMsg('admin',err.code==='auth/invalid-credential'||err.code==='auth/user-not-found'?'E-mail ou senha incorretos.':err.message,'err'); }
 }
-
 async function adminCriar() {
   clearMsg('admin');
-  var em   = gv('a-email').trim();
-  var ps   = gv('a-senha');
-  var code = gv('a-code');
-  if (code !== 'NOC@admin2025') { setMsg('admin', 'Código incorreto. Use: NOC@admin2025', 'err'); return; }
-  if (!em) { setMsg('admin', 'Digite o e-mail.', 'err'); return; }
-  if (ps.length < 6) { setMsg('admin', 'Senha mínimo 6 caracteres.', 'err'); return; }
-  setMsg('admin', 'Criando conta admin...', 'ok');
+  var em=gv('a-email').trim(),ps=gv('a-senha'),code=gv('a-code');
+  if(code!=='NOC@admin2025'){setMsg('admin','Código incorreto. Use: NOC@admin2025','err');return;}
+  if(!em){setMsg('admin','Digite o e-mail.','err');return;}
+  if(ps.length<6){setMsg('admin','Senha mínimo 6 caracteres.','err');return;}
+  setMsg('admin','Criando conta admin...','ok');
   try {
-    var cr = await FA.createUserWithEmailAndPassword(em, ps);
+    var cr = await FA.createUserWithEmailAndPassword(em,ps);
     var uid = cr.user.uid;
-    await fdoc('users/' + uid + '/perfil', 'dados').set({ nome: 'Admin NOC', tipo: 'admin', email: em });
-    await fdoc('adminIndex', uid).set({ tipo: 'admin', email: em, nome: 'Admin NOC' });
-    setMsg('admin', 'Conta admin criada! Entrando...', 'ok');
-  } catch (err) {
-    var m = err.message || 'Erro';
-    if (err.code === 'auth/email-already-in-use') m = 'Já existe esta conta. Use "Entrar como Admin".';
-    setMsg('admin', m, 'err');
-  }
+    await fdoc('users/'+uid+'/perfil','dados').set({nome:'Admin NOC',tipo:'admin',email:em});
+    await fdoc('adminIndex',uid).set({tipo:'admin',email:em,nome:'Admin NOC'});
+    setMsg('admin','Conta admin criada! Entrando...','ok');
+  } catch(err) { var m=err.message; if(err.code==='auth/email-already-in-use') m='Já existe. Use "Entrar como Admin".'; setMsg('admin',m,'err'); }
 }
+function sair() { FA.signOut(); }
 
-function sair() {
-  FA.signOut();
-}
-
-FA.onAuthStateChanged(async function (user) {
+// ═══════════════════ INIT ═══════════════════
+FA.onAuthStateChanged(async function(user) {
   if (!user) {
     document.getElementById('loginBox').style.display = 'block';
     document.getElementById('app').style.display = 'none';
@@ -279,35 +585,576 @@ FA.onAuthStateChanged(async function (user) {
   }
   document.getElementById('loginBox').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  load();
   try {
-    var snap = await fdoc('users/' + user.uid + '/perfil', 'dados').get();
-    var pf = snap.exists ? snap.data() : { nome: user.email, tipo: 'medico' };
-    document.getElementById('app-nome').textContent = pf.nome + ' · ' + (pf.tipo || 'medico');
-    var tipo = pf.tipo || 'medico';
-    var cor = tipo === 'admin' ? '#980000' : tipo === 'medico' ? '#154fa0' : '#1a7a40';
-    var ico = tipo === 'admin' ? '🔑' : tipo === 'medico' ? '🩺' : '🧑‍⚕️';
-    document.getElementById('app-corpo').innerHTML =
-      '<div class="card">' +
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
-          '<span style="font-size:28px;">' + ico + '</span>' +
-          '<div>' +
-            '<div style="font-size:16px;font-weight:700;">Bem-vindo, ' + pf.nome + '!</div>' +
-            '<span style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:700;' +
-              'background:' + cor + '20;color:' + cor + ';border:1px solid ' + cor + '40;">' +
-              tipo.toUpperCase() +
-            '</span>' +
-          '</div>' +
-        '</div>' +
-        '<p style="color:#666;font-size:13px;line-height:1.6;">' +
-          'Firebase conectado! Login funcionando. ' +
-          'Painel completo sendo carregado.' +
-        '</p>' +
-      '</div>';
-  } catch (err) {
-    document.getElementById('app-corpo').innerHTML =
-      '<div class="card"><p style="color:red">Erro ao carregar perfil: ' + err.message + '</p></div>';
+    var snap = await fdoc('users/'+user.uid+'/perfil','dados').get();
+    EU.uid = user.uid;
+    EU.perfil = snap.exists ? snap.data() : {nome:user.email,tipo:'medico'};
+    EU.tipo = EU.perfil.tipo || 'medico';
+    configurarUI();
+    if(EU.tipo==='admin') { await carregarAdmin(); irPg('dash'); }
+    else if(EU.tipo==='medico') { await carregarMedico(); irPg('painel'); }
+    else { await carregarPaciente(); irPg('como'); }
+  } catch(err) {
+    alert('Erro ao carregar: '+err.message);
   }
+  unload();
 });
+
+function configurarUI() {
+  var pf = EU.perfil, tipo = EU.tipo;
+  var cores = {admin:'#980000',medico:'#154fa0',paciente:'#1a7a40'};
+  var av = document.getElementById('sbAv');
+  av.textContent = (pf.nome||'?')[0].toUpperCase();
+  av.style.background = cores[tipo]||'#111820';
+  document.getElementById('sbNm').textContent = pf.nome||EU.perfil.email;
+  document.getElementById('sbTp').textContent = tipo.toUpperCase()+(pf.especialidade?' · '+pf.especialidade:'');
+  var nav = document.getElementById('sbNav');
+  if(tipo==='admin') {
+    nav.innerHTML =
+      '<div class="ni on" id="ni-dash" onclick="irPg(\'dash\')">📊 Dashboard</div>'+
+      '<div class="ni" id="ni-medicos" onclick="irPg(\'medicos\')">👨‍⚕️ Médicos</div>'+
+      '<div class="ni" id="ni-pacientes-adm" onclick="irPg(\'pacientes-adm\')">👥 Pacientes</div>';
+  } else if(tipo==='medico') {
+    nav.innerHTML =
+      '<div class="ni on" id="ni-painel" onclick="irPg(\'painel\')">📊 Painel</div>'+
+      '<div class="ni" id="ni-pacientes" onclick="irPg(\'pacientes\')">👥 Pacientes</div>'+
+      '<div class="ni" id="ni-config" onclick="irPg(\'config\')">⚙️ Áreas de Exame</div>';
+  } else {
+    nav.innerHTML =
+      '<div class="ni on" id="ni-como" onclick="irPg(\'como\')">❤️ Como estou?</div>'+
+      '<div class="ni" id="ni-meus-exames" onclick="irPg(\'meus-exames\')">🧪 Meus Exames</div>'+
+      '<div class="ni" id="ni-sintomas" onclick="irPg(\'sintomas\')">💬 Sintomas</div>'+
+      '<div class="ni" id="ni-minha-agenda" onclick="irPg(\'minha-agenda\')">📅 Agenda</div>';
+  }
+}
+
+var TITULOS = {dash:'Dashboard',medicos:'Médicos',painel:'Painel',pacientes:'Pacientes','pacientes-adm':'Todos os Pacientes',pront:'Prontuário',config:'Áreas de Exame',como:'Como estou?','meus-exames':'Meus Exames',sintomas:'Sintomas','minha-agenda':'Agenda'};
+function irPg(id) {
+  document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');});
+  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
+  var pg = document.getElementById('pg-'+id); if(pg) pg.classList.add('on');
+  var ni = document.getElementById('ni-'+id); if(ni) ni.classList.add('on');
+  document.getElementById('topTitle').textContent = TITULOS[id]||id;
+  var ta = document.getElementById('topActs');
+  if(id==='pacientes') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoPac()">+ Novo Paciente</button>';
+  else if(id==='medicos') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoMedico()">+ Novo Médico</button>';
+  else if(id==='config') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoArea()">+ Nova Área</button>';
+  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-o" onclick="irPg(\'pacientes\')">← Voltar</button><button class="bta bta-gr" onclick="abrirMoRes()">+ Exame</button><button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')">📎 Laudo</button><button class="bta bta-o" onclick="abrirMoAg()">📅 Agendar</button>';
+  else ta.innerHTML='';
+  // Lazy loading
+  if(id==='pacientes') renderPacs(PACS);
+  if(id==='pacientes-adm') renderPacsAdm();
+  if(id==='medicos') renderMedicos(MEDICOS_ADM);
+  if(id==='config') carregarAreas();
+  if(id==='como') renderComo();
+  if(id==='meus-exames') renderMeusExames();
+  if(id==='sintomas') { document.getElementById('sintDt').value=new Date().toISOString().split('T')[0]; renderSintHist(); }
+  if(id==='minha-agenda') renderMinhaAgenda();
+}
+
+// ═══════════════════ ADMIN ═══════════════════
+async function carregarAdmin() {
+  load();
+  try {
+    var idx = await FD.collection('adminIndex').get();
+    MEDICOS_ADM = []; PACS_ADM = [];
+    var totalPac=0, totalExm=0, totalAlt=0;
+    var sel = document.getElementById('filtroPacMed');
+    sel.innerHTML = '<option value="">Todos os médicos</option>';
+    for(var i=0;i<idx.docs.length;i++) {
+      var d = idx.docs[i];
+      if(d.data().tipo==='medico') {
+        var uid = d.id, data = d.data();
+        var ps = await FD.collection('users/'+uid+'/pacientes').get();
+        var rs = await FD.collection('users/'+uid+'/resultados').get();
+        var nPac=0, nExm=0, nAlt=0;
+        ps.forEach(function(pd){ nPac++; var x={_id:pd.id,medicoId:uid,medicoNome:data.nome,...pd.data()}; PACS_ADM.push(x); if(x.temAlteracao) nAlt++; totalAlt++; });
+        rs.forEach(function(){nExm++;});
+        MEDICOS_ADM.push({uid:uid,...data,totalPacientes:nPac,totalExames:nExm,totalAlt:nAlt});
+        totalPac+=nPac; totalExm+=nExm;
+        sel.innerHTML += '<option value="'+uid+'">'+esc(data.nome||uid)+'</option>';
+      }
+    }
+    document.getElementById('kMed').textContent = MEDICOS_ADM.length;
+    document.getElementById('kPac').textContent = totalPac;
+    document.getElementById('kExm').textContent = totalExm;
+    document.getElementById('kAlt').textContent = totalAlt;
+    renderDashMedicos();
+  } catch(e){ console.error(e); }
+  unload();
+}
+
+function renderDashMedicos() {
+  var el = document.getElementById('dashMedicos');
+  if(!MEDICOS_ADM.length){ el.innerHTML='<p style="color:#aaa;font-size:13px;">Nenhum médico cadastrado.</p>'; return; }
+  el.innerHTML = '<table class="tbl"><tr><th>Médico</th><th>Especialidade</th><th>Pacientes</th><th>Exames</th><th>Alertas</th></tr>'+
+    MEDICOS_ADM.map(function(m){
+      return '<tr><td class="nm">'+esc(m.nome)+'<br><span style="font-size:11px;color:#aaa;font-weight:400;">'+esc(m.email)+'</span></td>'+
+        '<td><span class="tag tag-med">'+esc(m.especialidade||'—')+'</span></td>'+
+        '<td>'+m.totalPacientes+'</td><td>'+m.totalExames+'</td>'+
+        '<td><span class="tag '+(m.totalAlt?'tag-alt':'tag-ok')+'">'+m.totalAlt+'</span></td></tr>';
+    }).join('') + '</table>';
+}
+
+function renderMedicos(list) {
+  var el = document.getElementById('listaMedicos');
+  if(!list.length){ el.innerHTML='<p style="color:#aaa;font-size:13px;">Nenhum médico.</p>'; return; }
+  el.innerHTML = '<table class="tbl"><tr><th>Nome</th><th>Especialidade</th><th>Clínica</th><th>Pacientes</th><th>Ações</th></tr>'+
+    list.map(function(m){
+      return '<tr><td class="nm">'+esc(m.nome)+'<br><span style="font-size:11px;color:#aaa;font-weight:400;">'+esc(m.email||'')+'</span></td>'+
+        '<td>'+esc(m.especialidade||'—')+'</td><td>'+esc(m.clinica||'—')+'</td><td>'+m.totalPacientes+'</td>'+
+        '<td><button class="bta bta-r" onclick="excluirMedico(\''+m.uid+'\',\''+esc(m.nome)+'\')">Remover</button></td></tr>';
+    }).join('')+'</table>';
+}
+
+function filtrarMedicos() {
+  var q = gv('srchMed').toLowerCase();
+  renderMedicos(MEDICOS_ADM.filter(function(m){ return (m.nome||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q); }));
+}
+
+function renderPacsAdm() {
+  var q = gv('srchPacAdm').toLowerCase();
+  var mid = gv('filtroPacMed');
+  var list = PACS_ADM.filter(function(p){ return (!q||(p.nome||'').toLowerCase().includes(q))&&(!mid||p.medicoId===mid); });
+  var el = document.getElementById('listaPacsAdm');
+  if(!list.length){ el.innerHTML='<p style="color:#aaa;font-size:13px;">Nenhum paciente.</p>'; return; }
+  el.innerHTML = '<table class="tbl"><tr><th>Paciente</th><th>Médico</th><th>Especialidade</th><th>Exames</th><th>Status</th></tr>'+
+    list.map(function(p){
+      return '<tr><td class="nm">'+esc(p.nome)+'<br><span style="font-size:11px;color:#aaa;font-weight:400;">'+idade(p.dataNasc)+'</span></td>'+
+        '<td>'+esc(p.medicoNome||'—')+'</td><td>'+esc(p.especialidade||'—')+'</td><td>'+(p.totalExames||0)+'</td>'+
+        '<td><span class="tag '+(p.temAlteracao?'tag-alt':'tag-ok')+'">'+(p.temAlteracao?'⚠ Alt.':'✓ Ok')+'</span></td></tr>';
+    }).join('')+'</table>';
+}
+function filtrarPacsAdm(){ renderPacsAdm(); }
+
+async function salvarMedico() {
+  var nm=gv('am-nm').trim(),em=gv('am-em').trim(),ps=gv('am-ps');
+  if(!nm||!em||!ps){ alert('Preencha nome, e-mail e senha.'); return; }
+  load();
+  try {
+    var cr = await FA.createUserWithEmailAndPassword(em,ps);
+    var uid = cr.user.uid;
+    await fdoc('users/'+uid+'/perfil','dados').set({nome:nm,tipo:'medico',email:em,especialidade:gv('am-esp'),clinica:gv('am-cl').trim(),crm:gv('am-crm').trim()});
+    await fdoc('adminIndex',uid).set({tipo:'medico',email:em,nome:nm});
+    fecharMo('medico');
+    await carregarAdmin();
+    renderDashMedicos();
+    alert('Médico '+nm+' criado! Importante: faça logout e peça para ele entrar com a senha criada.');
+  } catch(e){ var m=e.message; if(e.code==='auth/email-already-in-use') m='E-mail já cadastrado.'; alert('Erro: '+m); }
+  unload();
+}
+
+async function excluirMedico(uid,nm) {
+  if(!confirm('Remover médico "'+nm+'"?')) return;
+  load();
+  try { await FD.doc('adminIndex/'+uid).delete(); await carregarAdmin(); renderMedicos(MEDICOS_ADM); }
+  catch(e){ alert('Erro: '+e.message); }
+  unload();
+}
+
+function abrirMoMedico() { abrirMo('medico'); }
+
+// ═══════════════════ MÉDICO ═══════════════════
+async function carregarMedico() {
+  var q = FD.collection('users/'+EU.uid+'/pacientes').orderBy('nome');
+  var s = await q.get(); PACS = [];
+  s.forEach(function(d){ PACS.push({_id:d.id,...d.data()}); });
+  document.getElementById('mKPac').textContent = PACS.length;
+  document.getElementById('mKAlt').textContent = PACS.filter(function(p){return p.temAlteracao;}).length;
+  document.getElementById('mKExm').textContent = PACS.reduce(function(a,p){return a+(p.totalExames||0);},0);
+  renderPainelPacs();
+  await carregarAreas();
+}
+
+function renderPainelPacs() {
+  var el = document.getElementById('painelPacs');
+  var rec = PACS.slice(0,5);
+  if(!rec.length){ el.innerHTML='<p style="color:#aaa;font-size:13px;">Nenhum paciente cadastrado ainda.</p>'; return; }
+  el.innerHTML = rec.map(function(p){
+    return '<div style="display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #f0ede8;cursor:pointer;" onclick="abrirPront(\''+p._id+'\')">'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:#111820;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#6de090;flex-shrink:0;">'+(p.nome||'?')[0].toUpperCase()+'</div>'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+esc(p.nome)+'</div><div style="font-size:11px;color:#aaa;">'+idade(p.dataNasc)+'</div></div>'
+      +'<span class="tag '+(p.temAlteracao?'tag-alt':'tag-ok')+'">'+(p.temAlteracao?'⚠':'✓')+'</span></div>';
+  }).join('');
+}
+
+function renderPacs(list) {
+  var el = document.getElementById('listaPacs');
+  if(!list.length){ el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum paciente. Clique em <b>+ Novo Paciente</b>.</p></div>'; return; }
+  el.innerHTML = '<table class="tbl"><tr><th>Paciente</th><th>Especialidade</th><th>Última Consulta</th><th>Exames</th><th>Status</th><th>Ações</th></tr>'+
+    list.map(function(p){
+      return '<tr style="cursor:pointer" onclick="abrirPront(\''+p._id+'\')">'
+        +'<td class="nm">'+esc(p.nome)+'<br><span style="font-size:11px;color:#aaa;font-weight:400;">'+idade(p.dataNasc)+(p.cidade?' · '+esc(p.cidade):'')+'</span></td>'
+        +'<td><span class="tag tag-med">'+esc(p.especialidade||'—')+'</span></td>'
+        +'<td style="font-size:12px;color:#888;">'+fdt(p.ultimaConsulta||p.primeiraConsulta)+'</td>'
+        +'<td style="font-size:12px;color:#888;">'+(p.totalExames||0)+'</td>'
+        +'<td><span class="tag '+(p.temAlteracao?'tag-alt':'tag-ok')+'">'+(p.temAlteracao?'⚠ Alt.':'✓ Ok')+'</span></td>'
+        +'<td onclick="event.stopPropagation()"><button class="bta bta-r" onclick="excluirPac(\''+p._id+'\',\''+esc(p.nome)+'\')">🗑</button></td></tr>';
+    }).join('')+'</table>';
+}
+
+function filtrarPacs() {
+  var q = gv('srchPac').toLowerCase();
+  renderPacs(PACS.filter(function(p){ return (p.nome||'').toLowerCase().includes(q)||(p.cpf||'').includes(q); }));
+}
+
+async function salvarPac() {
+  var nm=gv('np-nm').trim(), esp=gv('np-esp');
+  if(!nm||!esp){alert('Nome e especialidade obrigatórios.');return;}
+  load();
+  try {
+    var ps=gv('np-ps'), al=gv('np-al');
+    await FD.collection('users/'+EU.uid+'/pacientes').add({
+      nome:nm, dataNasc:gv('np-dn'), sexo:gv('np-sx'), especialidade:esp,
+      cpf:gv('np-cpf').trim(), telefone:gv('np-tel').trim(), email:gv('np-em').trim(),
+      cidade:gv('np-cid').trim(), primeiraConsulta:gv('np-pc'),
+      queixa:gv('np-qx').trim(), peso:ps?parseFloat(ps):null,
+      altura:al?parseFloat(al):null, totalExames:0, temAlteracao:false,
+      criadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fecharMo('pac'); await carregarMedico(); renderPacs(PACS);
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+async function excluirPac(id,nm) {
+  if(!confirm('Excluir paciente "'+nm+'"?')) return;
+  load();
+  try { await FD.doc('users/'+EU.uid+'/pacientes/'+id).delete(); await carregarMedico(); renderPacs(PACS); }
+  catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ PRONTUÁRIO ═══════════════════
+async function abrirPront(id) {
+  load(); CUR_PAC_ID = id;
+  try {
+    var snap = await FD.doc('users/'+EU.uid+'/pacientes/'+id).get();
+    CUR_PAC = {_id:id,...snap.data()};
+    var p = CUR_PAC;
+    document.getElementById('prHead').innerHTML =
+      '<div class="pr-av">'+(p.nome||'?')[0].toUpperCase()+'</div>'
+      +'<div style="flex:1;"><div style="font-family:Georgia,serif;font-size:20px;font-weight:700;">'+esc(p.nome)+'</div>'
+      +'<div style="font-size:11.5px;color:#888;margin-top:3px;">'+(p.dataNasc?fdt(p.dataNasc)+' · '+idade(p.dataNasc):'')+(p.sexo?' · '+esc(p.sexo):'')+(p.cidade?' · '+esc(p.cidade):'')+'</div>'
+      +'<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;">'
+      +'<span class="tag tag-med">'+esc(p.especialidade||'—')+'</span>'
+      +(p.temAlteracao?'<span class="tag tag-alt">⚠ Tem alterações</span>':'<span class="tag tag-ok">✓ Sem alterações críticas</span>')
+      +'</div></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'
+      +'<button class="bta bta-o" onclick="irPg(\'pacientes\')" style="font-size:11px;">← Voltar</button>'
+      +'<button class="bta bta-gr" onclick="abrirMoRes()" style="font-size:11px;">+ Exame</button>'
+      +'<button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')" style="font-size:11px;">📎 Laudo</button>'
+      +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
+      +'</div>';
+    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).orderBy('data','desc').get();
+    RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).orderBy('criadoEm','desc').get();
+    LAUDOS = []; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
+    var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).orderBy('data','desc').get();
+    AGENDAMENTOS = []; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
+    renderResAreas(); renderExTbl(); renderLaudoList(); renderAgList();
+    irPg('pront');
+    ptab(document.querySelector('.ptab'),'pt-res');
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ ÁREAS ═══════════════════
+var defaultAreas = [
+  {nome:'Perfil Lipídico',ico:'🩸',cor:'#d44a20',esp:'endo',params:[{nome:'Colesterol Total',unidade:'mg/dL',refMin:0,refMax:190},{nome:'HDL',unidade:'mg/dL',refMin:40,refMax:200},{nome:'LDL',unidade:'mg/dL',refMin:0,refMax:115},{nome:'Triglicerídeos',unidade:'mg/dL',refMin:0,refMax:150}]},
+  {nome:'Hormônios Sexuais',ico:'⚗️',cor:'#b87800',esp:'endo',params:[{nome:'Testosterona Total',unidade:'ng/dL',refMin:165,refMax:753},{nome:'Testosterona Livre',unidade:'ng/dL',refMin:3.03,refMax:14.8},{nome:'FSH',unidade:'mUI/mL',refMin:1.4,refMax:18.1},{nome:'LH',unidade:'mUI/mL',refMin:1.5,refMax:9.3},{nome:'Estradiol',unidade:'pg/mL',refMin:20,refMax:55}]},
+  {nome:'Tireoide',ico:'🦋',cor:'#154fa0',esp:'endo',params:[{nome:'TSH',unidade:'mUI/L',refMin:0.4,refMax:4.0},{nome:'T4 Livre',unidade:'ng/dL',refMin:0.8,refMax:1.8},{nome:'T3 Livre',unidade:'pg/mL',refMin:2.3,refMax:4.2}]},
+  {nome:'Vitaminas',ico:'💊',cor:'#1a7a40',esp:'ambas',params:[{nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100},{nome:'Vitamina B12',unidade:'pg/mL',refMin:200,refMax:900},{nome:'Zinco',unidade:'mcg/dL',refMin:60,refMax:120},{nome:'Ferritina',unidade:'ng/mL',refMin:30,refMax:400}]},
+  {nome:'Função Hepática',ico:'🫀',cor:'#154fa0',esp:'endo',params:[{nome:'AST (TGO)',unidade:'U/L',refMin:0,refMax:40},{nome:'ALT (TGP)',unidade:'U/L',refMin:0,refMax:50},{nome:'GGT',unidade:'U/L',refMin:7,refMax:61}]},
+  {nome:'Glicemia',ico:'🍬',cor:'#9a5800',esp:'endo',params:[{nome:'Glicemia Jejum',unidade:'mg/dL',refMin:70,refMax:99},{nome:'HbA1c',unidade:'%',refMin:0,refMax:5.7},{nome:'Insulina',unidade:'µUI/mL',refMin:2.6,refMax:25}]},
+  {nome:'Hematologia',ico:'🔴',cor:'#980000',esp:'endo',params:[{nome:'Hemoglobina',unidade:'g/dL',refMin:13.5,refMax:17.5},{nome:'Hematócrito',unidade:'%',refMin:40,refMax:52},{nome:'Leucócitos',unidade:'x10³/µL',refMin:4.0,refMax:11.0},{nome:'Plaquetas',unidade:'x10³/µL',refMin:150,refMax:400}]},
+  {nome:'PSA',ico:'🩺',cor:'#4e1ea0',esp:'endo',params:[{nome:'PSA Total',unidade:'ng/mL',refMin:0,refMax:4.0}]},
+  {nome:'Dermatologia',ico:'🔬',cor:'#007070',esp:'derm',params:[{nome:'IgE Total',unidade:'UI/mL',refMin:0,refMax:100},{nome:'PCR',unidade:'mg/L',refMin:0,refMax:5}]}
+];
+
+async function carregarAreas() {
+  var s = await FD.collection('users/'+EU.uid+'/areas').get(); AREAS = [];
+  s.forEach(function(d){AREAS.push({_id:d.id,...d.data()});});
+  if(!AREAS.length) { await importarAreasDefault(); }
+  var sel = document.getElementById('re-area');
+  if(sel) { sel.innerHTML='<option value="">— Selecionar —</option>'+AREAS.map(function(a){return '<option value="'+a._id+'">'+esc(a.ico||'')+'  '+esc(a.nome)+'</option>';}).join(''); }
+  renderConfigAreas();
+}
+
+async function importarAreasDefault() {
+  for(var a of defaultAreas) { await FD.collection('users/'+EU.uid+'/areas').add(a); }
+  var s = await FD.collection('users/'+EU.uid+'/areas').get(); AREAS=[];
+  s.forEach(function(d){AREAS.push({_id:d.id,...d.data()});});
+}
+
+function renderConfigAreas() {
+  var el = document.getElementById('configAreas'); if(!el) return;
+  if(!AREAS.length){el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhuma área.</p></div>';return;}
+  el.innerHTML = AREAS.map(function(a){
+    return '<div class="card" style="border-left:4px solid '+a.cor+';margin-bottom:10px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      +'<div style="font-size:14px;font-weight:700;color:'+a.cor+';">'+esc(a.ico||'')+'  '+esc(a.nome)+'</div>'
+      +'<div style="display:flex;gap:6px;"><span class="tag tag-med" style="font-size:10px;">'+esc(a.esp||'ambas')+'</span>'
+      +'<button class="bta bta-r" onclick="excluirArea(\''+a._id+'\')">Excluir</button></div></div>'
+      +(a.params||[]).map(function(p){return '<span style="font-size:11.5px;color:#666;margin-right:12px;">'+esc(p.nome)+' ('+esc(p.unidade)+') '+p.refMin+'–'+p.refMax+'</span>';}).join('')
+      +'</div>';
+  }).join('');
+}
+
+var paramCnt = 0;
+function addParam() {
+  paramCnt++;
+  var d = document.createElement('div');
+  d.id = 'pm-'+paramCnt;
+  d.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:7px;margin-bottom:7px;';
+  d.innerHTML = '<div><input class="pm-n" placeholder="Nome" style="width:100%;padding:7px 9px;border:1.5px solid #ccc;border-radius:6px;font-size:12.5px;font-family:sans-serif;outline:none;"></div>'
+    +'<div><input class="pm-u" placeholder="Unidade" style="width:100%;padding:7px 9px;border:1.5px solid #ccc;border-radius:6px;font-size:12.5px;font-family:sans-serif;outline:none;"></div>'
+    +'<div><input class="pm-mi" type="number" placeholder="Mín" step="0.01" style="width:100%;padding:7px 9px;border:1.5px solid #ccc;border-radius:6px;font-size:12.5px;font-family:sans-serif;outline:none;"></div>'
+    +'<div><input class="pm-ma" type="number" placeholder="Máx" step="0.01" style="width:100%;padding:7px 9px;border:1.5px solid #ccc;border-radius:6px;font-size:12.5px;font-family:sans-serif;outline:none;"></div>';
+  document.getElementById('na-params').appendChild(d);
+}
+
+async function salvarArea() {
+  var nm = gv('na-nm').trim(); if(!nm){alert('Nome obrigatório.');return;}
+  load();
+  var params = [];
+  document.querySelectorAll('[id^="pm-"]').forEach(function(d){
+    var n = d.querySelector('.pm-n').value.trim();
+    if(n) params.push({nome:n,unidade:d.querySelector('.pm-u').value.trim(),refMin:parseFloat(d.querySelector('.pm-mi').value)||0,refMax:parseFloat(d.querySelector('.pm-ma').value)||999});
+  });
+  try {
+    await FD.collection('users/'+EU.uid+'/areas').add({nome:nm,ico:gv('na-ico')||'📋',cor:gv('na-cor'),esp:gv('na-esp'),params:params});
+    fecharMo('area'); paramCnt=0; document.getElementById('na-params').innerHTML='';
+    await carregarAreas();
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+async function excluirArea(id) {
+  if(!confirm('Excluir área?')) return; load();
+  try { await FD.doc('users/'+EU.uid+'/areas/'+id).delete(); await carregarAreas(); }
+  catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ RESULTADOS ═══════════════════
+function statusVal(v,mn,mx) {
+  if(v===null||v===undefined||v==='') return {c:'tag',l:'—'};
+  var x=parseFloat(v); if(isNaN(x)) return {c:'tag',l:'—'};
+  if(x>=mn&&x<=mx) return {c:'tag-ok',l:'Normal'};
+  var d=x<mn?(mn-x)/mn:(x-mx)/mx;
+  return d>0.15?{c:'tag-ru',l:x<mn?'↓ Baixo':'↑ Alto'}:{c:'tag-alt',l:x<mn?'↓ Lim.':'↑ Lim.'};
+}
+
+function carregarParamsArea() {
+  var aid = gv('re-area');
+  var area = AREAS.find(function(a){return a._id===aid;});
+  var el = document.getElementById('re-params'); if(!el) return;
+  if(!area||!area.params){el.innerHTML='';return;}
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+    +area.params.map(function(p,i){
+      return '<div><label style="font-size:9px;font-weight:700;color:#aaa;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:4px;">'+esc(p.nome)+' ('+esc(p.unidade)+')</label>'
+        +'<input id="rp-'+i+'" type="number" step="0.01" placeholder="—" style="width:100%;padding:8px 10px;border:1.5px solid #ccc;border-radius:7px;font-size:13px;font-family:sans-serif;outline:none;" '
+        +'data-nome="'+esc(p.nome)+'" data-min="'+p.refMin+'" data-max="'+p.refMax+'" data-unit="'+esc(p.unidade)+'"></div>';
+    }).join('')+'</div>';
+}
+
+async function salvarRes() {
+  var dt=gv('re-dt'), aid=gv('re-area');
+  if(!dt||!aid){alert('Data e área obrigatórios.');return;}
+  var area = AREAS.find(function(a){return a._id===aid;});
+  var vals={}, temAlt=false;
+  (area.params||[]).forEach(function(p,i){
+    var inp=document.getElementById('rp-'+i);
+    if(inp&&inp.value!==''){
+      var v=parseFloat(inp.value);
+      vals[p.nome]={valor:v,unidade:p.unidade,refMin:p.refMin,refMax:p.refMax};
+      var st=statusVal(v,p.refMin,p.refMax);
+      if(st.c==='tag-ru'||st.c==='tag-alt') temAlt=true;
+    }
+  });
+  load();
+  try {
+    await FD.collection('users/'+EU.uid+'/resultados').add({
+      pacienteId:CUR_PAC_ID, data:dt, areaId:aid, areaNome:area.nome, areaIco:area.ico||'📋', areaCor:area.cor||'#154fa0',
+      lab:gv('re-lab').trim(), obs:gv('re-obs').trim(), valores:vals, temAlteracao:temAlt,
+      criadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({ultimaConsulta:dt,temAlteracao:temAlt,totalExames:firebase.firestore.FieldValue.increment(1)});
+    fecharMo('res');
+    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    renderResAreas(); renderExTbl();
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+function renderResAreas() {
+  var el = document.getElementById('resAreas'); if(!el) return;
+  var byArea = {};
+  RESULTADOS.forEach(function(r){if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r;});
+  if(!Object.keys(byArea).length){el.innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;"><p style="color:#aaa;font-size:13px;">Nenhum resultado. Clique em <b>+ Exame</b>.</p></div>';return;}
+  el.innerHTML = Object.values(byArea).map(function(r){
+    var params = Object.entries(r.valores||{}).slice(0,6);
+    return '<div class="ac">'
+      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';"><div style="font-size:13px;font-weight:700;color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div><span style="font-size:10px;color:#aaa;">'+fdt(r.data)+'</span></div>'
+      +'<div class="ac-body">'
+      +(params.length?params.map(function(e){var st=statusVal(e[1].valor,e[1].refMin,e[1].refMax);return '<div class="ac-row"><span style="color:#555;font-weight:500;">'+esc(e[0])+'</span><span><b>'+e[1].valor+'</b> <span style="font-size:10px;color:#aaa;">'+esc(e[1].unidade)+'</span> <span class="tag '+st.c+'" style="font-size:9.5px;padding:2px 6px;">'+st.l+'</span></span></div>';}).join(''):'<p style="color:#aaa;font-size:12px;">Sem valores.</p>')
+      +'</div></div>';
+  }).join('');
+}
+
+function renderExTbl() {
+  var el = document.getElementById('exTbl'); if(!el) return;
+  if(!RESULTADOS.length){el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Sem resultados.</p></div>';return;}
+  el.innerHTML = '<table class="tbl"><tr><th>Área</th><th>Data</th><th>Laboratório</th><th>Status</th><th>Ações</th></tr>'
+    +RESULTADOS.map(function(r){
+      return '<tr>'
+        +'<td><span style="color:'+r.areaCor+';font-weight:700;">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</span></td>'
+        +'<td style="font-size:12px;">'+fdt(r.data)+'</td>'
+        +'<td style="font-size:12px;color:#888;">'+esc(r.lab||'—')+'</td>'
+        +'<td><span class="tag '+(r.temAlteracao?'tag-alt':'tag-ok')+'">'+(r.temAlteracao?'⚠':'✓')+'</span></td>'
+        +'<td><button class="bta bta-r" onclick="excluirRes(\''+r._id+'\')">🗑</button></td></tr>';
+    }).join('')+'</table>';
+}
+
+async function excluirRes(id) {
+  if(!confirm('Excluir resultado?')) return; load();
+  try {
+    await FD.doc('users/'+EU.uid+'/resultados/'+id).delete();
+    RESULTADOS = RESULTADOS.filter(function(r){return r._id!==id;});
+    renderResAreas(); renderExTbl();
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ LAUDOS ═══════════════════
+function onDrop(e) { e.preventDefault(); onFileSelect(e.dataTransfer.files); }
+async function onFileSelect(files) {
+  if(!FS){alert('Storage não disponível.');return;}
+  for(var i=0;i<files.length;i++) await uploadArquivo(files[i]);
+  renderLaudoList();
+}
+async function uploadArquivo(file) {
+  if(file.size>10*1024*1024){alert('Arquivo muito grande: '+file.name);return;}
+  load();
+  try {
+    var path='laudos/'+EU.uid+'/'+CUR_PAC_ID+'/'+Date.now()+'_'+file.name;
+    var ref=FS.ref(path); await ref.put(file);
+    var url=await ref.getDownloadURL();
+    await FD.collection('users/'+EU.uid+'/laudos').add({pacienteId:CUR_PAC_ID,nome:file.name,tipo:file.type,tamanho:file.size,path:path,url:url,criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
+    var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).orderBy('criadoEm','desc').get();
+    LAUDOS=[]; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
+  } catch(e){alert('Erro upload: '+e.message);}
+  unload();
+}
+function renderLaudoList() {
+  var el = document.getElementById('laudoList'); if(!el) return;
+  if(!LAUDOS.length){el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum laudo.</p></div>';return;}
+  el.innerHTML='<div class="up-list">'+LAUDOS.map(function(l){
+    var ico=l.tipo&&l.tipo.includes('pdf')?'📄':l.tipo&&l.tipo.includes('image')?'🖼️':'📎';
+    return '<div class="up-item"><span style="font-size:22px;">'+ico+'</span>'
+      +'<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.nome)+'</div>'
+      +'<div style="font-size:11px;color:#aaa;">'+Math.round(l.tamanho/1024)+' KB</div></div>'
+      +'<div style="display:flex;gap:5px;"><button class="bta bta-o" style="font-size:11px;padding:5px 9px;" onclick="window.open(\''+esc(l.url)+'\',\'_blank\')">👁 Abrir</button>'
+      +'<button class="bta bta-r" onclick="excluirLaudo(\''+l._id+'\',\''+esc(l.path)+'\')">🗑</button></div></div>';
+  }).join('')+'</div>';
+}
+async function excluirLaudo(id,path) {
+  if(!confirm('Excluir arquivo?')) return; load();
+  try {
+    await FD.doc('users/'+EU.uid+'/laudos/'+id).delete();
+    try{await FS.ref(path).delete();}catch(e){}
+    LAUDOS=LAUDOS.filter(function(l){return l._id!==id;});
+    renderLaudoList();
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ AGENDAMENTOS ═══════════════════
+async function salvarAg() {
+  var dt=gv('ag-dt'); if(!dt){alert('Data obrigatória.');return;}
+  load();
+  try {
+    await FD.collection('users/'+EU.uid+'/agendamentos').add({
+      pacienteId:CUR_PAC_ID, pacienteNome:CUR_PAC.nome,
+      data:dt, hora:gv('ag-hr'), tipo:gv('ag-tp').trim(), local:gv('ag-lc').trim(), obs:gv('ag-ob').trim(),
+      status:'pendente', criadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fecharMo('ag');
+    var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
+    AGENDAMENTOS=[]; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
+    renderAgList();
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+function renderAgList() {
+  var el = document.getElementById('agList'); if(!el) return;
+  if(!AGENDAMENTOS.length){el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum agendamento.</p></div>';return;}
+  el.innerHTML = AGENDAMENTOS.map(function(a){
+    var d=new Date((a.data||'')+'T12:00:00');
+    return '<div class="card" style="display:flex;align-items:center;gap:12px;">'
+      +'<div style="width:44px;text-align:center;background:#111820;border-radius:9px;padding:8px 6px;flex-shrink:0;">'
+      +'<div style="font-size:19px;font-weight:800;color:#6de090;line-height:1;">'+d.getDate()+'</div>'
+      +'<div style="font-size:8px;text-transform:uppercase;color:rgba(255,255,255,.4);">'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</div></div>'
+      +'<div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">'+esc(a.tipo||'Consulta')+'</div>'
+      +'<div style="font-size:11px;color:#aaa;">'+(a.hora||'')+(a.local?' · '+esc(a.local):'')+'</div>'
+      +(a.obs?'<div style="font-size:11px;color:#aaa;margin-top:2px;">'+esc(a.obs)+'</div>':'')+'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">'
+      +'<span class="tag '+(a.status==='confirmado'?'tag-ok':a.status==='cancelado'?'tag-ru':'tag-alt')+'">'+esc(a.status||'pendente')+'</span>'
+      +'<button class="bta bta-r" onclick="excluirAg(\''+a._id+'\')">🗑</button></div></div>';
+  }).join('');
+}
+async function excluirAg(id) {
+  if(!confirm('Cancelar agendamento?')) return; load();
+  try { await FD.doc('users/'+EU.uid+'/agendamentos/'+id).delete(); AGENDAMENTOS=AGENDAMENTOS.filter(function(a){return a._id!==id;}); renderAgList(); }
+  catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ PORTAL PACIENTE ═══════════════════
+async function carregarPaciente() {
+  // Tentar encontrar dados do médico via medicoEmail
+}
+
+function renderComo() {
+  var el = document.getElementById('comoConteudo'); if(!el) return;
+  el.innerHTML = '<div class="card"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:8px;">Olá! 👋</div>'
+    +'<p style="color:#666;font-size:13px;line-height:1.7;">Seus exames e resultados aparecerão aqui assim que seu médico os adicionar ao sistema.</p></div>';
+}
+function renderMeusExames(){ var el=document.getElementById('meusExames'); if(el) el.innerHTML='<div class="card" style="grid-column:1/-1;"><p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>'; }
+function renderSintHist(){ var el=document.getElementById('sintHist'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum sintoma registrado.</p></div>'; }
+function renderMinhaAgenda(){ var el=document.getElementById('minhaAgenda'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum agendamento.</p></div>'; }
+async function salvarSintoma(){
+  var txt=gv('sintTxt').trim(), dt=gv('sintDt'), it=gv('sintInt');
+  if(!txt){alert('Descreva o sintoma.');return;} load();
+  try {
+    await FD.collection('users/'+EU.uid+'/sintomas').add({texto:txt,data:dt,intensidade:it,criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
+    document.getElementById('sintTxt').value='';
+    renderSintHist();
+    alert('Sintoma registrado!');
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ═══════════════════ MODAIS ═══════════════════
+function abrirMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.add('open'); if(id==='res'){document.getElementById('re-dt').value=new Date().toISOString().split('T')[0];carregarAreas();} if(id==='area'){paramCnt=0;document.getElementById('na-params').innerHTML='';addParam();addParam();} }
+function fecharMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.remove('open'); }
+function abrirMoPac(){ abrirMo('pac'); document.getElementById('np-pc').value=new Date().toISOString().split('T')[0]; }
+function abrirMoRes(){ abrirMo('res'); }
+function abrirMoArea(){ abrirMo('area'); }
+function abrirMoAg(){ abrirMo('ag'); document.getElementById('ag-dt').value=new Date().toISOString().split('T')[0]; }
+document.querySelectorAll('.mo').forEach(function(m){ m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('open'); }); });
+
+function ptab(el,t){
+  document.querySelectorAll('.ptab').forEach(function(x){x.classList.remove('on');});
+  el.classList.add('on');
+  ['pt-res','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
+    var e=document.getElementById(id); if(e) e.style.display=id===t?'block':'none';
+  });
+}
+
 </script>
 </body>
 </html>
