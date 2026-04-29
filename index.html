@@ -811,74 +811,11 @@ waitFB(function(){
   });
 });
 
-function authTab(t){
-  document.getElementById('atab-login').classList.toggle('on', t==='login');
-  document.getElementById('atab-cadastro').classList.toggle('on', t==='cadastro');
-  document.getElementById('ap-login').style.display = t==='login' ? 'block' : 'none';
-  document.getElementById('ap-cadastro').style.display = t==='cadastro' ? 'block' : 'none';
-}
+// auth UI functions definidas acima
 
-function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
-function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
+// doLogin substituído por fazLogin acima
 
-var cRole='paciente';
-function selCRole(r){
-  cRole=r;
-  document.getElementById('crole-pac').classList.toggle('on',r==='paciente');
-  document.getElementById('crole-med').classList.toggle('on',r==='medico');
-  document.getElementById('c-med-fields').style.display=r==='medico'?'block':'none';
-  document.getElementById('c-pac-fields').style.display=r==='paciente'?'block':'none';
-}
-
-async function doLogin(){
-  var em=document.getElementById('l-email').value.trim();
-  var ps=document.getElementById('l-pass').value;
-  var err=document.getElementById('lerr');
-  err.style.display='none';
-  if(!em||!ps){ err.textContent='Preencha e-mail e senha.'; err.style.display='block'; return; }
-  var btn=document.getElementById('btnLogin'); btn.disabled=true; btn.textContent='Entrando...';
-  waitFB(function(){
-    window._fb.signInWithEmailAndPassword(window._fb.auth,em,ps).catch(function(e){
-      err.textContent='E-mail ou senha incorretos.'; err.style.display='block';
-      btn.disabled=false; btn.textContent='Entrar no Sistema';
-    });
-  });
-}
-
-async function doCadastro(){
-  var nm=document.getElementById('c-nome').value.trim();
-  var em=document.getElementById('c-email').value.trim();
-  var ps=document.getElementById('c-pass').value;
-  var err=document.getElementById('cerr');
-  err.style.display='none';
-  if(!nm||!em||!ps){ err.textContent='Preencha todos os campos.'; err.style.display='block'; return; }
-  if(ps.length<6){ err.textContent='Senha mínimo 6 caracteres.'; err.style.display='block'; return; }
-  load('Criando conta...');
-  var fb=window._fb;
-  try {
-    var cred=await fb.createUserWithEmailAndPassword(fb.auth,em,ps);
-    var uid=cred.user.uid;
-    // Verificar código admin secreto
-    var cRoleFinal=cRole;
-    if(document.getElementById('c-admin-code')&&document.getElementById('c-admin-code').value==='NOC@admin2025') cRoleFinal='admin';
-    var perfil={ nome:nm, tipo:cRoleFinal, email:em, criadoEm:fb.serverTimestamp() };
-    if(cRoleFinal==='admin'){
-      await fb.setDoc(fb.doc(fb.db,'adminIndex',cred.user.uid),{tipo:'admin',email:em,nome:nm,criadoEm:fb.serverTimestamp()});
-    }
-    if(cRoleFinal==='medico'||cRole==='medico'){
-      perfil.especialidade=document.getElementById('c-esp').value;
-      perfil.clinica=document.getElementById('c-clinica').value.trim();
-    } else if(cRoleFinal==='paciente') {
-      var medEmail=document.getElementById('c-medcode').value.trim();
-      perfil.medicoEmail=medEmail;
-    }
-    await fb.setDoc(fb.doc(fb.db,'users/'+uid+'/perfil','dados'), perfil);
-    toast('Conta criada!');
-  } catch(e){
-    err.textContent=e.message; err.style.display='block';
-  }
-  unload();
-}
+// doCadastro substituído por fazCadastro acima
 
 function doLogout(){ _FA.signOut().then(function(){ showAuth(); }); }
 
