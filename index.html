@@ -1551,96 +1551,64 @@ async function lerPDFcomIA(file) {
 
 function parsearLaudo(texto, nomeArq) {
   var textoLower = texto.toLowerCase();
-  // Data de coleta
+  // Data de coleta - priorizar data de coleta, não data de nascimento
   var dataColeta = '';
-  var mColeta = texto.match(/[Cc]oleta[^\\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
-  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[^\\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
-  if (!mColeta) {
-    var allDates=[], re=/(\\d{2})\\/(\\d{2})\\/(\\d{4})/g, m;
-    while((m=re.exec(texto))!==null){if(parseInt(m[3])>=2020)allDates.push(m);}
-    if(allDates.length) mColeta=allDates[0];
+  var allDates = [], re = /(\d{2})\/(\d{2})\/(\d{4})/g, dm;
+  while((dm = re.exec(texto)) !== null) {
+    if (parseInt(dm[3]) >= 2020) allDates.push(dm);
   }
-  if(mColeta) dataColeta=mColeta[3]+'-'+mColeta[2]+'-'+mColeta[1];
+  // Prefer date after "coleta" or "entrada"
+  var mColeta = texto.match(/[Cc]oleta[^
+]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[^
+]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
+  if (mColeta) dataColeta = mColeta[3]+'-'+mColeta[2]+'-'+mColeta[1];
+  else if (allDates.length) dataColeta = allDates[0][3]+'-'+allDates[0][2]+'-'+allDates[0][1];
   // Lab
-  var lab='';
-  var labs=['são matheus','fleury','delboni','einstein','hermes pardini','sabin','labclin'];
-  for(var i=0;i<labs.length;i++){if(textoLower.indexOf(labs[i])!==-1){lab=labs[i].replace(/\\b\\w/g,function(c){return c.toUpperCase();});break;}}
+  var lab = '';
+  var labs = ['são matheus','fleury','delboni','einstein','hermes pardini','sabin','labclin'];
+  for (var i=0; i<labs.length; i++) {
+    if (textoLower.indexOf(labs[i]) !== -1) {
+      lab = labs[i].replace(/\b\w/g, function(ch){ return ch.toUpperCase(); });
+      break;
+    }
+  }
   // Exames
-  var exames=[];
-  DICT_EXAMES.forEach(function(def){
-    for(var si=0;si<def.sinonimos.length;si++){
-      var sin=def.sinonimos[si];
-      var idx=textoLower.indexOf(sin);
-      if(idx===-1) continue;
-      var ctx=texto.substring(idx,idx+200);
-      var valor=null;
-      var patterns=[
+  var exames = [];
+  DICT_EXAMES.forEach(function(def) {
+    for (var si=0; si<def.sinonimos.length; si++) {
+      var sin = def.sinonimos[si];
+      var idx = textoLower.indexOf(sin);
+      if (idx === -1) continue;
+      var ctx = texto.substring(idx, idx+200);
+      var valor = null;
+      var pats = [
         /[Rr]esultado[:\s.]+(\d[\d.,]+)/,
         /[:\s]+(\d[\d.,]+)\s*(?:mg|g|u\/l|ui|ng|pg|nmol|mmol|mcg|milh|mUI|µUI|fL|%|u3)/i,
         /\.{3,}\s*(\d[\d.,]+)/,
         /\s{2,}(\d[\d.,]+)\s/,
       ];
-      for(var pi=0;pi<patterns.length;pi++){
-        var pm=ctx.match(patterns[pi]);
-        if(pm){var raw=pm[1].replace(/\./g,'').replace(',','.');var v=parseFloat(raw);if(!isNaN(v)&&v>0&&v<10000000){valor=v;break;}}
+      for (var pi=0; pi<pats.length; pi++) {
+        var pm = ctx.match(pats[pi]);
+        if (pm) {
+          var raw = pm[1].replace(/\./g,'').replace(',','.');
+          var v = parseFloat(raw);
+          if (!isNaN(v) && v > 0 && v < 10000000) { valor = v; break; }
+        }
       }
-      if(valor===null) continue;
-      var refMin=def.refMin,refMax=def.refMax;
-      var refM=ctx.match(/(\d[\d.,]*)\s*[a-z]*\s*[–\-a]\s*(\d[\d.,]*)/i);
-      if(refM){var r1=parseFloat(refM[1].replace(',','.'));var r2=parseFloat(refM[2].replace(',','.'));if(!isNaN(r1)&&!isNaN(r2)&&r2>r1&&r2<1000000){refMin=r1;refMax=r2;}}
-      var jaExiste=exames.some(function(e){return e.nome===def.nome;});
-      if(!jaExiste) exames.push({nome:def.nome,valor:valor,unidade:def.unidade,refMin:refMin,refMax:refMax,sistema:def.sistema,icone:def.icone});
+      if (valor === null) continue;
+      var refMin = def.refMin, refMax = def.refMax;
+      var refM = ctx.match(/(\d[\d.,]*)\s*[a-z]*\s*[–\-a]\s*(\d[\d.,]*)/i);
+      if (refM) {
+        var r1 = parseFloat(refM[1].replace(',','.')), r2 = parseFloat(refM[2].replace(',','.'));
+        if (!isNaN(r1) && !isNaN(r2) && r2 > r1 && r2 < 1000000) { refMin=r1; refMax=r2; }
+      }
+      var jaExiste = exames.some(function(e){ return e.nome === def.nome; });
+      if (!jaExiste) exames.push({nome:def.nome, valor:valor, unidade:def.unidade, refMin:refMin, refMax:refMax, sistema:def.sistema, icone:def.icone});
       break;
     }
   });
-  return {laboratorio:lab,data:dataColeta,exames:exames};
-}
-
-function exibirResultadoIA(resultado, file) {
-  var exames=resultado.exames||[];
-  if(!exames.length){alert('Nenhum exame reconhecido.');return;}
-  if(resultado.data) document.getElementById('re-dt').value=resultado.data;
-  if(resultado.laboratorio) document.getElementById('re-lab').value=resultado.laboratorio;
-  var el=document.getElementById('iaValores');
-  el.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:8px;">'
-    +(resultado.laboratorio?'🏥 '+esc(resultado.laboratorio)+'  ':'')+( resultado.data?'📅 '+fdt(resultado.data):'')+' '
-    +'<span style="margin-left:auto;font-size:10px;color:#1a7a40;font-weight:700;">✏️ Clique no valor para editar</span></div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:13px;" id="tblIAValores">'
-    +'<thead><tr style="background:#f7f5f2;">'
-    +'<th style="padding:7px 9px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Exame</th>'
-    +'<th style="padding:7px 9px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th>'
-    +'<th style="padding:7px 9px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unid.</th>'
-    +'<th style="padding:7px 9px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th>'
-    +'<th style="padding:7px 9px;text-align:center;font-size:9px;color:#aaa;">Del.</th>'
-    +'</tr></thead><tbody id="tbodyIA">'
-    +exames.map(function(e,idx){
-      var st=statusVal(e.valor,e.refMin,e.refMax);
-      return '<tr id="iarow-'+idx+'" style="border-bottom:1px solid #f0ede8;">'
-        +'<td style="padding:6px 9px;font-size:12.5px;font-weight:600;">'+esc(e.nome)+'</td>'
-        +'<td style="padding:6px 9px;text-align:right;">'
-        +'<input type="number" step="0.01" value="'+e.valor+'" id="ia-v-'+idx+'" '
-        +'style="width:75px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;" '
-        +'oninput="atualizarStatusIA('+idx+','+e.refMin+','+e.refMax+')"></td>'
-        +'<td style="padding:6px 9px;text-align:right;font-size:11px;color:#888;">'+esc(e.unidade||'')+'</td>'
-        +'<td style="padding:6px 9px;text-align:center;" id="ia-st-'+idx+'">'
-        +'<span class="tag '+st.c+'" style="font-size:9.5px;">'+st.l+'</span></td>'
-        +'<td style="padding:6px 9px;text-align:center;">'
-        +'<button onclick="document.getElementById(\'iarow-'+idx+'\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>'
-        +'</tr>';
-    }).join('')
-    +'</tbody></table>'
-    +'<div style="margin-top:8px;font-size:10.5px;color:#888;">Valores editáveis. Clique ✕ para remover um exame.</div>';
-  document.getElementById('iaResult').style.display='block';
-}
-
-function atualizarStatusIA(idx, refMin, refMax) {
-  var vEl=document.getElementById('ia-v-'+idx);
-  var stEl=document.getElementById('ia-st-'+idx);
-  if(!vEl||!stEl) return;
-  var v=parseFloat(vEl.value);
-  if(isNaN(v)) return;
-  var st=statusVal(v,refMin,refMax);
-  stEl.innerHTML='<span class="tag '+st.c+'" style="font-size:9.5px;">'+st.l+'</span>';
+  return {laboratorio:lab, data:dataColeta, exames:exames};
 }
 
 async function salvarValoresIA() {
