@@ -304,7 +304,6 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
       <div class="pr-head" id="prHead"></div>
       <div class="ptabs" id="ptabs">
         <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo Médico</div>
-        <div class="ptab" onclick="ptab(this,'pt-res-pac')">👤 Visão Paciente</div>
         <div class="ptab" onclick="ptab(this,'pt-exames')">🧪 Exames</div>
         <div class="ptab" onclick="ptab(this,'pt-laudos')">📁 Laudos</div>
         <div class="ptab" onclick="ptab(this,'pt-sint')">💬 Sintomas</div>
@@ -2053,10 +2052,9 @@ document.querySelectorAll('.mo').forEach(function(m){ m.addEventListener('click'
 function ptab(el,t){
   document.querySelectorAll('.ptab').forEach(function(x){x.classList.remove('on');});
   el.classList.add('on');
-  ['pt-res','pt-res-pac','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
+  ['pt-res','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.style.display=id===t?'block':'none';
   });
-  if(t==='pt-res-pac') renderResAreasPaciente();
 }
 
 </script>
