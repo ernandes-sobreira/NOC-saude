@@ -880,13 +880,7 @@ async function abrirPront(id) {
       +'<span class="tag tag-med">'+esc(p.especialidade||'—')+'</span>'
       +(p.temAlteracao?'<span class="tag tag-alt">⚠ Tem alterações</span>':'<span class="tag tag-ok">✓ Sem alterações críticas</span>')
       +'</div></div>'
-      +'<div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'
-      +'<button class="bta bta-o" onclick="irPg(\'pacientes\')" style="font-size:11px;">← Voltar</button>'
-      +'<button class="bta bta-gr" onclick="abrirMoRes()" style="font-size:11px;">+ Exame</button>'
-      +'<button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')" style="font-size:11px;">📎 Laudo</button>'
-      +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
-      + '<button class="bta" style="font-size:11px;background:#4e1ea0;color:#fff;" onclick="verComoPaciente()">👁 Ver como Paciente</button>'
-      +'</div>';
+      +'';
     var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).get();
     RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
     RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
@@ -1038,23 +1032,35 @@ async function salvarRes() {
 //  UNIFICAR EXAMES POR NOME (todas as áreas)
 // ══════════════════════════════════════════
 function unificarExames(resultados) {
-  // Retorna { nomeParam: { unidade, refMin, refMax, historico:[{data,valor,lab}] } }
   var mapa = {};
   resultados.forEach(function(r) {
     Object.keys(r.valores || {}).forEach(function(nome) {
       var info = r.valores[nome];
       var key  = nome.trim().toLowerCase();
-      if (!mapa[key]) mapa[key] = {
-        nome: nome, unidade: info.unidade,
-        refMin: info.refMin, refMax: info.refMax,
-        historico: []
-      };
+      if (!mapa[key]) {
+        // Buscar info do dicionário
+        var sistema = 'Outros', icone = '🔬', nomeOficial = nome;
+        if (typeof DICT_EXAMES !== 'undefined') {
+          DICT_EXAMES.forEach(function(d) {
+            if (d.nome.toLowerCase() === key || d.sinonimos.indexOf(key) !== -1) {
+              sistema = d.sistema || 'Outros';
+              icone   = d.icone  || '🔬';
+              nomeOficial = d.nome; // usar nome oficial do dicionário
+            }
+          });
+        }
+        mapa[key] = {
+          nome: nomeOficial, unidade: info.unidade,
+          refMin: info.refMin, refMax: info.refMax,
+          sistema: sistema, icone: icone,
+          historico: []
+        };
+      }
       mapa[key].historico.push({ data: r.data, valor: info.valor, lab: r.lab || '' });
     });
   });
-  // Ordenar histórico por data
   Object.values(mapa).forEach(function(p) {
-    p.historico.sort(function(a,b){ return a.data.localeCompare(b.data); });
+    p.historico.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
   });
   return mapa;
 }
@@ -1212,129 +1218,150 @@ function cardParam(p) {
 // ══════════════════════════════════════════
 function renderComo() {
   var el = document.getElementById('comoConteudo'); if (!el) return;
-
   if (!RESULTADOS || !RESULTADOS.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;">'
-      + '<div style="font-size:48px;margin-bottom:12px;">👋</div>'
-      + '<h2 style="font-family:Georgia,serif;font-size:22px;margin-bottom:8px;">Olá!</h2>'
-      + '<p style="color:#666;font-size:13px;line-height:1.7;">Seus resultados de exames aparecerão aqui<br>assim que seu médico os cadastrar.</p></div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+      + '<div style="font-size:60px;margin-bottom:14px;">🏥</div>'
+      + '<h2 style="font-family:Georgia,serif;font-size:20px;margin-bottom:8px;">Olá!</h2>'
+      + '<p style="color:#666;font-size:13px;line-height:1.7;">Seus resultados aparecerão aqui<br>quando seu médico os cadastrar.</p></div>';
     return;
   }
 
-  var mapa   = unificarExames(RESULTADOS);
+  var mapa = unificarExames(RESULTADOS);
   var params = Object.values(mapa);
+  var total = params.length;
+  var ok    = params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
+  var alerta= params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
+  var ruim  = params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
+  var pct   = total > 0 ? Math.round(ok/total*100) : 0;
 
-  var total  = params.length;
-  var ok     = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
-  var alerta = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
-  var ruim   = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
+  // Hero dinâmico
+  var heroData;
+  if (pct >= 90) heroData = {bg:'linear-gradient(135deg,#0d4a24,#1a8a40)', emoji:'🏆', titulo:'Saúde em dia!', sub:'Seus exames estão excelentes. Continue assim!', badge:'ÓTIMO'};
+  else if (pct >= 70) heroData = {bg:'linear-gradient(135deg,#3a2800,#b07000)', emoji:'💪', titulo:'Indo muito bem!', sub:'A maioria dos seus exames está normal. Alguns merecem atenção.', badge:'BOM'};
+  else if (pct >= 40) heroData = {bg:'linear-gradient(135deg,#3a1800,#b04000)', emoji:'⚠️', titulo:'Atenção necessária', sub:'Vários exames precisam de cuidado. Fale com seu médico.', badge:'ATENÇÃO'};
+  else heroData = {bg:'linear-gradient(135deg,#3a0000,#880000)', emoji:'❤️', titulo:'Consulte seu médico', sub:'Vários exames estão alterados. Marque uma consulta.', badge:'URGENTE'};
 
-  var pct    = total > 0 ? Math.round(ok / total * 100) : 0;
-
-  // Mensagem motivacional
-  var msg, emoji, bgGrad;
-  if (pct >= 90) {
-    msg = 'Seus exames estão excelentes! Continue assim! 🌟'; emoji = '🏆';
-    bgGrad = 'linear-gradient(135deg,#1a5230,#2e8a48)';
-  } else if (pct >= 70) {
-    msg = 'Você está indo bem! Alguns pontos merecem atenção.'; emoji = '💪';
-    bgGrad = 'linear-gradient(135deg,#7a5800,#c87800)';
-  } else if (pct >= 40) {
-    msg = 'Atenção! Vários exames precisam de cuidado.'; emoji = '⚠️';
-    bgGrad = 'linear-gradient(135deg,#7a2800,#cc4400)';
-  } else {
-    msg = 'Consulte seu médico. Vários exames estão alterados.'; emoji = '❤️';
-    bgGrad = 'linear-gradient(135deg,#7a0000,#cc0000)';
-  }
-
-  var html = '';
-
-  // Hero card
-  html += '<div style="background:' + bgGrad + ';border-radius:16px;padding:22px;margin-bottom:16px;color:#fff;">'
-    + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">'
-    + '<div style="font-size:44px;">' + emoji + '</div>'
-    + '<div><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;">'
-    + (EU.perfil ? 'Olá, ' + (EU.perfil.nome || '').split(' ')[0] + '!' : 'Olá!') + '</div>'
-    + '<div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:3px;">' + msg + '</div></div></div>'
-    // Barra de saúde geral
-    + '<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:6px;">'
-    + 'Índice de saúde geral · <b style="color:#fff;">' + pct + '%</b> dos exames normais</div>'
-    + '<div style="height:10px;background:rgba(0,0,0,.25);border-radius:5px;overflow:hidden;">'
-    + '<div style="height:100%;width:' + pct + '%;background:rgba(255,255,255,.9);border-radius:5px;transition:width 1s;"></div></div>'
-    + '<div style="display:flex;gap:12px;margin-top:14px;">'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:800;">' + ok + '</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">✅ Normais</div></div>'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:800;">' + alerta + '</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">⚠️ Atenção</div></div>'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.12);border-radius:8px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:800;">' + ruim + '</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);">🔴 Alterados</div></div>'
+  var html = '<div style="background:'+heroData.bg+';border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;">'
+    + '<div style="position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.15;">'+heroData.emoji+'</div>'
+    + '<div style="display:inline-block;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.2);font-size:10px;font-weight:700;letter-spacing:1.5px;margin-bottom:10px;">'+heroData.badge+'</div>'
+    + '<div style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin-bottom:5px;">'+heroData.emoji+' '+heroData.titulo+'</div>'
+    + '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:16px;">'+heroData.sub+'</div>'
+    // Barra de saúde
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    + '<div style="font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;">Índice de saúde</div>'
+    + '<div style="flex:1;height:10px;background:rgba(0,0,0,.3);border-radius:5px;overflow:hidden;">'
+    + '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6de090,#fff);border-radius:5px;transition:width 1.5s ease;"></div></div>'
+    + '<div style="font-size:16px;font-weight:800;color:#fff;">'+pct+'%</div></div>'
+    // Contadores
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'
+    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
+    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+ok+'</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">✅ Normais</div></div>'
+    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
+    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+alerta+'</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">⚠️ Atenção</div></div>'
+    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
+    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+ruim+'</div>'
+    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">🔴 Alterados</div></div>'
     + '</div></div>';
 
-  // Cards lúdicos por parâmetro
-  var DESCRICOES = {
-    'hemoglobina': { ok:'Seu sangue está transportando oxigênio muito bem! 🩸', alt:'Hemoglobina um pouco fora do ideal. Fique de olho.', ru:'Hemoglobina alterada. Converse com seu médico.' },
-    'colesterol total': { ok:'Seu colesterol está controlado! Continue com a alimentação saudável. 🥗', alt:'Colesterol um pouco elevado. Reduza gorduras saturadas.', ru:'Colesterol alto. Importante consultar seu médico.' },
-    'hdl': { ok:'Colesterol bom (HDL) ótimo! 💚', alt:'HDL poderia ser mais alto. Exercícios ajudam!', ru:'HDL baixo. Pratique mais atividade física.' },
-    'ldl': { ok:'Colesterol ruim (LDL) sob controle! 👍', alt:'LDL um pouco acima. Cuide da alimentação.', ru:'LDL elevado. Consulte seu médico.' },
-    'triglicerídeos': { ok:'Triglicerídeos normais! Ótimo! 🎉', alt:'Triglicerídeos elevados. Reduza açúcar e álcool.', ru:'Triglicerídeos muito altos. Veja seu médico.' },
-    'glicose': { ok:'Sua glicemia está normal. Continue assim! 🍎', alt:'Glicemia um pouco alta. Cuidado com açúcar.', ru:'Glicemia alterada. Consulte seu médico urgente.' },
-    'tsh': { ok:'Sua tireoide está funcionando bem! 🦋', alt:'TSH ligeiramente alterado. Monitorar.', ru:'TSH alterado. Consulte seu médico.' },
-    'vitamina d': { ok:'Vitamina D em bom nível! ☀️', alt:'Vitamina D um pouco baixa. Tome mais sol!', ru:'Vitamina D baixa. Suplementação pode ser necessária.' },
-  };
-
-  var grupados = {ruim:[], atencao:[], ok:[]};
+  // Por sistema — organizado e lúdico
+  var porSistema = {};
   params.forEach(function(p) {
-    var ult = p.historico[p.historico.length-1];
-    var st  = statusVal(ult.valor, p.refMin, p.refMax);
-    p._ultimo = ult; p._st = st;
-    if (st.c==='tag-ru') grupados.ruim.push(p);
-    else if (st.c==='tag-alt') grupados.atencao.push(p);
-    else grupados.ok.push(p);
+    var sis = p.sistema || 'Outros';
+    if (!porSistema[sis]) porSistema[sis] = {ok:[], atencao:[], ruim:[]};
+    var u = p.historico[p.historico.length-1];
+    var st = statusVal(u.valor, p.refMin, p.refMax);
+    p._ultimo = u; p._st = st;
+    if (st.c==='tag-ok') porSistema[sis].ok.push(p);
+    else if (st.c==='tag-alt') porSistema[sis].atencao.push(p);
+    else porSistema[sis].ruim.push(p);
   });
 
-  function renderGrupoLudico(titulo, lista, cor, bg) {
-    if (!lista.length) return '';
-    return '<div style="margin-bottom:16px;">'
-      + '<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;'
-      + 'color:' + cor + ';margin-bottom:8px;">' + titulo + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">'
-      + lista.map(function(p) {
-          var ult = p._ultimo, st = p._st;
-          var v   = ult.valor;
-          var key = p.nome.toLowerCase();
-          var descMap = DESCRICOES[key] || {};
-          var desc= st.c==='tag-ok' ? (descMap.ok||'Valor normal! ✅')
-                  : st.c==='tag-alt'? (descMap.alt||'Valor ligeiramente fora do ideal. ⚠️')
-                  : (descMap.ru||'Valor alterado. Consulte seu médico. 🔴');
+  var DESCR_PAC = {
+    'Hemoglobina':      {ok:'Seu sangue está transportando oxigênio muito bem! 🩸', alt:'Hemoglobina levemente alterada. Fique atento.', ru:'Hemoglobina alterada. Consulte seu médico.'},
+    'Hematócrito':      {ok:'Concentração do sangue normal! ✅', alt:'Hematócrito levemente fora do ideal.', ru:'Hematócrito alterado. Consulte seu médico.'},
+    'Leucócitos':       {ok:'Suas defesas estão em boa forma! 🛡️', alt:'Leucócitos levemente alterados.', ru:'Leucócitos alterados. Consulte seu médico.'},
+    'Plaquetas':        {ok:'Coagulação do sangue normal! ✅', alt:'Plaquetas levemente alteradas.', ru:'Plaquetas alteradas. Consulte seu médico.'},
+    'Colesterol Total': {ok:'Colesterol total controlado! 🥗', alt:'Colesterol um pouco elevado. Reduza gorduras.', ru:'Colesterol alto. Consulte seu médico.'},
+    'HDL':              {ok:'Colesterol bom (HDL) ótimo! 💚 Exercícios funcionando!', alt:'HDL poderia ser mais alto. Exercícios ajudam!', ru:'HDL baixo. Pratique mais atividade física.'},
+    'LDL':              {ok:'Colesterol ruim (LDL) sob controle! 👍', alt:'LDL um pouco acima. Cuide da alimentação.', ru:'LDL elevado. Consulte seu médico.'},
+    'Triglicerídeos':   {ok:'Triglicerídeos normais! 🎉', alt:'Elevados. Reduza açúcar e alimentos processados.', ru:'Muito altos. Consulte seu médico.'},
+    'TGO (AST)':        {ok:'Seu fígado está saudável! 🟤', alt:'Leve alteração no fígado. Evite álcool.', ru:'Fígado com alterações. Consulte seu médico.'},
+    'TGP (ALT)':        {ok:'Fígado funcionando bem! 🟤', alt:'Leve alteração hepática. Evite álcool.', ru:'Fígado alterado. Consulte seu médico.'},
+    'GGT':              {ok:'Enzima do fígado normal! ✅', alt:'GGT levemente elevada. Evite álcool.', ru:'GGT elevada. Consulte seu médico.'},
+    'Fosfatase Alcalina':{ok:'Ossos e fígado normais! ✅', alt:'Fosfatase levemente alterada.', ru:'Fosfatase alcalina alta. Consulte seu médico.'},
+    'Glicose':          {ok:'Açúcar no sangue normal! 🍎 Continue assim!', alt:'Glicemia um pouco alta. Cuidado com açúcar.', ru:'Glicemia alterada. Consulte seu médico urgente.'},
+    'TSH':              {ok:'Tireoide funcionando perfeitamente! 🦋', alt:'TSH ligeiramente alterado. Monitore com seu médico.', ru:'TSH alterado. Consulte seu endocrinologista.'},
+    'T4 Livre':         {ok:'Hormônio da tireoide normal! 🦋', alt:'T4 livre levemente alterado.', ru:'T4 livre alterado. Consulte seu médico.'},
+    'Testosterona Total':{ok:'Testosterona total excelente! 💪', alt:'Testosterona levemente fora do ideal.', ru:'Testosterona alterada. Consulte seu médico.'},
+    'Testosterona Livre':{ok:'Testosterona livre ótima! 💪', alt:'Testosterona livre levemente fora do ideal.', ru:'Testosterona livre alterada. Consulte seu médico.'},
+    'SHBG':             {ok:'Proteína transportadora normal! ✅', alt:'SHBG levemente alterado.', ru:'SHBG alterado. Consulte seu médico.'},
+    'Vitamina D':       {ok:'Vitamina D em bom nível! ☀️ Parabéns!', alt:'Vitamina D baixa. Tome mais sol pela manhã!', ru:'Vitamina D muito baixa. Suplementação necessária.'},
+    'Vitamina B12':     {ok:'Vitamina B12 normal! ✅', alt:'B12 levemente baixa. Avalie suplementação.', ru:'B12 baixa. Consulte seu médico.'},
+    'Ferritina':        {ok:'Reserva de ferro boa! ✅', alt:'Ferritina levemente fora do ideal.', ru:'Ferritina alterada. Consulte seu médico.'},
+  };
 
-          // Pct barra
+  var ordSistemas = ['Sangue','Coração','Fígado','Tireoide','Hormônios','Glicemia','Rins','Vitaminas','PSA','Outros'];
+  ordSistemas.forEach(function(sis) {
+    if (!porSistema[sis]) return;
+    var info  = SISTEMAS_INFO[sis] || {titulo:'Outros Exames', icone:'🔬', cor:'#607080', desc:'Demais marcadores'};
+    var grupo = porSistema[sis];
+    var todos = grupo.ruim.concat(grupo.atencao, grupo.ok);
+    if (!todos.length) return;
+
+    // Status geral do sistema
+    var stGeral = grupo.ruim.length ? '🔴' : grupo.atencao.length ? '⚠️' : '✅';
+    var corBorda = grupo.ruim.length ? '#cc2222' : grupo.atencao.length ? '#c87800' : '#1a7a40';
+
+    html += '<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:14px;">'
+      // Header do sistema
+      + '<div style="background:'+info.cor+'15;border-left:4px solid '+info.cor+';padding:13px 16px;display:flex;align-items:center;justify-content:space-between;">'
+      + '<div style="display:flex;align-items:center;gap:10px;">'
+      + '<span style="font-size:24px;">'+info.icone+'</span>'
+      + '<div><div style="font-size:14px;font-weight:700;color:'+info.cor+';">'+info.titulo+'</div>'
+      + '<div style="font-size:11px;color:#888;">'+info.desc+'</div></div></div>'
+      + '<span style="font-size:20px;">'+stGeral+'</span></div>'
+      // Cards dos exames
+      + '<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">'
+      + todos.map(function(p) {
+          var u   = p._ultimo, st = p._st;
+          var cor = st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+          var bg  = st.c==='tag-ok'?'#f0faf4':st.c==='tag-alt'?'#fffbf0':'#fff8f8';
+          var bdCor = st.c==='tag-ok'?'#c8ead4':st.c==='tag-alt'?'#fce5a8':'#fecece';
+          var emoji2 = st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
+          var dm = DESCR_PAC[p.nome] || {};
+          var desc = st.c==='tag-ok'?(dm.ok||'Valor normal! ✅'):st.c==='tag-alt'?(dm.alt||'Valor ligeiramente fora do ideal.'):( dm.ru||'Valor alterado. Consulte seu médico.');
           var range = p.refMax - p.refMin;
-          var pct2  = range>0 ? Math.min(95,Math.max(5,((v-p.refMin)/range*80)+10)) : 50;
-          var emoji2= st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
-
-          return '<div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #eee;'
-            + 'box-shadow:0 2px 8px rgba(0,0,0,.05);">'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
-            + '<span style="font-size:12px;font-weight:700;color:#333;">' + esc(p.nome) + '</span>'
-            + '<span>' + emoji2 + '</span></div>'
-            + '<div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:' + cor + ';margin-bottom:3px;">'
-            + v + ' <span style="font-size:11px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade) + '</span></div>'
-            + '<div style="position:relative;height:6px;background:#e8e4de;border-radius:3px;margin:8px 0;">'
-            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:' + cor + '20;border-radius:3px;"></div>'
-            + '<div style="position:absolute;left:' + pct2 + '%;top:50%;transform:translate(-50%,-50%);'
-            + 'width:12px;height:12px;border-radius:50%;background:' + cor + ';border:2px solid #fff;"></div></div>'
-            + '<div style="font-size:11px;color:#666;line-height:1.5;margin-top:6px;">' + desc + '</div>'
+          var pct2  = range > 0 ? Math.min(93, Math.max(7, ((u.valor-p.refMin)/range*80)+10)) : 50;
+          return '<div style="background:'+bg+';border-radius:10px;padding:14px;border:1.5px solid '+bdCor+';">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+            + '<span style="font-size:12px;font-weight:700;color:#333;">'+esc(p.nome)+'</span>'
+            + '<span style="font-size:16px;">'+emoji2+'</span></div>'
+            + '<div style="font-family:Georgia,serif;font-size:30px;font-weight:700;color:'+cor+';line-height:1;margin-bottom:2px;">'+u.valor+'</div>'
+            + '<div style="font-size:10px;color:#aaa;margin-bottom:8px;">'+esc(p.unidade||'')+' · ref: '+p.refMin+'–'+p.refMax+'</div>'
+            // Barra visual
+            + '<div style="height:6px;background:#e0dcd6;border-radius:3px;position:relative;margin-bottom:8px;">'
+            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'25;border-radius:3px;"></div>'
+            + '<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:'+cor+';border:2.5px solid #fff;box-shadow:0 0 0 1.5px '+cor+';"></div></div>'
+            // Descrição em linguagem simples
+            + '<div style="font-size:11.5px;color:#444;line-height:1.5;">'+desc+'</div>'
+            // Histórico mini
+            + (p.historico.length > 1
+              ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid '+bdCor+';display:flex;gap:8px;align-items:center;">'
+              + '<span style="font-size:9px;color:#aaa;font-weight:700;text-transform:uppercase;">Histórico</span>'
+              + p.historico.slice(-3).map(function(h) {
+                  var stH = statusVal(h.valor,p.refMin,p.refMax);
+                  var cH  = stH.c==='tag-ok'?'#1a7a40':stH.c==='tag-alt'?'#c87800':'#cc2222';
+                  return '<div style="text-align:center;">'
+                    +'<div style="font-size:11px;font-weight:700;color:'+cH+';">'+h.valor+'</div>'
+                    +'<div style="font-size:9px;color:#aaa;">'+fdt(h.data).split('/').slice(0,2).join('/')+'</div></div>';
+                }).join('')
+              + '</div>' : '')
             + '</div>';
         }).join('')
       + '</div></div>';
-  }
-
-  html += renderGrupoLudico('🔴 Precisa de atenção', grupados.ruim, '#cc2222', '#fff0f0');
-  html += renderGrupoLudico('⚠️ Fique de olho', grupados.atencao, '#c87800', '#fff7e0');
-  html += renderGrupoLudico('✅ Tudo certo aqui!', grupados.ok, '#1a7a40', '#e8f5ed');
+  });
 
   el.innerHTML = html;
 }
@@ -1520,6 +1547,7 @@ var SISTEMAS_INFO = {
   'Rins':      { titulo:'Seus Rins',        desc:'Funcionamento e filtragem renal',                icone:'💧', cor:'#4682b4' },
   'Vitaminas': { titulo:'Vitaminas e Minerais', desc:'Nutrientes essenciais',                      icone:'💊', cor:'#20b2aa' },
   'PSA':       { titulo:'PSA Prostático',   desc:'Marcador de saúde prostática',                   icone:'🩺', cor:'#708090' },
+  'Outros':    { titulo:'Outros Exames',    desc:'Demais marcadores laboratoriais',                 icone:'🔬', cor:'#607080' },
 };
 
 function parsearLaudo(texto, nomeArquivo) {
@@ -1527,11 +1555,22 @@ function parsearLaudo(texto, nomeArquivo) {
   var textoLower = texto.toLowerCase();
 
   // ── Extrair data de coleta ──
-  // Busca "Data e Hora de Coleta: DD/MM/YYYY" primeiro
+  // PRIORIDADE: "Data e Hora de Coleta" > "Data de Entrada" > primeira data no texto
   var dataColeta = '';
-  var mColeta = texto.match(/[Cc]oleta[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!mColeta) mColeta = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  // Tenta achar especificamente a data de coleta (não nascimento)
+  var mColeta = texto.match(/[Cc]oleta[^\n]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[^\n]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
+  // Fallback: pegar TODAS as datas e excluir datas de nascimento (muito antigas)
+  if (!mColeta) {
+    var todasDatas = [];
+    var re = /(\d{2})\/(\d{2})\/(\d{4})/g;
+    var m;
+    while ((m = re.exec(texto)) !== null) {
+      var ano = parseInt(m[3]);
+      if (ano >= 2020) todasDatas.push(m); // só datas recentes
+    }
+    if (todasDatas.length) mColeta = todasDatas[0];
+  }
   if (mColeta) dataColeta = mColeta[3] + '-' + mColeta[2] + '-' + mColeta[1];
 
   // ── Extrair laboratório ──
@@ -1986,7 +2025,7 @@ function verComoPaciente() {
             + '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
             + '<span style="font-size:12px;font-weight:700;">' + esc(p.nome) + '</span><span>' + emoji + '</span></div>'
             + '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:'+cor+';margin-bottom:4px;">'
-            + p._ultimo.valor + ' <span style="font-size:10px;font-family:sans-serif;color:#aaa;">' + esc(p.info ? p.info.unidade : '') + '</span></div>'
+            + p._ultimo.valor + ' <span style="font-size:10px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade||'') + '</span></div>'
             + '<div style="height:5px;background:#e8e4de;border-radius:3px;margin:6px 0;position:relative;">'
             + '<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'20;border-radius:3px;"></div>'
             + '<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:'+cor+';border:2px solid #fff;"></div></div>'
