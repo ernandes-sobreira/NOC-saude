@@ -779,7 +779,7 @@ async function carregarAdmin() {
         var ps = await FD.collection('users/'+uid+'/pacientes').get();
         var rs = await FD.collection('users/'+uid+'/resultados').get();
         var nPac=0, nExm=0, nAlt=0;
-        ps.forEach(function(pd){ nPac++; var x={_id:pd.id,medicoId:uid,medicoNome:data.nome,...pd.data()}; PACS_ADM.push(x); if(x.temAlteracao) nAlt++; totalAlt++; });
+        ps.forEach(function(pd){ nPac++; var x=Object.assign({_id:pd.id,medicoId:uid,medicoNome:data.nome},pd.data()); PACS_ADM.push(x); if(x.temAlteracao) nAlt++; totalAlt++; });
         rs.forEach(function(){nExm++;});
         MEDICOS_ADM.push({uid:uid,...data,totalPacientes:nPac,totalExames:nExm,totalAlt:nAlt});
         totalPac+=nPac; totalExm+=nExm;
@@ -869,7 +869,7 @@ function abrirMoMedico() { abrirMo('medico'); }
 async function carregarMedico() {
   var q = FD.collection('users/'+EU.uid+'/pacientes').orderBy('nome');
   var s = await q.get(); PACS = [];
-  s.forEach(function(d){ PACS.push({_id:d.id,...d.data()}); });
+  s.forEach(function(d){ PACS.push(Object.assign({_id:d.id},d.data())); });
   document.getElementById('mKPac').textContent = PACS.length;
   document.getElementById('mKAlt').textContent = PACS.filter(function(p){return p.temAlteracao;}).length;
   document.getElementById('mKExm').textContent = PACS.reduce(function(a,p){return a+(p.totalExames||0);},0);
@@ -941,7 +941,7 @@ async function abrirPront(id) {
   load(); CUR_PAC_ID = id;
   try {
     var snap = await FD.doc('users/'+EU.uid+'/pacientes/'+id).get();
-    CUR_PAC = {_id:id,...snap.data()};
+    CUR_PAC = Object.assign({_id:id},snap.data());
     var p = CUR_PAC;
     document.getElementById('prHead').innerHTML =
       '<div class="pr-av">'+(p.nome||'?')[0].toUpperCase()+'</div>'
@@ -958,11 +958,11 @@ async function abrirPront(id) {
       +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
       +'</div>';
     var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).orderBy('data','desc').get();
-    RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
     var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).orderBy('criadoEm','desc').get();
-    LAUDOS = []; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
+    LAUDOS = []; lSnap.forEach(function(d){LAUDOS.push(Object.assign({_id:d.id},d.data()));});
     var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).orderBy('data','desc').get();
-    AGENDAMENTOS = []; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
+    AGENDAMENTOS = []; aSnap.forEach(function(d){AGENDAMENTOS.push(Object.assign({_id:d.id},d.data()));});
     renderResAreas(); renderExTbl(); renderLaudoList(); renderAgList();
     irPg('pront');
     ptab(document.querySelector('.ptab'),'pt-res');
@@ -985,7 +985,7 @@ var defaultAreas = [
 
 async function carregarAreas() {
   var s = await FD.collection('users/'+EU.uid+'/areas').get(); AREAS = [];
-  s.forEach(function(d){AREAS.push({_id:d.id,...d.data()});});
+  s.forEach(function(d){AREAS.push(Object.assign({_id:d.id},d.data()));});
   if(!AREAS.length) { await importarAreasDefault(); }
   var sel = document.getElementById('re-area');
   if(sel) { sel.innerHTML='<option value="">— Selecionar —</option>'+AREAS.map(function(a){return '<option value="'+a._id+'">'+esc(a.ico||'')+'  '+esc(a.nome)+'</option>';}).join(''); }
@@ -993,9 +993,9 @@ async function carregarAreas() {
 }
 
 async function importarAreasDefault() {
-  for(var a of defaultAreas) { await FD.collection('users/'+EU.uid+'/areas').add(a); }
+  for(var _ai=0;_ai<defaultAreas.length;_ai++){await FD.collection('users/'+EU.uid+'/areas').add(defaultAreas[_ai]);}
   var s = await FD.collection('users/'+EU.uid+'/areas').get(); AREAS=[];
-  s.forEach(function(d){AREAS.push({_id:d.id,...d.data()});});
+  s.forEach(function(d){AREAS.push(Object.assign({_id:d.id},d.data()));});
 }
 
 function renderConfigAreas() {
@@ -1094,7 +1094,7 @@ async function salvarRes() {
     await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({ultimaConsulta:dt,temAlteracao:temAlt,totalExames:firebase.firestore.FieldValue.increment(1)});
     fecharMo('res');
     var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
-    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
     renderResAreas(); renderExTbl();
   } catch(e){alert('Erro: '+e.message);}
   unload();
@@ -1145,7 +1145,7 @@ async function uploadArquivo(file) {
     var url=await ref.getDownloadURL();
     await FD.collection('users/'+EU.uid+'/laudos').add({pacienteId:CUR_PAC_ID,nome:file.name,tipo:file.type,tamanho:file.size,path:path,url:url,criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
     var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).orderBy('criadoEm','desc').get();
-    LAUDOS=[]; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
+    LAUDOS=[]; lSnap.forEach(function(d){LAUDOS.push(Object.assign({_id:d.id},d.data()));});
   } catch(e){alert('Erro upload: '+e.message);}
   unload();
 }
@@ -1184,7 +1184,7 @@ async function salvarAg() {
     });
     fecharMo('ag');
     var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
-    AGENDAMENTOS=[]; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
+    AGENDAMENTOS=[]; aSnap.forEach(function(d){AGENDAMENTOS.push(Object.assign({_id:d.id},d.data()));});
     renderAgList();
   } catch(e){alert('Erro: '+e.message);}
   unload();
@@ -1725,7 +1725,7 @@ async function salvarValoresIA() {
     document.getElementById('iaResult').style.display='none';
     _iaResultados={};
     var rSnap=await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
-    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
     RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
     renderResAreas(); renderExTbl();
     alert('✅ '+Object.keys(vals).length+' exames salvos!');
@@ -1833,7 +1833,7 @@ async function salvarEdicaoRes(){
     await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({temAlteracao:temAlt});
     fecharMo('editar-res');
     var rSnap=await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
-    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
     RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
     renderResAreas(); renderExTbl();
     alert('✅ Resultado atualizado!');
