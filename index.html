@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -674,6 +675,14 @@ async function adminCriar() {
 function sair() { FA.signOut(); }
 
 // ═══════════════════ INIT ═══════════════════
+
+// Catch any uncaught JS error and show on screen
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('m-entrar');
+  if (el) { el.textContent = '⚠ Erro JS: ' + msg + ' (linha ' + line + ')'; el.className = 'msg err'; el.style.display = 'block'; }
+  return false;
+};
+
 FA.onAuthStateChanged(async function(user) {
   if (!user) {
     document.getElementById('loginBox').style.display = 'flex';
@@ -693,7 +702,11 @@ FA.onAuthStateChanged(async function(user) {
     else if(EU.tipo==='medico') { await carregarMedico(); irPg('painel'); }
     else { await carregarPaciente(); irPg('como'); }
   } catch(err) {
-    alert('Erro ao carregar: '+err.message);
+    document.getElementById('loginBox').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    var el = document.getElementById('m-entrar');
+    if (el) { el.textContent = 'Erro ao carregar: ' + err.message; el.className = 'msg err'; el.style.display = 'block'; }
+    console.error(err);
   }
   unload();
 });
