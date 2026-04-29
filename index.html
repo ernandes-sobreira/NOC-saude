@@ -1118,6 +1118,9 @@ function renderResAreas() {
     var canvasId = 'ch-' + p.nome.replace(/[^a-zA-Z0-9]/g,'');
     var canvas   = document.getElementById(canvasId);
     if (!canvas) return;
+    // Destruir gráfico existente neste canvas se houver
+    var existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
     var cor = p._st.c === 'tag-ok' ? '#1a7a40' : p._st.c === 'tag-alt' ? '#c87800' : '#cc2222';
     _chartInstances[canvasId] = new Chart(canvas, {
       type: 'line',
