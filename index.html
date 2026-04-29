@@ -849,12 +849,15 @@ async function abrirPront(id) {
       +'<button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')" style="font-size:11px;">📎 Laudo</button>'
       +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
       +'</div>';
-    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).orderBy('data','desc').get();
+    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).get();
     RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
-    var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).orderBy('criadoEm','desc').get();
+    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).get();
     LAUDOS = []; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
-    var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).orderBy('data','desc').get();
+    LAUDOS.sort(function(a,b){return (b.criadoEm||'').toString().localeCompare((a.criadoEm||'').toString());});
+    var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).get();
     AGENDAMENTOS = []; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
+    AGENDAMENTOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
     renderResAreas(); renderExTbl(); renderLaudoList(); renderAgList();
     irPg('pront');
     ptab(document.querySelector('.ptab'),'pt-res');
@@ -985,7 +988,7 @@ async function salvarRes() {
     });
     await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({ultimaConsulta:dt,temAlteracao:temAlt,totalExames:firebase.firestore.FieldValue.increment(1)});
     fecharMo('res');
-    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
+    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
     RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
     renderResAreas(); renderExTbl();
   } catch(e){alert('Erro: '+e.message);}
@@ -1046,7 +1049,7 @@ async function uploadArquivo(file) {
     var ref=FS.ref(path); await ref.put(file);
     var url=await ref.getDownloadURL();
     await FD.collection('users/'+EU.uid+'/laudos').add({pacienteId:CUR_PAC_ID,nome:file.name,tipo:file.type,tamanho:file.size,path:path,url:url,criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
-    var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).orderBy('criadoEm','desc').get();
+    var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).get();
     LAUDOS=[]; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
   } catch(e){alert('Erro upload: '+e.message);}
   unload();
@@ -1085,7 +1088,7 @@ async function salvarAg() {
       status:'pendente', criadoEm:firebase.firestore.FieldValue.serverTimestamp()
     });
     fecharMo('ag');
-    var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
+    var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).get();
     AGENDAMENTOS=[]; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
     renderAgList();
   } catch(e){alert('Erro: '+e.message);}
