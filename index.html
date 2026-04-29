@@ -303,13 +303,15 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
     <div class="pg" id="pg-pront">
       <div class="pr-head" id="prHead"></div>
       <div class="ptabs" id="ptabs">
-        <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo</div>
+        <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo Médico</div>
+        <div class="ptab" onclick="ptab(this,'pt-res-pac')">👤 Visão Paciente</div>
         <div class="ptab" onclick="ptab(this,'pt-exames')">🧪 Exames</div>
         <div class="ptab" onclick="ptab(this,'pt-laudos')">📁 Laudos</div>
         <div class="ptab" onclick="ptab(this,'pt-sint')">💬 Sintomas</div>
         <div class="ptab" onclick="ptab(this,'pt-agenda')">📅 Agenda</div>
       </div>
       <div id="pt-res"><div class="area-grid" id="resAreas"></div></div>
+      <div id="pt-res-pac" style="display:none;"><div id="resAreasPac"></div></div>
       <div id="pt-exames" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;">Resultados</span>
@@ -499,6 +501,18 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
   </div>
 </div>
 
+<!-- Modal: Ver como paciente -->
+<div class="mo" id="mo-ver-paciente">
+  <div class="mo-box" style="max-width:700px;">
+    <div class="mo-head">
+      <span class="mo-title">👁 Visão do Paciente — <span id="vpNome"></span></span>
+      <button class="mo-x" onclick="fecharMo('ver-paciente')">✕</button>
+    </div>
+    <div class="mo-body" style="max-height:75vh;overflow-y:auto;" id="vpCorpo"></div>
+  </div>
+</div>
+
+
 <script>
 firebase.initializeApp({
   apiKey: "AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
@@ -665,7 +679,7 @@ function irPg(id) {
   if(id==='pacientes') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoPac()">+ Novo Paciente</button>';
   else if(id==='medicos') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoMedico()">+ Novo Médico</button>';
   else if(id==='config') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoArea()">+ Nova Área</button>';
-  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-o" onclick="irPg(\'pacientes\')">← Voltar</button><button class="bta bta-gr" onclick="abrirMoRes()">+ Exame</button><button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')">📎 Laudo</button><button class="bta bta-o" onclick="abrirMoAg()">📅 Agendar</button>';
+  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-o" onclick="irPg(\'pacientes\')">← Voltar</button><button class="bta bta-gr" onclick="abrirMoRes()">+ Exame</button><button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')">📎 Laudo</button><button class="bta bta-o" onclick="abrirMoAg()">📅 Agendar</button><button class="bta" style="background:#4e1ea0;color:#fff;" onclick="verComoPaciente()">👁 Ver como Paciente</button>';
   else ta.innerHTML='';
   // Lazy loading
   if(id==='pacientes') renderPacs(PACS);
@@ -871,6 +885,7 @@ async function abrirPront(id) {
       +'<button class="bta bta-gr" onclick="abrirMoRes()" style="font-size:11px;">+ Exame</button>'
       +'<button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')" style="font-size:11px;">📎 Laudo</button>'
       +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
+      + '<button class="bta" style="font-size:11px;background:#4e1ea0;color:#fff;" onclick="verComoPaciente()">👁 Ver como Paciente</button>'
       +'</div>';
     var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).get();
     RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
@@ -1427,158 +1442,329 @@ async function lerPDFcomIA(file) {
   unload();
 }
 
+
+// ══════════════════════════════════════════════════════
+//  PARSER PROFISSIONAL DE LAUDOS BRASILEIROS
+//  Suporta: São Matheus, Fleury, Delboni, e outros
+// ══════════════════════════════════════════════════════
+
+// Dicionário completo de exames com referências, sinônimos e sistemas corporais
+var DICT_EXAMES = [
+  // SISTEMA: Sangue (Hemograma)
+  { nome:'Hemoglobina', sinonimos:['hemoglobina'], unidade:'g/dL', refMin:13, refMax:18.6, sistema:'Sangue', icone:'🩸' },
+  { nome:'Hematócrito', sinonimos:['hematocrito','hematócrito'], unidade:'%', refMin:40, refMax:56, sistema:'Sangue', icone:'🩸' },
+  { nome:'Hemácias', sinonimos:['hemacias','hemácias'], unidade:'milh./mm³', refMin:4.5, refMax:6.0, sistema:'Sangue', icone:'🩸' },
+  { nome:'Leucócitos', sinonimos:['leucocitos','leucócitos'], unidade:'/mm³', refMin:4500, refMax:10000, sistema:'Sangue', icone:'🩸' },
+  { nome:'Plaquetas', sinonimos:['plaquetas','contagem de plaquetas'], unidade:'/mm³', refMin:140000, refMax:400000, sistema:'Sangue', icone:'🩸' },
+  { nome:'VGM', sinonimos:['v.g.m','vgm'], unidade:'u³', refMin:80, refMax:98, sistema:'Sangue', icone:'🩸' },
+  { nome:'HGM', sinonimos:['h.g.m','hgm'], unidade:'pg', refMin:28, refMax:32, sistema:'Sangue', icone:'🩸' },
+  { nome:'CHGM', sinonimos:['c.h.g.m','chgm'], unidade:'%', refMin:32, refMax:36, sistema:'Sangue', icone:'🩸' },
+  { nome:'RDW', sinonimos:['r.d.w','rdw'], unidade:'%', refMin:11, refMax:14, sistema:'Sangue', icone:'🩸' },
+  { nome:'Linfócitos', sinonimos:['linfocitos','linfócitos'], unidade:'/mm³', refMin:900, refMax:3500, sistema:'Sangue', icone:'🩸' },
+  { nome:'Neutrófilos', sinonimos:['segmentados','neutrofilos','neutrófilos'], unidade:'/mm³', refMin:2205, refMax:7000, sistema:'Sangue', icone:'🩸' },
+  { nome:'Monócitos', sinonimos:['monocitos','monócitos'], unidade:'/mm³', refMin:45, refMax:800, sistema:'Sangue', icone:'🩸' },
+  { nome:'Eosinófilos', sinonimos:['eosinofilos','eosinófilos'], unidade:'/mm³', refMin:45, refMax:400, sistema:'Sangue', icone:'🩸' },
+  // SISTEMA: Coração e Vasos
+  { nome:'Colesterol Total', sinonimos:['colesterol total'], unidade:'mg/dL', refMin:0, refMax:190, sistema:'Coração', icone:'❤️' },
+  { nome:'HDL', sinonimos:['colesterol h d l','colesterol hdl','hdl'], unidade:'mg/dL', refMin:40, refMax:999, sistema:'Coração', icone:'❤️' },
+  { nome:'LDL', sinonimos:['colesterol l d l','colesterol ldl','ldl'], unidade:'mg/dL', refMin:0, refMax:115, sistema:'Coração', icone:'❤️' },
+  { nome:'VLDL', sinonimos:['colesterol v l d l','colesterol vldl','vldl'], unidade:'mg/dL', refMin:0, refMax:30, sistema:'Coração', icone:'❤️' },
+  { nome:'Triglicerídeos', sinonimos:['triglicerides','triglicérides','triglicerídeos'], unidade:'mg/dL', refMin:0, refMax:150, sistema:'Coração', icone:'❤️' },
+  // SISTEMA: Fígado
+  { nome:'TGO (AST)', sinonimos:['tgo','ast','transaminase oxalacetica','transaminase oxalacética'], unidade:'U/L', refMin:0, refMax:40, sistema:'Fígado', icone:'🟤' },
+  { nome:'TGP (ALT)', sinonimos:['tgp','alt','transaminase piruv','transaminase pirúv'], unidade:'U/L', refMin:0, refMax:50, sistema:'Fígado', icone:'🟤' },
+  { nome:'GGT', sinonimos:['ggt','gama glutamil','gamma glutamil'], unidade:'U/L', refMin:7, refMax:61, sistema:'Fígado', icone:'🟤' },
+  { nome:'Fosfatase Alcalina', sinonimos:['fosfatase alcalina'], unidade:'U/L', refMin:40, refMax:130, sistema:'Fígado', icone:'🟤' },
+  { nome:'Bilirrubina Total', sinonimos:['bilirrubina total'], unidade:'mg/dL', refMin:0, refMax:1.2, sistema:'Fígado', icone:'🟤' },
+  { nome:'Bilirrubina Direta', sinonimos:['bilirrubina direta'], unidade:'mg/dL', refMin:0, refMax:0.3, sistema:'Fígado', icone:'🟤' },
+  { nome:'Bilirrubina Indireta', sinonimos:['bilirrubina indireta'], unidade:'mg/dL', refMin:0, refMax:0.8, sistema:'Fígado', icone:'🟤' },
+  // SISTEMA: Tireoide
+  { nome:'TSH', sinonimos:['tsh'], unidade:'mUI/L', refMin:0.4, refMax:4.0, sistema:'Tireoide', icone:'🦋' },
+  { nome:'T4 Livre', sinonimos:['t4 livre','t4livre','t4l'], unidade:'ng/dL', refMin:0.8, refMax:1.8, sistema:'Tireoide', icone:'🦋' },
+  { nome:'T3 Livre', sinonimos:['t3 livre','t3livre','t3l'], unidade:'pg/mL', refMin:2.3, refMax:4.2, sistema:'Tireoide', icone:'🦋' },
+  // SISTEMA: Hormônios
+  { nome:'Testosterona Total', sinonimos:['testosterona total'], unidade:'ng/dL', refMin:165, refMax:753, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'Testosterona Livre', sinonimos:['testosterona livre'], unidade:'ng/dL', refMin:3.03, refMax:14.8, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'SHBG', sinonimos:['shbg','globulina ligadora'], unidade:'nmol/L', refMin:14.6, refMax:94.6, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'FSH', sinonimos:['fsh'], unidade:'mUI/mL', refMin:1.4, refMax:18.1, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'LH', sinonimos:['lh'], unidade:'mUI/mL', refMin:1.5, refMax:9.3, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'Estradiol', sinonimos:['estradiol'], unidade:'pg/mL', refMin:20, refMax:55, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'Prolactina', sinonimos:['prolactina'], unidade:'ng/mL', refMin:2.1, refMax:17.7, sistema:'Hormônios', icone:'⚗️' },
+  { nome:'Insulina', sinonimos:['insulina'], unidade:'µUI/mL', refMin:2.6, refMax:25, sistema:'Hormônios', icone:'⚗️' },
+  // SISTEMA: Glicemia
+  { nome:'Glicose', sinonimos:['glicose','glicemia'], unidade:'mg/dL', refMin:70, refMax:99, sistema:'Glicemia', icone:'🍬' },
+  { nome:'HbA1c', sinonimos:['hba1c','hemoglobina glicada','glicada'], unidade:'%', refMin:0, refMax:5.7, sistema:'Glicemia', icone:'🍬' },
+  // SISTEMA: Rins
+  { nome:'Creatinina', sinonimos:['creatinina'], unidade:'mg/dL', refMin:0.7, refMax:1.3, sistema:'Rins', icone:'💧' },
+  { nome:'Ureia', sinonimos:['ureia','uréia'], unidade:'mg/dL', refMin:10, refMax:50, sistema:'Rins', icone:'💧' },
+  { nome:'Ácido Úrico', sinonimos:['acido urico','ácido úrico'], unidade:'mg/dL', refMin:3.5, refMax:7.2, sistema:'Rins', icone:'💧' },
+  // SISTEMA: Vitaminas e Minerais
+  { nome:'Vitamina D', sinonimos:['vitamina d','25-oh','25oh'], unidade:'ng/mL', refMin:30, refMax:100, sistema:'Vitaminas', icone:'☀️' },
+  { nome:'Vitamina B12', sinonimos:['vitamina b12','b12','cobalamina'], unidade:'pg/mL', refMin:200, refMax:900, sistema:'Vitaminas', icone:'💊' },
+  { nome:'Ferritina', sinonimos:['ferritina'], unidade:'ng/mL', refMin:30, refMax:400, sistema:'Vitaminas', icone:'💊' },
+  { nome:'Ferro Sérico', sinonimos:['ferro serico','ferro sérico'], unidade:'mcg/dL', refMin:60, refMax:170, sistema:'Vitaminas', icone:'💊' },
+  { nome:'Zinco', sinonimos:['zinco'], unidade:'mcg/dL', refMin:60, refMax:120, sistema:'Vitaminas', icone:'💊' },
+  { nome:'Magnésio', sinonimos:['magnesio','magnésio'], unidade:'mg/dL', refMin:1.9, refMax:2.5, sistema:'Vitaminas', icone:'💊' },
+  // SISTEMA: PSA
+  { nome:'PSA Total', sinonimos:['psa total','psa'], unidade:'ng/mL', refMin:0, refMax:4.0, sistema:'PSA', icone:'🩺' },
+];
+
+// NOMES DOS SISTEMAS para exibição lúdica
+var SISTEMAS_INFO = {
+  'Sangue':    { titulo:'Seu Sangue',       desc:'Como está a qualidade do seu sangue',           icone:'🩸', cor:'#cc0000' },
+  'Coração':   { titulo:'Coração e Vasos',  desc:'Colesterol e risco cardiovascular',              icone:'❤️', cor:'#e06020' },
+  'Fígado':    { titulo:'Seu Fígado',       desc:'Funcionamento e saúde do fígado',                icone:'🟤', cor:'#8b4513' },
+  'Tireoide':  { titulo:'Tireoide',         desc:'Controle do metabolismo',                        icone:'🦋', cor:'#6a5acd' },
+  'Hormônios': { titulo:'Hormônios',        desc:'Equilíbrio hormonal',                            icone:'⚗️', cor:'#2e8b57' },
+  'Glicemia':  { titulo:'Açúcar no Sangue', desc:'Controle da glicose',                            icone:'🍬', cor:'#daa520' },
+  'Rins':      { titulo:'Seus Rins',        desc:'Funcionamento e filtragem renal',                icone:'💧', cor:'#4682b4' },
+  'Vitaminas': { titulo:'Vitaminas e Minerais', desc:'Nutrientes essenciais',                      icone:'💊', cor:'#20b2aa' },
+  'PSA':       { titulo:'PSA Prostático',   desc:'Marcador de saúde prostática',                   icone:'🩺', cor:'#708090' },
+};
+
 function parsearLaudo(texto, nomeArquivo) {
-  // Extrair data — formatos comuns BR
-  var dataMatch = texto.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
-  var data = '';
-  if (dataMatch) {
-    data = dataMatch[3] + '-' + dataMatch[2] + '-' + dataMatch[1];
-  }
-
-  // Extrair laboratório — linhas iniciais
-  var lab = '';
-  var linhas = texto.split('\n');
-  for (var i = 0; i < Math.min(5, linhas.length); i++) {
-    var l = linhas[i].trim();
-    if (l.length > 3 && l.length < 60 && !/\d{2}\/\d{2}\/\d{4}/.test(l)) {
-      lab = l; break;
-    }
-  }
-
-  // Dicionário de exames conhecidos com referências padrão
-  var refPadrao = {
-    'hemoglobina': { unidade: 'g/dL', refMin: 13.5, refMax: 17.5 },
-    'hematocrito': { unidade: '%', refMin: 40, refMax: 52 },
-    'hematócrito': { unidade: '%', refMin: 40, refMax: 52 },
-    'leucocitos': { unidade: 'x10³/µL', refMin: 4.0, refMax: 11.0 },
-    'leucócitos': { unidade: 'x10³/µL', refMin: 4.0, refMax: 11.0 },
-    'plaquetas': { unidade: 'x10³/µL', refMin: 150, refMax: 400 },
-    'glicose': { unidade: 'mg/dL', refMin: 70, refMax: 99 },
-    'glicemia': { unidade: 'mg/dL', refMin: 70, refMax: 99 },
-    'creatinina': { unidade: 'mg/dL', refMin: 0.7, refMax: 1.3 },
-    'ureia': { unidade: 'mg/dL', refMin: 10, refMax: 50 },
-    'colesterol total': { unidade: 'mg/dL', refMin: 0, refMax: 190 },
-    'hdl': { unidade: 'mg/dL', refMin: 40, refMax: 200 },
-    'ldl': { unidade: 'mg/dL', refMin: 0, refMax: 115 },
-    'triglicerides': { unidade: 'mg/dL', refMin: 0, refMax: 150 },
-    'triglicerídeos': { unidade: 'mg/dL', refMin: 0, refMax: 150 },
-    'tsh': { unidade: 'mUI/L', refMin: 0.4, refMax: 4.0 },
-    't4 livre': { unidade: 'ng/dL', refMin: 0.8, refMax: 1.8 },
-    'ast': { unidade: 'U/L', refMin: 0, refMax: 40 },
-    'tgo': { unidade: 'U/L', refMin: 0, refMax: 40 },
-    'alt': { unidade: 'U/L', refMin: 0, refMax: 50 },
-    'tgp': { unidade: 'U/L', refMin: 0, refMax: 50 },
-    'ggt': { unidade: 'U/L', refMin: 7, refMax: 61 },
-    'testosterona total': { unidade: 'ng/dL', refMin: 165, refMax: 753 },
-    'testosterona livre': { unidade: 'ng/dL', refMin: 3.03, refMax: 14.8 },
-    'fsh': { unidade: 'mUI/mL', refMin: 1.4, refMax: 18.1 },
-    'lh': { unidade: 'mUI/mL', refMin: 1.5, refMax: 9.3 },
-    'vitamina d': { unidade: 'ng/mL', refMin: 30, refMax: 100 },
-    'vitamina b12': { unidade: 'pg/mL', refMin: 200, refMax: 900 },
-    'ferritina': { unidade: 'ng/mL', refMin: 30, refMax: 400 },
-    'zinco': { unidade: 'mcg/dL', refMin: 60, refMax: 120 },
-    'psa': { unidade: 'ng/mL', refMin: 0, refMax: 4.0 },
-    'insulina': { unidade: 'µUI/mL', refMin: 2.6, refMax: 25 },
-    'hba1c': { unidade: '%', refMin: 0, refMax: 5.7 },
-  };
-
-  var exames = [];
+  var linhas = texto.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
   var textoLower = texto.toLowerCase();
 
-  // Para cada exame conhecido, tentar encontrar o valor
-  Object.keys(refPadrao).forEach(function(nomeExame) {
-    var idx = textoLower.indexOf(nomeExame);
-    if (idx === -1) return;
+  // ── Extrair data de coleta ──
+  // Busca "Data e Hora de Coleta: DD/MM/YYYY" primeiro
+  var dataColeta = '';
+  var mColeta = texto.match(/[Cc]oleta[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!mColeta) mColeta = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (mColeta) dataColeta = mColeta[3] + '-' + mColeta[2] + '-' + mColeta[1];
 
-    // Pegar os 120 caracteres após o nome do exame
-    var trecho = texto.substring(idx, idx + 120);
-
-    // Buscar número (decimal com vírgula ou ponto)
-    var numMatch = trecho.match(/[\s:=]\s*(\d+[,.]?\d*)/);
-    if (!numMatch) return;
-
-    var valor = parseFloat(numMatch[1].replace(',', '.'));
-    if (isNaN(valor) || valor <= 0) return;
-
-    // Checar se já foi adicionado (evitar duplicatas)
-    var jaExiste = exames.some(function(e) {
-      return e.nome.toLowerCase() === nomeExame;
-    });
-    if (jaExiste) return;
-
-    var ref = refPadrao[nomeExame];
-
-    // Tentar extrair referência do próprio texto
-    var refMatch = trecho.match(/(\d+[,.]?\d*)\s*[a-z]*\s*[–\-a]\s*(\d+[,.]?\d*)/i);
-    var refMin = ref.refMin, refMax = ref.refMax;
-    if (refMatch) {
-      var r1 = parseFloat(refMatch[1].replace(',', '.'));
-      var r2 = parseFloat(refMatch[2].replace(',', '.'));
-      if (!isNaN(r1) && !isNaN(r2) && r2 > r1) {
-        refMin = r1; refMax = r2;
+  // ── Extrair laboratório ──
+  var lab = '';
+  var labPatterns = ['são matheus','fleury','delboni','einstein','hermes pardini','sabin','labclin'];
+  for (var i = 0; i < labPatterns.length; i++) {
+    if (textoLower.indexOf(labPatterns[i]) !== -1) {
+      lab = labPatterns[i].replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+      break;
+    }
+  }
+  if (!lab) {
+    // Primeira linha não vazia com tamanho razoável
+    for (var j = 0; j < Math.min(8, linhas.length); j++) {
+      var l = linhas[j];
+      if (l.length > 3 && l.length < 50 && !/\d{2}\/\d{2}\/\d{4}/.test(l) && !/paciente/i.test(l) && !/cpf/i.test(l)) {
+        lab = l; break;
       }
     }
+  }
 
-    // Formatar nome
-    var nomeFmt = nomeExame.split(' ').map(function(w) {
-      return w.charAt(0).toUpperCase() + w.slice(1);
-    }).join(' ');
+  // ── Algoritmo de extração por dicionário ──
+  var exames = [];
 
-    exames.push({ nome: nomeFmt, valor: valor, unidade: ref.unidade, refMin: refMin, refMax: refMax });
+  DICT_EXAMES.forEach(function(def) {
+    // Tentar cada sinônimo
+    for (var si = 0; si < def.sinonimos.length; si++) {
+      var sin = def.sinonimos[si].toLowerCase();
+      var idx = textoLower.indexOf(sin);
+      if (idx === -1) continue;
+
+      // Pegar contexto ao redor (200 chars após)
+      var contexto = texto.substring(idx, idx + 200);
+      var ctxLower  = contexto.toLowerCase();
+
+      // Padrão: "Resultado:............ 22,7 U/L" (São Matheus)
+      // Padrão: "Hemoglobina.................. 17,70 g/dl"
+      // Padrão: "RESULTADO: 1.678,0 ng/dL"
+      var numPatterns = [
+        /[Rr]esultado[:\s.]+(\d[\d.,]+)/,
+        /[:\s]+(\d[\d.,]+)\s*(?:mg|g|u\/l|ui|ng|pg|nmol|mmol|mcg|milh|mUI|µUI|fL|%|u3)/i,
+        /\.{3,}\s*(\d[\d.,]+)/,
+        /\s{2,}(\d[\d.,]+)\s/,
+      ];
+
+      var valor = null;
+      for (var pi = 0; pi < numPatterns.length; pi++) {
+        var m = contexto.match(numPatterns[pi]);
+        if (m) {
+          var raw = m[1].replace(/\./g,'').replace(',','.');
+          var v   = parseFloat(raw);
+          if (!isNaN(v) && v > 0 && v < 10000000) { valor = v; break; }
+        }
+      }
+
+      if (valor === null) continue;
+
+      // Tentar extrair referência do próprio texto
+      var refMin = def.refMin, refMax = def.refMax;
+      var refM = contexto.match(/(\d[\d.,]*)\s*[a-z]*\s*[–\-a]\s*(\d[\d.,]*)/i);
+      if (refM) {
+        var r1 = parseFloat(refM[1].replace(',','.'));
+        var r2 = parseFloat(refM[2].replace(',','.'));
+        if (!isNaN(r1) && !isNaN(r2) && r2 > r1 && r2 < 1000000) {
+          refMin = r1; refMax = r2;
+        }
+      }
+
+      // Evitar duplicata
+      var jaExiste = exames.some(function(e){ return e.nome === def.nome; });
+      if (!jaExiste) {
+        exames.push({
+          nome: def.nome, valor: valor,
+          unidade: def.unidade, refMin: refMin, refMax: refMax,
+          sistema: def.sistema, icone: def.icone
+        });
+      }
+      break; // sinônimo encontrado, parar
+    }
   });
 
-  return { laboratorio: lab, data: data, exames: exames };
+  return { laboratorio: lab, data: dataColeta, exames: exames };
 }
 
-function exibirResultadoIA(resultado, file) {
-  var el = document.getElementById('iaValores');
-  var exames = resultado.exames || [];
 
+
+function exibirResultadoIA(resultado, file) {
+  var exames = resultado.exames || [];
   if (!exames.length) {
-    alert('Nenhum exame reconhecido. Tente adicionar manualmente.');
+    alert('Nenhum exame reconhecido automaticamente.\nVerifique se o PDF tem texto (não é escaneado) e tente de novo.\nOu adicione manualmente pelo botão "+ Exame".');
     return;
   }
 
   if (resultado.data) document.getElementById('re-dt').value = resultado.data;
   if (resultado.laboratorio) document.getElementById('re-lab').value = resultado.laboratorio;
 
-  el.innerHTML = '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">'
-    + (resultado.laboratorio ? '🏥 ' + esc(resultado.laboratorio) + '  ' : '')
-    + (resultado.data ? '📅 ' + fdt(resultado.data) : '')
+  var el = document.getElementById('iaValores');
+  el.innerHTML =
+    '<div style="font-size:11px;color:#aaa;margin-bottom:10px;display:flex;align-items:center;gap:10px;">'
+    + '<span>' + (resultado.laboratorio ? '🏥 ' + esc(resultado.laboratorio) : '') + '</span>'
+    + '<span>' + (resultado.data ? '📅 ' + fdt(resultado.data) : '') + '</span>'
+    + '<span style="margin-left:auto;font-size:10px;color:#1a7a40;font-weight:700;">✏️ Clique em qualquer valor para editar</span>'
     + '</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-    + '<tr style="background:#f7f5f2;">'
-    + '<th style="padding:7px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Exame</th>'
-    + '<th style="padding:7px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th>'
-    + '<th style="padding:7px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unidade</th>'
-    + '<th style="padding:7px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th>'
-    + '</tr>'
-    + exames.map(function(e) {
+    + '<div style="overflow-x:auto;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px;" id="tblIAValores">'
+    + '<thead><tr style="background:#f7f5f2;">'
+    + '<th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;white-space:nowrap;">Exame</th>'
+    + '<th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Sistema</th>'
+    + '<th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th>'
+    + '<th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unidade</th>'
+    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Ref.</th>'
+    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th>'
+    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Del.</th>'
+    + '</tr></thead>'
+    + '<tbody id="tbodyIA">'
+    + exames.map(function(e, idx) {
         var st = statusVal(e.valor, e.refMin, e.refMax);
-        return '<tr style="border-bottom:1px solid #f0ede8;">'
-          + '<td style="padding:7px 10px;font-weight:600;">' + esc(e.nome) + '</td>'
-          + '<td style="padding:7px 10px;text-align:right;font-weight:700;">' + e.valor + '</td>'
-          + '<td style="padding:7px 10px;text-align:right;color:#888;">' + esc(e.unidade) + '</td>'
-          + '<td style="padding:7px 10px;text-align:center;"><span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span></td>'
+        return '<tr id="iarow-' + idx + '" style="border-bottom:1px solid #f0ede8;">'
+          + '<td style="padding:7px 10px;">'
+          + '<input value="' + esc(e.nome) + '" data-idx="' + idx + '" data-field="nome" '
+          + 'style="width:100%;border:none;background:transparent;font-size:13px;font-weight:600;outline:none;cursor:pointer;" '
+          + 'onfocus="this.style.background=\'#f0f8ff\';this.style.border=\'1px solid #2e8a48\';this.style.borderRadius=\'4px\'" '
+          + 'onblur="this.style.background=\'transparent\';this.style.border=\'none\'" '
+          + 'oninput="atualizarIA(' + idx + ')"></td>'
+          + '<td style="padding:7px 10px;font-size:11px;color:#888;">' + esc(e.sistema||'—') + '</td>'
+          + '<td style="padding:7px 10px;text-align:right;">'
+          + '<input type="number" step="0.01" value="' + e.valor + '" data-idx="' + idx + '" data-field="valor" id="ia-v-' + idx + '" '
+          + 'style="width:80px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;outline:none;background:#fffef0;" '
+          + 'oninput="atualizarIA(' + idx + ')"></td>'
+          + '<td style="padding:7px 10px;text-align:right;">'
+          + '<input value="' + esc(e.unidade) + '" data-idx="' + idx + '" data-field="unidade" '
+          + 'style="width:70px;border:none;background:transparent;font-size:11px;color:#888;text-align:right;outline:none;cursor:pointer;" '
+          + 'onfocus="this.style.border=\'1px solid #ddd\';this.style.borderRadius=\'4px\'" '
+          + 'onblur="this.style.border=\'none\'" '
+          + 'oninput="atualizarIA(' + idx + ')"></td>'
+          + '<td style="padding:7px 10px;text-align:center;font-size:10px;color:#aaa;">' + e.refMin + '–' + e.refMax + '</td>'
+          + '<td style="padding:7px 10px;text-align:center;" id="ia-st-' + idx + '">'
+          + '<span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span></td>'
+          + '<td style="padding:7px 10px;text-align:center;">'
+          + '<button onclick="removerLinhaIA(' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;" title="Remover">✕</button></td>'
           + '</tr>';
       }).join('')
-    + '</table>';
+    + '</tbody></table></div>'
+    + '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;">'
+    + '<button onclick="adicionarLinhaIA()" style="padding:6px 12px;border-radius:6px;background:#f7f5f2;border:1.5px solid #ddd;font-size:12px;font-weight:600;cursor:pointer;">+ Adicionar exame</button>'
+    + '<span style="font-size:10.5px;color:#888;">Você pode editar nome, valor e unidade antes de salvar</span>'
+    + '</div>';
 
   document.getElementById('iaResult').style.display = 'block';
   if (FS) uploadArquivo(file);
 }
+
+function atualizarIA(idx) {
+  // Atualizar status ao vivo
+  var vEl = document.getElementById('ia-v-' + idx);
+  var stEl = document.getElementById('ia-st-' + idx);
+  if (!vEl || !stEl) return;
+  var v = parseFloat(vEl.value);
+  if (isNaN(v)) return;
+  // Buscar refMin/refMax do resultado original
+  var exame = (_iaResultados.exames || [])[idx];
+  if (!exame) return;
+  var st = statusVal(v, exame.refMin, exame.refMax);
+  stEl.innerHTML = '<span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span>';
+}
+
+function removerLinhaIA(idx) {
+  var row = document.getElementById('iarow-' + idx);
+  if (row) row.style.display = 'none';
+  if (_iaResultados.exames && _iaResultados.exames[idx]) {
+    _iaResultados.exames[idx]._removido = true;
+  }
+}
+
+function adicionarLinhaIA() {
+  if (!_iaResultados.exames) _iaResultados.exames = [];
+  var newIdx = _iaResultados.exames.length;
+  _iaResultados.exames.push({ nome:'Novo Exame', valor:0, unidade:'', refMin:0, refMax:999, sistema:'Outros', icone:'🔬' });
+  var tbody = document.getElementById('tbodyIA');
+  if (!tbody) return;
+  var tr = document.createElement('tr');
+  tr.id = 'iarow-' + newIdx;
+  tr.style.borderBottom = '1px solid #f0ede8';
+  tr.innerHTML =
+    '<td style="padding:7px 10px;">'
+    + '<input value="Novo Exame" data-idx="' + newIdx + '" data-field="nome" '
+    + 'style="width:100%;border:1px solid #2e8a48;background:#f0f8ff;border-radius:4px;font-size:13px;font-weight:600;outline:none;padding:2px 5px;" '
+    + 'oninput="atualizarIA(' + newIdx + ')"></td>'
+    + '<td style="padding:7px 10px;font-size:11px;color:#888;">—</td>'
+    + '<td style="padding:7px 10px;text-align:right;">'
+    + '<input type="number" step="0.01" value="0" data-idx="' + newIdx + '" data-field="valor" id="ia-v-' + newIdx + '" '
+    + 'style="width:80px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;" '
+    + 'oninput="atualizarIA(' + newIdx + ')"></td>'
+    + '<td style="padding:7px 10px;"><input value="" style="width:70px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:2px 4px;" placeholder="unidade"></td>'
+    + '<td style="padding:7px 10px;text-align:center;font-size:10px;color:#aaa;">0–999</td>'
+    + '<td style="padding:7px 10px;text-align:center;" id="ia-st-' + newIdx + '">'
+    + '<span class="tag tag-ok" style="font-size:9.5px;">Normal</span></td>'
+    + '<td style="padding:7px 10px;text-align:center;">'
+    + '<button onclick="removerLinhaIA(' + newIdx + ')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
 
 async function salvarValoresIA() {
   var resultado = _iaResultados;
   if (!resultado || !resultado.exames || !resultado.exames.length) { alert('Sem valores.'); return; }
   var dt = document.getElementById('re-dt').value || resultado.data || new Date().toISOString().split('T')[0];
   var lab = document.getElementById('re-lab').value || resultado.laboratorio || '';
+  // Ler valores editados da tabela
   var vals = {}, temAlt = false;
-  resultado.exames.forEach(function(e) {
-    vals[e.nome] = { valor: e.valor, unidade: e.unidade, refMin: e.refMin, refMax: e.refMax };
-    var st = statusVal(e.valor, e.refMin, e.refMax);
+  var linhas = document.querySelectorAll('#tbodyIA tr');
+  linhas.forEach(function(row) {
+    if (row.style.display === 'none') return; // removido
+    var inputs = row.querySelectorAll('input');
+    if (!inputs.length) return;
+    var nomeEl  = inputs[0];
+    var valorEl = inputs[1];
+    var unitEl  = inputs[2];
+    if (!nomeEl || !valorEl) return;
+    var nome  = (nomeEl.value || '').trim();
+    var valor = parseFloat(valorEl.value);
+    var unit  = unitEl ? (unitEl.value || '') : '';
+    if (!nome || isNaN(valor)) return;
+    // Buscar refMin/refMax do original pelo nome
+    var ref = { refMin: 0, refMax: 999 };
+    DICT_EXAMES.forEach(function(d){ if(d.nome === nome) { ref.refMin = d.refMin; ref.refMax = d.refMax; } });
+    // Buscar no resultado original
+    (resultado.exames||[]).forEach(function(e){ if(e.nome === nome) { ref.refMin = e.refMin; ref.refMax = e.refMax; } });
+    vals[nome] = { valor: valor, unidade: unit, refMin: ref.refMin, refMax: ref.refMax };
+    var st = statusVal(valor, ref.refMin, ref.refMax);
     if (st.c === 'tag-ru' || st.c === 'tag-alt') temAlt = true;
   });
+  if (!Object.keys(vals).length) { alert('Nenhum valor para salvar.'); return; }
   load();
   try {
     await FD.collection('users/' + EU.uid + '/resultados').add({
@@ -1732,6 +1918,87 @@ async function salvarSintoma(){
   unload();
 }
 
+function verComoPaciente() {
+  if (!CUR_PAC || !RESULTADOS.length) { alert('Sem dados de exames para este paciente.'); return; }
+  document.getElementById('vpNome').textContent = CUR_PAC.nome || '';
+  // Temporarily swap EU.perfil to render as patient
+  var _backup = RESULTADOS;
+  var el = document.getElementById('vpCorpo');
+  // Build patient view inline
+  var mapa = unificarExames(RESULTADOS);
+  var params = Object.values(mapa);
+  var total = params.length;
+  var ok    = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
+  var alerta= params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
+  var ruim  = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
+  var pct   = total > 0 ? Math.round(ok/total*100) : 0;
+  var bgGrad = pct>=90?'linear-gradient(135deg,#1a5230,#2e8a48)':pct>=70?'linear-gradient(135deg,#7a5800,#c87800)':'linear-gradient(135deg,#7a0000,#cc0000)';
+  var msg = pct>=90?'Excelente! Seus exames estão ótimos! 🌟':pct>=70?'Você está indo bem! Alguns pontos merecem atenção. 💪':'Atenção! Vários exames precisam de cuidado. ⚠️';
+  var html = '<div style="background:'+bgGrad+';border-radius:12px;padding:20px;margin-bottom:16px;color:#fff;">'
+    + '<div style="font-family:Georgia,serif;font-size:20px;font-weight:700;margin-bottom:6px;">Olá, ' + esc((CUR_PAC.nome||'').split(' ')[0]) + '!</div>'
+    + '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:14px;">' + msg + '</div>'
+    + '<div style="height:8px;background:rgba(0,0,0,.25);border-radius:4px;margin-bottom:12px;overflow:hidden;">'
+    + '<div style="height:100%;width:'+pct+'%;background:rgba(255,255,255,.9);border-radius:4px;"></div></div>'
+    + '<div style="display:flex;gap:10px;">'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+ok+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">✅ Normais</div></div>'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+alerta+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">⚠️ Atenção</div></div>'
+    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+ruim+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">🔴 Alterados</div></div>'
+    + '</div></div>';
+  // Group by sistema
+  var DESCRICOES_PAC = {
+    'Hemoglobina': {ok:'Seu sangue está transportando oxigênio muito bem! 🩸',alt:'Hemoglobina um pouco fora do ideal.',ru:'Hemoglobina alterada. Converse com seu médico.'},
+    'Colesterol Total': {ok:'Colesterol total controlado! Continue com a alimentação saudável. 🥗',alt:'Colesterol um pouco elevado. Reduza gorduras saturadas.',ru:'Colesterol alto. Importante consultar seu médico.'},
+    'HDL': {ok:'Colesterol bom (HDL) ótimo! Exercícios estão funcionando! 💚',alt:'HDL poderia ser mais alto. Exercícios físicos ajudam!',ru:'HDL baixo. Pratique mais atividade física.'},
+    'LDL': {ok:'Colesterol ruim (LDL) sob controle! 👍',alt:'LDL um pouco acima. Cuide da alimentação.',ru:'LDL elevado. Consulte seu médico.'},
+    'Triglicerídeos': {ok:'Triglicerídeos normais! Ótimo! 🎉',alt:'Elevados. Reduza açúcar, álcool e alimentos processados.',ru:'Muito altos. Veja seu médico.'},
+    'Glicose': {ok:'Açúcar no sangue normal. Continue assim! 🍎',alt:'Glicemia um pouco alta. Cuidado com açúcar e carboidratos.',ru:'Glicemia alterada. Consulte seu médico com urgência.'},
+    'TSH': {ok:'Sua tireoide está funcionando perfeitamente! 🦋',alt:'TSH ligeiramente alterado. Monitorar com seu médico.',ru:'TSH alterado. Consulte seu endocrinologista.'},
+    'Vitamina D': {ok:'Vitamina D em bom nível! ☀️ Parabéns!',alt:'Vitamina D um pouco baixa. Tome mais sol pela manhã!',ru:'Vitamina D baixa. Suplementação pode ser necessária.'},
+    'TGO (AST)': {ok:'Seu fígado está saudável! 🟤',alt:'Leve alteração no fígado. Evite álcool.',ru:'Fígado com alterações. Consulte seu médico.'},
+    'TGP (ALT)': {ok:'Fígado funcionando bem! 🟤',alt:'Leve alteração hepática.',ru:'Alteração no fígado. Consulte seu médico.'},
+  };
+  var porSistema = {};
+  params.forEach(function(p) {
+    var ult = p.historico[p.historico.length-1];
+    var st  = statusVal(ult.valor, p.refMin, p.refMax);
+    p._ultimo = ult; p._st = st;
+    // Find sistema from DICT
+    var sistema = 'Outros';
+    DICT_EXAMES.forEach(function(d){ if(d.nome === p.nome) sistema = d.sistema||'Outros'; });
+    if (!porSistema[sistema]) porSistema[sistema] = [];
+    porSistema[sistema].push(p);
+  });
+  Object.keys(porSistema).forEach(function(sis) {
+    var info = SISTEMAS_INFO[sis] || {titulo:sis, icone:'🔬', cor:'#666'};
+    var lista = porSistema[sis];
+    html += '<div style="margin-bottom:14px;">'
+      + '<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+info.cor+';'
+      + 'padding:7px 12px;background:'+info.cor+'15;border-radius:7px;margin-bottom:8px;border-left:3px solid '+info.cor+';">'
+      + info.icone + ' ' + info.titulo + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">'
+      + lista.map(function(p) {
+          var cor = p._st.c==='tag-ok'?'#1a7a40':p._st.c==='tag-alt'?'#c87800':'#cc2222';
+          var emoji = p._st.c==='tag-ok'?'✅':p._st.c==='tag-alt'?'⚠️':'🔴';
+          var descMap = DESCRICOES_PAC[p.nome] || {};
+          var desc = p._st.c==='tag-ok'?(descMap.ok||'Valor normal! ✅'):p._st.c==='tag-alt'?(descMap.alt||'Valor ligeiramente fora do ideal.'):( descMap.ru||'Valor alterado. Consulte seu médico.');
+          var pct2 = (p.refMax-p.refMin)>0 ? Math.min(95,Math.max(5,((p._ultimo.valor-p.refMin)/(p.refMax-p.refMin)*80)+10)) : 50;
+          return '<div style="background:#fff;border-radius:10px;padding:13px;border:1.5px solid #eee;">'
+            + '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+            + '<span style="font-size:12px;font-weight:700;">' + esc(p.nome) + '</span><span>' + emoji + '</span></div>'
+            + '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:'+cor+';margin-bottom:4px;">'
+            + p._ultimo.valor + ' <span style="font-size:10px;font-family:sans-serif;color:#aaa;">' + esc(p.info ? p.info.unidade : '') + '</span></div>'
+            + '<div style="height:5px;background:#e8e4de;border-radius:3px;margin:6px 0;position:relative;">'
+            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'20;border-radius:3px;"></div>'
+            + '<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:'+cor+';border:2px solid #fff;"></div></div>'
+            + '<div style="font-size:11px;color:#666;line-height:1.5;">' + desc + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+  abrirMo('ver-paciente');
+}
+
 // ═══════════════════ MODAIS ═══════════════════
 function abrirMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.add('open'); if(id==='res'){document.getElementById('re-dt').value=new Date().toISOString().split('T')[0];carregarAreas();} if(id==='area'){paramCnt=0;document.getElementById('na-params').innerHTML='';addParam();addParam();} }
 function fecharMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.remove('open'); }
@@ -1744,9 +2011,10 @@ document.querySelectorAll('.mo').forEach(function(m){ m.addEventListener('click'
 function ptab(el,t){
   document.querySelectorAll('.ptab').forEach(function(x){x.classList.remove('on');});
   el.classList.add('on');
-  ['pt-res','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
+  ['pt-res','pt-res-pac','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.style.display=id===t?'block':'none';
   });
+  if(t==='pt-res-pac') renderResAreasPaciente();
 }
 
 </script>
