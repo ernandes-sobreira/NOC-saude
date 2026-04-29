@@ -7,95 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
-<!-- Firebase SDKs via CDN compat — funciona em arquivo local e GitHub Pages -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
-  authDomain: "sopa-fd8b8.firebaseapp.com",
-  projectId: "sopa-fd8b8",
-  storageBucket: "sopa-fd8b8.firebasestorage.app",
-  messagingSenderId: "962393498465",
-  appId: "1:962393498465:web:fc2023af290ce9b6a31b20"
-};
 
-firebase.initializeApp(firebaseConfig);
-const _auth = firebase.auth();
-const _db   = firebase.firestore();
-const _stor  = firebase.storage();
-
-// Adapta API compat para o mesmo formato usado no código
-window._fb = {
-  auth: _auth,
-  db: _db,
-  stor: _stor,
-  // Auth
-  signInWithEmailAndPassword: (auth, email, pass) => _auth.signInWithEmailAndPassword(email, pass),
-  createUserWithEmailAndPassword: (auth, email, pass) => _auth.createUserWithEmailAndPassword(email, pass),
-  signOut: (auth) => _auth.signOut(),
-  onAuthStateChanged: (auth, cb) => _auth.onAuthStateChanged(cb),
-  // Firestore
-  collection: (db, path) => _db.collection(path),
-  doc: (db, ...args) => {
-    // doc(db, 'col/id') ou doc(db, 'col', 'id')
-    if(args.length === 1) {
-      const parts = args[0].split('/');
-      let ref = _db;
-      parts.forEach((p,i) => { ref = i%2===0 ? ref.collection(p) : ref.doc(p); });
-      return ref;
-    }
-    // doc(db, 'col/sub/col', 'id') — path com slashes + id separado
-    const pathParts = args[0].split('/');
-    let ref = _db;
-    pathParts.forEach((p,i) => { ref = i%2===0 ? ref.collection(p) : ref.doc(p); });
-    if(args[1]) ref = ref.doc ? ref.doc(args[1]) : ref;
-    // se ainda precisar de mais partes
-    for(let i=2;i<args.length;i++) ref = i%2===0 ? ref.collection(args[i]) : ref.doc(args[i]);
-    return ref;
-  },
-  setDoc: (ref, data, opts) => opts && opts.merge ? ref.set(data, {merge:true}) : ref.set(data),
-  getDoc: (ref) => ref.get(),
-  getDocs: (q) => q.get(),
-  addDoc: (ref, data) => ref.add(data),
-  updateDoc: (ref, data) => ref.update(data),
-  deleteDoc: (ref) => ref.delete(),
-  query: (ref, ...constraints) => {
-    let q = ref;
-    constraints.forEach(c => { if(c && c._apply) q = c._apply(q); });
-    return q;
-  },
-  where: (field, op, val) => ({ _apply: (q) => q.where(field, op, val) }),
-  orderBy: (field, dir) => ({ _apply: (q) => q.orderBy(field, dir||'asc') }),
-  limit: (n) => ({ _apply: (q) => q.limit(n) }),
-  serverTimestamp: () => firebase.firestore.FieldValue.serverTimestamp(),
-  // Storage
-  ref: (stor, path) => _stor.ref(path),
-  uploadBytes: (ref, file) => ref.put(file),
-  getDownloadURL: (ref) => ref.getDownloadURL(),
-  deleteObject: (ref) => ref.delete(),
-};
-
-// Adapta getDoc/getDocs para retornar objeto com .exists() e .data()
-const _origGetDoc = window._fb.getDoc;
-window._fb.getDoc = async function(ref) {
-  const snap = await ref.get();
-  return { exists: () => snap.exists, data: () => snap.data(), id: snap.id };
-};
-window._fb.getDocs = async function(q) {
-  const snap = await q.get();
-  return { forEach: (cb) => snap.forEach(d => cb({ id: d.id, data: () => d.data(), exists: () => d.exists })) };
-};
-window._fb.addDoc = async function(ref, data) {
-  const docRef = await ref.add(data);
-  return { id: docRef.id };
-};
-
-window._fbReady = true;
-window.dispatchEvent(new Event('fbready'));
-</script>
 
 <style>
 :root{
@@ -338,8 +250,90 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
 </style>
+<!-- Firebase Compat — funciona em arquivo local e GitHub Pages -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script>
+(function(){
+  var cfg = {
+    apiKey: "AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
+    authDomain: "sopa-fd8b8.firebaseapp.com",
+    projectId: "sopa-fd8b8",
+    storageBucket: "sopa-fd8b8.firebasestorage.app",
+    messagingSenderId: "962393498465",
+    appId: "1:962393498465:web:fc2023af290ce9b6a31b20"
+  };
+  firebase.initializeApp(cfg);
+  var FA = firebase.auth();
+  var FD = firebase.firestore();
+  var FS = firebase.storage();
+
+  function _doc(path, id) {
+    var parts = path.split('/');
+    var r = FD;
+    for(var i=0;i<parts.length;i++){
+      r = (i%2===0) ? r.collection(parts[i]) : r.doc(parts[i]);
+    }
+    if(id) r = r.doc(id);
+    return r;
+  }
+
+  window._fb = {
+    auth: FA, db: FD, stor: FS,
+    signInWithEmailAndPassword: function(a,em,ps){ return FA.signInWithEmailAndPassword(em,ps); },
+    createUserWithEmailAndPassword: function(a,em,ps){ return FA.createUserWithEmailAndPassword(em,ps); },
+    signOut: function(){ return FA.signOut(); },
+    onAuthStateChanged: function(a,cb){ return FA.onAuthStateChanged(cb); },
+    collection: function(db,path){ return FD.collection(path); },
+    doc: function(db,path,id){ return _doc(path,id); },
+    setDoc: function(ref,data,opts){ return (opts&&opts.merge)?ref.set(data,{merge:true}):ref.set(data); },
+    getDoc: async function(ref){
+      var s=await ref.get();
+      return {exists:function(){return s.exists;}, data:function(){return s.data();}, id:s.id};
+    },
+    getDocs: async function(q){
+      var s=await q.get();
+      return {forEach:function(cb){ s.forEach(function(d){ cb({id:d.id,data:function(){return d.data();},exists:function(){return d.exists;}}); }); }};
+    },
+    addDoc: async function(ref,data){ var r=await ref.add(data); return {id:r.id}; },
+    updateDoc: function(ref,data){ return ref.update(data); },
+    deleteDoc: function(ref){ return ref.delete(); },
+    query: function(ref){
+      var q=ref;
+      for(var i=1;i<arguments.length;i++){ if(arguments[i]&&arguments[i]._fn) q=arguments[i]._fn(q); }
+      return q;
+    },
+    where: function(f,op,v){ return {_fn:function(q){return q.where(f,op,v);}}; },
+    orderBy: function(f,d){ return {_fn:function(q){return q.orderBy(f,d||'asc');}}; },
+    limit: function(n){ return {_fn:function(q){return q.limit(n);}}; },
+    serverTimestamp: function(){ return firebase.firestore.FieldValue.serverTimestamp(); },
+    ref: function(s,path){ return FS.ref(path); },
+    uploadBytes: function(ref,file){ return ref.put(file); },
+    getDownloadURL: function(ref){ return ref.getDownloadURL(); },
+    deleteObject: function(ref){ return ref.delete(); }
+  };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('fbready'));
+})();
+</script>
 </head>
 <body>
+<script>
+// Funções de UI — definidas imediatamente, sem dependência do Firebase
+function authTab(t){
+  var login = document.getElementById('ap-login');
+  var cad = document.getElementById('ap-cadastro');
+  var tLogin = document.getElementById('atab-login');
+  var tCad = document.getElementById('atab-cadastro');
+  if(!login||!cad) return;
+  login.style.display = t==='login' ? 'block' : 'none';
+  cad.style.display = t==='cadastro' ? 'block' : 'none';
+  if(tLogin){ tLogin.classList.toggle('on', t==='login'); }
+  if(tCad){ tCad.classList.toggle('on', t==='cadastro'); }
+}
+</script>
 
 <div id="loader"><div class="spin"></div><div id="loaderTxt" style="font-size:13px;color:var(--t3);">Carregando...</div></div>
 <div id="toast"></div>
@@ -756,12 +750,7 @@ waitFB(function(){
   });
 });
 
-function authTab(t){
-  document.getElementById('atab-login').classList.toggle('on', t==='login');
-  document.getElementById('atab-cadastro').classList.toggle('on', t==='cadastro');
-  document.getElementById('ap-login').style.display = t==='login' ? 'block' : 'none';
-  document.getElementById('ap-cadastro').style.display = t==='cadastro' ? 'block' : 'none';
-}
+// authTab definido no topo do body
 
 function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
 function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
