@@ -11,7 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:sans-serif;background:#111820;min-height:100vh;}
+body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;}
 .box{background:#fff;border-radius:16px;width:400px;max-width:96vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
 .topo{background:#111820;padding:16px 20px;display:flex;align-items:center;gap:10px;}
 .marca{font-size:22px;color:#6de090;letter-spacing:5px;font-weight:700;font-family:Georgia,serif;}
@@ -142,8 +142,7 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
 </head>
 <body>
 
-<div class="box" id="loginBox" style="position:fixed;inset:0;background:#111820;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;">
-<div style="background:#fff;border-radius:16px;width:400px;max-width:96vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+<div class="box" id="loginBox">
   <div class="topo">
     <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
       <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
@@ -210,7 +209,6 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
     <p style="font-size:11px;color:#aaa;text-align:center;margin-top:8px">Código: NOC@admin2025</p>
   </div>
 </div>
-</div><!-- /loginBox inner -->
 
 <div id="loader"><div class="spin"></div><span style="font-size:13px;color:#666;">Carregando...</span></div>
 
@@ -303,14 +301,15 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
     <div class="pg" id="pg-pront">
       <div class="pr-head" id="prHead"></div>
       <div class="ptabs" id="ptabs">
-        <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo Médico</div>
+        <div class="ptab on" onclick="ptab(this,'pt-res')">📋 Resumo</div>
+        <div class="ptab" onclick="ptab(this,'pt-res-pac')">👤 Visão Paciente</div>
         <div class="ptab" onclick="ptab(this,'pt-exames')">🧪 Exames</div>
         <div class="ptab" onclick="ptab(this,'pt-laudos')">📁 Laudos</div>
         <div class="ptab" onclick="ptab(this,'pt-sint')">💬 Sintomas</div>
         <div class="ptab" onclick="ptab(this,'pt-agenda')">📅 Agenda</div>
       </div>
       <div id="pt-res"><div class="area-grid" id="resAreas"></div></div>
-      <div id="pt-res-pac" style="display:none;"><div id="resAreasPac"></div></div>
+      <div id="pt-res-pac" style="display:none;"><div id="comoConteudoMed"></div></div>
       <div id="pt-exames" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;">Resultados</span>
@@ -328,26 +327,21 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
           <div style="font-size:11px;color:#aaa;margin-top:3px;">PDF · JPG · PNG · máx 10MB</div>
           <input type="file" id="fileInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelect(this.files)">
         </div>
-        <!-- LEITURA IA -->
-        <div style="background:linear-gradient(135deg,#1a2e1e,#2a5c34);border-radius:10px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
-          <div style="font-size:28px;">🤖</div>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;">Extrair exames do PDF com IA</div>
-            <div style="font-size:11.5px;color:rgba(255,255,255,.65);">Faça upload do laudo PDF e a IA extrai os valores automaticamente</div>
-          </div>
-          <div>
-            <input type="file" id="pdfIAInp" style="display:none" accept=".pdf,.jpg,.jpeg,.png" onchange="lerPDFcomIA(this.files[0])">
-            <button onclick="document.getElementById('pdfIAInp').click()" style="padding:9px 14px;border-radius:7px;background:#6de090;color:#111820;font-size:12.5px;font-weight:700;border:none;cursor:pointer;font-family:sans-serif;">📎 Enviar PDF</button>
-          </div>
+        <!-- LEITOR PDF -->
+        <div style="background:linear-gradient(135deg,#1a2e1e,#2a5c34);border-radius:10px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:26px;">🤖</div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;">Extrair exames do PDF</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.65);">Envie o laudo e o sistema lê automaticamente</div></div>
+          <div><input type="file" id="pdfIAInp" style="display:none" accept=".pdf" onchange="lerPDFcomIA(this.files[0])">
+          <button onclick="document.getElementById('pdfIAInp').click()" style="padding:8px 13px;border-radius:7px;background:#6de090;color:#111820;font-size:12.5px;font-weight:700;border:none;cursor:pointer;">📎 Enviar PDF</button></div>
         </div>
-        <!-- Resultado da IA -->
-        <div id="iaResult" style="display:none;background:#fff;border:1.5px solid #2e8a48;border-radius:10px;padding:16px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div style="font-size:13px;font-weight:700;color:#1a5230;">✅ IA encontrou estes valores:</div>
-            <button onclick="salvarValoresIA()" style="padding:7px 14px;border-radius:7px;background:#1a7a40;color:#fff;font-size:12.5px;font-weight:700;border:none;cursor:pointer;font-family:sans-serif;">💾 Salvar tudo</button>
+        <div id="iaResult" style="display:none;background:#fff;border:1.5px solid #2e8a48;border-radius:10px;padding:14px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;color:#1a5230;">✅ Exames encontrados — confira e salve:</div>
+            <button onclick="salvarValoresIA()" style="padding:7px 13px;border-radius:7px;background:#1a7a40;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">💾 Salvar tudo</button>
           </div>
           <div id="iaValores"></div>
-          <div style="font-size:11px;color:#888;margin-top:10px;">⚠️ Confira os valores antes de salvar. A IA pode errar em laudos com formatação incomum.</div>
+          <div style="font-size:10.5px;color:#888;margin-top:8px;">⚠️ Confira os valores. O leitor pode errar em PDFs com formatação incomum.</div>
         </div>
         <div id="laudoList"></div>
       </div>
@@ -416,7 +410,7 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
         <div class="sep">Dados Pessoais</div>
         <div class="fg" style="grid-column:1/-1"><label>Nome Completo *</label><input id="np-nm" placeholder="Nome do paciente"></div>
         <div class="fg"><label>Data Nascimento</label><input id="np-dn" type="date"></div>
-        <div class="fg"><label>Sexo</label><select id="np-sx"><option value="">—</option><option>Masculino</option><option>Feminino</option><option>Outro</option></select></div>
+        <div class="fg"><label>Sexo</label><select id="np-sx"><option value="">—</option><option>Masculino</option><option>Feminino</option></select></div>
         <div class="fg"><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div>
         <div class="fg"><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div>
         <div class="fg" style="grid-column:1/-1"><label>E-mail do paciente</label><input id="np-em" type="email" placeholder="paciente@email.com"></div>
@@ -499,18 +493,6 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
     <div class="mo-foot"><button class="bta bta-o" onclick="fecharMo('medico')">Cancelar</button><button class="bta bta-gr" onclick="salvarMedico()">Criar Médico</button></div>
   </div>
 </div>
-
-<!-- Modal: Ver como paciente -->
-<div class="mo" id="mo-ver-paciente">
-  <div class="mo-box" style="max-width:700px;">
-    <div class="mo-head">
-      <span class="mo-title">👁 Visão do Paciente — <span id="vpNome"></span></span>
-      <button class="mo-x" onclick="fecharMo('ver-paciente')">✕</button>
-    </div>
-    <div class="mo-body" style="max-height:75vh;overflow-y:auto;" id="vpCorpo"></div>
-  </div>
-</div>
-
 
 <script>
 firebase.initializeApp({
@@ -617,7 +599,7 @@ function sair() { FA.signOut(); }
 // ═══════════════════ INIT ═══════════════════
 FA.onAuthStateChanged(async function(user) {
   if (!user) {
-    document.getElementById('loginBox').style.display = 'flex';
+    document.getElementById('loginBox').style.display = 'block';
     document.getElementById('app').style.display = 'none';
     return;
   }
@@ -678,7 +660,7 @@ function irPg(id) {
   if(id==='pacientes') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoPac()">+ Novo Paciente</button>';
   else if(id==='medicos') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoMedico()">+ Novo Médico</button>';
   else if(id==='config') ta.innerHTML='<button class="bta bta-gr" onclick="abrirMoArea()">+ Nova Área</button>';
-  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-o" onclick="irPg(\'pacientes\')">← Voltar</button><button class="bta bta-gr" onclick="abrirMoRes()">+ Exame</button><button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')">📎 Laudo</button><button class="bta bta-o" onclick="abrirMoAg()">📅 Agendar</button><button class="bta" style="background:#4e1ea0;color:#fff;" onclick="verComoPaciente()">👁 Ver como Paciente</button>';
+  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-o" onclick="irPg(\'pacientes\')">← Voltar</button><button class="bta bta-gr" onclick="abrirMoRes()">+ Exame</button><button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')">📎 Laudo</button><button class="bta bta-o" onclick="abrirMoAg()">📅 Agendar</button><button class="bta" style="background:#4e1ea0;color:#fff;" onclick="ptab(document.querySelectorAll(\'.ptab\')[1],\'pt-res-pac\');renderComoPacienteMed()">👁 Ver como Paciente</button>';
   else ta.innerHTML='';
   // Lazy loading
   if(id==='pacientes') renderPacs(PACS);
@@ -879,16 +861,18 @@ async function abrirPront(id) {
       +'<span class="tag tag-med">'+esc(p.especialidade||'—')+'</span>'
       +(p.temAlteracao?'<span class="tag tag-alt">⚠ Tem alterações</span>':'<span class="tag tag-ok">✓ Sem alterações críticas</span>')
       +'</div></div>'
-      +'';
-    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).get();
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'
+      +'<button class="bta bta-o" onclick="irPg(\'pacientes\')" style="font-size:11px;">← Voltar</button>'
+      +'<button class="bta bta-gr" onclick="abrirMoRes()" style="font-size:11px;">+ Exame</button>'
+      +'<button class="bta bta-o" onclick="ptab(document.querySelectorAll(\'.ptab\')[2],\'pt-laudos\')" style="font-size:11px;">📎 Laudo</button>'
+      +'<button class="bta bta-o" onclick="abrirMoAg()" style="font-size:11px;">📅 Agendar</button>'
+      +'</div>';
+    var rSnap = await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',id).orderBy('data','desc').get();
     RESULTADOS = []; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
-    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
-    var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).get();
+    var lSnap = await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',id).orderBy('criadoEm','desc').get();
     LAUDOS = []; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
-    LAUDOS.sort(function(a,b){return (b.criadoEm||'').toString().localeCompare((a.criadoEm||'').toString());});
-    var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).get();
+    var aSnap = await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',id).orderBy('data','desc').get();
     AGENDAMENTOS = []; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
-    AGENDAMENTOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
     renderResAreas(); renderExTbl(); renderLaudoList(); renderAgList();
     irPg('pront');
     ptab(document.querySelector('.ptab'),'pt-res');
@@ -1026,372 +1010,20 @@ async function salvarRes() {
   unload();
 }
 
-
-// ══════════════════════════════════════════
-//  UNIFICAR EXAMES POR NOME (todas as áreas)
-// ══════════════════════════════════════════
-function unificarExames(resultados) {
-  var mapa = {};
-  resultados.forEach(function(r) {
-    Object.keys(r.valores || {}).forEach(function(nome) {
-      var info = r.valores[nome];
-      var key  = nome.trim().toLowerCase();
-      if (!mapa[key]) {
-        // Buscar info do dicionário
-        var sistema = 'Outros', icone = '🔬', nomeOficial = nome;
-        if (typeof DICT_EXAMES !== 'undefined') {
-          DICT_EXAMES.forEach(function(d) {
-            if (d.nome.toLowerCase() === key || d.sinonimos.indexOf(key) !== -1) {
-              sistema = d.sistema || 'Outros';
-              icone   = d.icone  || '🔬';
-              nomeOficial = d.nome; // usar nome oficial do dicionário
-            }
-          });
-        }
-        mapa[key] = {
-          nome: nomeOficial, unidade: info.unidade,
-          refMin: info.refMin, refMax: info.refMax,
-          sistema: sistema, icone: icone,
-          historico: []
-        };
-      }
-      mapa[key].historico.push({ data: r.data, valor: info.valor, lab: r.lab || '' });
-    });
-  });
-  Object.values(mapa).forEach(function(p) {
-    p.historico.sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
-  });
-  return mapa;
-}
-
-// ══════════════════════════════════════════
-//  RENDERIZAR RESUMO — MÉDICO (técnico)
-// ══════════════════════════════════════════
-var _chartInstances = {};
-
 function renderResAreas() {
-  var el = document.getElementById('resAreas'); if (!el) return;
-  // Destruir gráficos antigos
-  Object.values(_chartInstances).forEach(function(ch){ try{ch.destroy();}catch(e){} });
-  _chartInstances = {};
-
-  if (!RESULTADOS.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;">'
-      + '<div style="font-size:40px;margin-bottom:10px;">🧪</div>'
-      + '<p style="color:#aaa;font-size:13px;">Nenhum resultado ainda.<br>Clique em <b>+ Exame</b> ou envie um laudo pela aba Laudos.</p></div>';
-    return;
-  }
-
-  var mapa = unificarExames(RESULTADOS);
-  var params = Object.values(mapa);
-
-  // Separar em grupos: alterados / atenção / normais
-  var alterados = [], atencao = [], normais = [];
-  params.forEach(function(p) {
-    var ult = p.historico[p.historico.length - 1];
-    var st  = statusVal(ult.valor, p.refMin, p.refMax);
-    p._ultimo = ult; p._st = st;
-    if (st.c === 'tag-ru')  alterados.push(p);
-    else if (st.c === 'tag-alt') atencao.push(p);
-    else                         normais.push(p);
-  });
-
-  var html = '';
-
-  // Seção: Atenção imediata
-  if (alterados.length) {
-    html += secaoParams('🔴 Requer Atenção', alterados, '#cc2222', '#fff0f0');
-  }
-  if (atencao.length) {
-    html += secaoParams('⚠️ Atenção', atencao, '#c87800', '#fff7e0');
-  }
-  if (normais.length) {
-    html += secaoParams('✅ Dentro do Normal', normais, '#1a7a40', '#e8f5ed');
-  }
-
-  el.innerHTML = '<div style="grid-column:1/-1;">' + html + '</div>';
-
-  // Renderizar mini-gráficos
-  params.forEach(function(p) {
-    if (p.historico.length < 2) return;
-    var canvasId = 'ch-' + p.nome.replace(/[^a-zA-Z0-9]/g,'');
-    var canvas   = document.getElementById(canvasId);
-    if (!canvas) return;
-    // Destruir gráfico existente neste canvas se houver
-    var existing = Chart.getChart(canvas);
-    if (existing) existing.destroy();
-    var cor = p._st.c === 'tag-ok' ? '#1a7a40' : p._st.c === 'tag-alt' ? '#c87800' : '#cc2222';
-    _chartInstances[canvasId] = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: p.historico.map(function(h){ return fdt(h.data).split('/').slice(0,2).join('/'); }),
-        datasets: [{
-          data:   p.historico.map(function(h){ return h.valor; }),
-          borderColor: cor, backgroundColor: cor + '22',
-          borderWidth: 2, pointRadius: 4, pointBackgroundColor: cor,
-          tension: 0.3, fill: true
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#aaa' } },
-          y: {
-            grid: { color: '#f0ede8' },
-            ticks: { font: { size: 9 }, color: '#aaa' },
-            suggestedMin: p.refMin * 0.7,
-            suggestedMax: p.refMax * 1.3
-          }
-        }
-      }
-    });
-  });
-}
-
-function secaoParams(titulo, params, cor, bgCor) {
-  return '<div style="margin-bottom:20px;">'
-    + '<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:' + cor + ';'
-    + 'padding:8px 14px;background:' + bgCor + ';border-radius:8px;margin-bottom:10px;border-left:4px solid ' + cor + ';">' + titulo + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">'
-    + params.map(function(p) { return cardParam(p); }).join('')
-    + '</div></div>';
-}
-
-function cardParam(p) {
-  var ult = p._ultimo, st = p._st;
-  var v = ult.valor, mn = p.refMin, mx = p.refMax;
-  var cor = st.c === 'tag-ok' ? '#1a7a40' : st.c === 'tag-alt' ? '#c87800' : '#cc2222';
-  var bgCor = st.c === 'tag-ok' ? '#e8f5ed' : st.c === 'tag-alt' ? '#fff7e0' : '#fff0f0';
-  var emoji = st.c === 'tag-ok' ? '✅' : st.c === 'tag-alt' ? '⚠️' : '🔴';
-
-  // Posição na barra
-  var range = mx - mn;
-  var pct = range > 0 ? Math.min(95, Math.max(5, ((v - mn) / range) * 80 + 10)) : 50;
-
-  // Tendência
-  var tend = '';
-  if (p.historico.length > 1) {
-    var prev = p.historico[p.historico.length - 2].valor;
-    var diff = ((v - prev) / (prev || 1) * 100).toFixed(1);
-    var seta = v > prev ? '↑' : v < prev ? '↓' : '→';
-    var corSeta = v > prev && v > mx ? '#cc2222' : v < prev && v < mn ? '#cc2222' : '#1a7a40';
-    tend = '<span style="font-size:11px;color:' + corSeta + ';font-weight:700;">'
-         + seta + ' ' + Math.abs(diff) + '%</span>';
-  }
-
-  var canvasId = 'ch-' + p.nome.replace(/[^a-zA-Z0-9]/g,'');
-  var hasGrafico = p.historico.length >= 2;
-
-  return '<div style="background:#fff;border-radius:12px;padding:15px;border:1.5px solid #eee;'
-    + 'box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s;" '
-    + 'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,.1)\'" '
-    + 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.06)\'">'
-    // Linha de título
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    + '<span style="font-size:12px;font-weight:700;color:#333;">' + esc(p.nome) + '</span>'
-    + '<span>' + emoji + '</span></div>'
-    // Valor principal
-    + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:11px;">'
-    + '<span style="font-family:Georgia,serif;font-size:34px;font-weight:700;line-height:1;color:' + cor + ';">' + v + '</span>'
-    + '<span style="font-size:11px;color:#aaa;">' + esc(p.unidade) + '</span>'
-    + '<span style="margin-left:auto;">' + tend + '</span></div>'
-    // Barra
-    + '<div style="margin-bottom:8px;">'
-    + '<div style="position:relative;height:7px;background:#e8e4de;border-radius:4px;margin-bottom:4px;">'
-    + '<div style="position:absolute;left:10%;width:80%;height:100%;background:' + cor + '15;border-radius:4px;"></div>'
-    + '<div style="position:absolute;left:' + pct + '%;top:50%;transform:translate(-50%,-50%);'
-    + 'width:13px;height:13px;border-radius:50%;background:' + cor + ';border:2px solid #fff;'
-    + 'box-shadow:0 0 0 2px ' + cor + ';z-index:2;"></div></div>'
-    + '<div style="display:flex;justify-content:space-between;font-size:9px;color:#bbb;">'
-    + '<span>' + mn + '</span>'
-    + '<span style="color:#1a7a40;font-weight:600;">Normal: ' + mn + '–' + mx + '</span>'
-    + '<span>' + mx + '</span></div></div>'
-    // Mini gráfico
-    + (hasGrafico ? '<div style="height:60px;margin-top:8px;"><canvas id="' + canvasId + '"></canvas></div>' : '')
-    // Data
-    + '<div style="font-size:10px;color:#bbb;margin-top:8px;text-align:right;">'
-    + fdt(ult.data) + (ult.lab ? ' · ' + esc(ult.lab) : '') + '</div>'
-    + '</div>';
-}
-
-// ══════════════════════════════════════════
-//  DASHBOARD PACIENTE — LÚDICO
-// ══════════════════════════════════════════
-function renderComo() {
-  var el = document.getElementById('comoConteudo'); if (!el) return;
-  if (!RESULTADOS || !RESULTADOS.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
-      + '<div style="font-size:60px;margin-bottom:14px;">🏥</div>'
-      + '<h2 style="font-family:Georgia,serif;font-size:20px;margin-bottom:8px;">Olá!</h2>'
-      + '<p style="color:#666;font-size:13px;line-height:1.7;">Seus resultados aparecerão aqui<br>quando seu médico os cadastrar.</p></div>';
-    return;
-  }
-
-  var mapa = unificarExames(RESULTADOS);
-  var params = Object.values(mapa);
-  var total = params.length;
-  var ok    = params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
-  var alerta= params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
-  var ruim  = params.filter(function(p){ var u=p.historico[p.historico.length-1]; return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
-  var pct   = total > 0 ? Math.round(ok/total*100) : 0;
-
-  // Hero dinâmico
-  var heroData;
-  if (pct >= 90) heroData = {bg:'linear-gradient(135deg,#0d4a24,#1a8a40)', emoji:'🏆', titulo:'Saúde em dia!', sub:'Seus exames estão excelentes. Continue assim!', badge:'ÓTIMO'};
-  else if (pct >= 70) heroData = {bg:'linear-gradient(135deg,#3a2800,#b07000)', emoji:'💪', titulo:'Indo muito bem!', sub:'A maioria dos seus exames está normal. Alguns merecem atenção.', badge:'BOM'};
-  else if (pct >= 40) heroData = {bg:'linear-gradient(135deg,#3a1800,#b04000)', emoji:'⚠️', titulo:'Atenção necessária', sub:'Vários exames precisam de cuidado. Fale com seu médico.', badge:'ATENÇÃO'};
-  else heroData = {bg:'linear-gradient(135deg,#3a0000,#880000)', emoji:'❤️', titulo:'Consulte seu médico', sub:'Vários exames estão alterados. Marque uma consulta.', badge:'URGENTE'};
-
-  var html = '<div style="background:'+heroData.bg+';border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;">'
-    + '<div style="position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.15;">'+heroData.emoji+'</div>'
-    + '<div style="display:inline-block;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.2);font-size:10px;font-weight:700;letter-spacing:1.5px;margin-bottom:10px;">'+heroData.badge+'</div>'
-    + '<div style="font-family:Georgia,serif;font-size:24px;font-weight:700;margin-bottom:5px;">'+heroData.emoji+' '+heroData.titulo+'</div>'
-    + '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:16px;">'+heroData.sub+'</div>'
-    // Barra de saúde
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
-    + '<div style="font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;">Índice de saúde</div>'
-    + '<div style="flex:1;height:10px;background:rgba(0,0,0,.3);border-radius:5px;overflow:hidden;">'
-    + '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6de090,#fff);border-radius:5px;transition:width 1.5s ease;"></div></div>'
-    + '<div style="font-size:16px;font-weight:800;color:#fff;">'+pct+'%</div></div>'
-    // Contadores
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'
-    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
-    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+ok+'</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">✅ Normais</div></div>'
-    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
-    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+alerta+'</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">⚠️ Atenção</div></div>'
-    + '<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;">'
-    + '<div style="font-size:28px;font-weight:800;line-height:1;">'+ruim+'</div>'
-    + '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;">🔴 Alterados</div></div>'
-    + '</div></div>';
-
-  // Por sistema — organizado e lúdico
-  var porSistema = {};
-  params.forEach(function(p) {
-    var sis = p.sistema || 'Outros';
-    if (!porSistema[sis]) porSistema[sis] = {ok:[], atencao:[], ruim:[]};
-    var u = p.historico[p.historico.length-1];
-    var st = statusVal(u.valor, p.refMin, p.refMax);
-    p._ultimo = u; p._st = st;
-    if (st.c==='tag-ok') porSistema[sis].ok.push(p);
-    else if (st.c==='tag-alt') porSistema[sis].atencao.push(p);
-    else porSistema[sis].ruim.push(p);
-  });
-
-  var DESCR_PAC = {
-    'Hemoglobina':      {ok:'Seu sangue está transportando oxigênio muito bem! 🩸', alt:'Hemoglobina levemente alterada. Fique atento.', ru:'Hemoglobina alterada. Consulte seu médico.'},
-    'Hematócrito':      {ok:'Concentração do sangue normal! ✅', alt:'Hematócrito levemente fora do ideal.', ru:'Hematócrito alterado. Consulte seu médico.'},
-    'Leucócitos':       {ok:'Suas defesas estão em boa forma! 🛡️', alt:'Leucócitos levemente alterados.', ru:'Leucócitos alterados. Consulte seu médico.'},
-    'Plaquetas':        {ok:'Coagulação do sangue normal! ✅', alt:'Plaquetas levemente alteradas.', ru:'Plaquetas alteradas. Consulte seu médico.'},
-    'Colesterol Total': {ok:'Colesterol total controlado! 🥗', alt:'Colesterol um pouco elevado. Reduza gorduras.', ru:'Colesterol alto. Consulte seu médico.'},
-    'HDL':              {ok:'Colesterol bom (HDL) ótimo! 💚 Exercícios funcionando!', alt:'HDL poderia ser mais alto. Exercícios ajudam!', ru:'HDL baixo. Pratique mais atividade física.'},
-    'LDL':              {ok:'Colesterol ruim (LDL) sob controle! 👍', alt:'LDL um pouco acima. Cuide da alimentação.', ru:'LDL elevado. Consulte seu médico.'},
-    'Triglicerídeos':   {ok:'Triglicerídeos normais! 🎉', alt:'Elevados. Reduza açúcar e alimentos processados.', ru:'Muito altos. Consulte seu médico.'},
-    'TGO (AST)':        {ok:'Seu fígado está saudável! 🟤', alt:'Leve alteração no fígado. Evite álcool.', ru:'Fígado com alterações. Consulte seu médico.'},
-    'TGP (ALT)':        {ok:'Fígado funcionando bem! 🟤', alt:'Leve alteração hepática. Evite álcool.', ru:'Fígado alterado. Consulte seu médico.'},
-    'GGT':              {ok:'Enzima do fígado normal! ✅', alt:'GGT levemente elevada. Evite álcool.', ru:'GGT elevada. Consulte seu médico.'},
-    'Fosfatase Alcalina':{ok:'Ossos e fígado normais! ✅', alt:'Fosfatase levemente alterada.', ru:'Fosfatase alcalina alta. Consulte seu médico.'},
-    'Glicose':          {ok:'Açúcar no sangue normal! 🍎 Continue assim!', alt:'Glicemia um pouco alta. Cuidado com açúcar.', ru:'Glicemia alterada. Consulte seu médico urgente.'},
-    'TSH':              {ok:'Tireoide funcionando perfeitamente! 🦋', alt:'TSH ligeiramente alterado. Monitore com seu médico.', ru:'TSH alterado. Consulte seu endocrinologista.'},
-    'T4 Livre':         {ok:'Hormônio da tireoide normal! 🦋', alt:'T4 livre levemente alterado.', ru:'T4 livre alterado. Consulte seu médico.'},
-    'Testosterona Total':{ok:'Testosterona total excelente! 💪', alt:'Testosterona levemente fora do ideal.', ru:'Testosterona alterada. Consulte seu médico.'},
-    'Testosterona Livre':{ok:'Testosterona livre ótima! 💪', alt:'Testosterona livre levemente fora do ideal.', ru:'Testosterona livre alterada. Consulte seu médico.'},
-    'SHBG':             {ok:'Proteína transportadora normal! ✅', alt:'SHBG levemente alterado.', ru:'SHBG alterado. Consulte seu médico.'},
-    'Vitamina D':       {ok:'Vitamina D em bom nível! ☀️ Parabéns!', alt:'Vitamina D baixa. Tome mais sol pela manhã!', ru:'Vitamina D muito baixa. Suplementação necessária.'},
-    'Vitamina B12':     {ok:'Vitamina B12 normal! ✅', alt:'B12 levemente baixa. Avalie suplementação.', ru:'B12 baixa. Consulte seu médico.'},
-    'Ferritina':        {ok:'Reserva de ferro boa! ✅', alt:'Ferritina levemente fora do ideal.', ru:'Ferritina alterada. Consulte seu médico.'},
-  };
-
-  var ordSistemas = ['Sangue','Coração','Fígado','Tireoide','Hormônios','Glicemia','Rins','Vitaminas','PSA','Outros'];
-  ordSistemas.forEach(function(sis) {
-    if (!porSistema[sis]) return;
-    var info  = SISTEMAS_INFO[sis] || {titulo:'Outros Exames', icone:'🔬', cor:'#607080', desc:'Demais marcadores'};
-    var grupo = porSistema[sis];
-    var todos = grupo.ruim.concat(grupo.atencao, grupo.ok);
-    if (!todos.length) return;
-
-    // Status geral do sistema
-    var stGeral = grupo.ruim.length ? '🔴' : grupo.atencao.length ? '⚠️' : '✅';
-    var corBorda = grupo.ruim.length ? '#cc2222' : grupo.atencao.length ? '#c87800' : '#1a7a40';
-
-    html += '<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:14px;">'
-      // Header do sistema
-      + '<div style="background:'+info.cor+'15;border-left:4px solid '+info.cor+';padding:13px 16px;display:flex;align-items:center;justify-content:space-between;">'
-      + '<div style="display:flex;align-items:center;gap:10px;">'
-      + '<span style="font-size:24px;">'+info.icone+'</span>'
-      + '<div><div style="font-size:14px;font-weight:700;color:'+info.cor+';">'+info.titulo+'</div>'
-      + '<div style="font-size:11px;color:#888;">'+info.desc+'</div></div></div>'
-      + '<span style="font-size:20px;">'+stGeral+'</span></div>'
-      // Cards dos exames
-      + '<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">'
-      + todos.map(function(p) {
-          var u   = p._ultimo, st = p._st;
-          var cor = st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
-          var bg  = st.c==='tag-ok'?'#f0faf4':st.c==='tag-alt'?'#fffbf0':'#fff8f8';
-          var bdCor = st.c==='tag-ok'?'#c8ead4':st.c==='tag-alt'?'#fce5a8':'#fecece';
-          var emoji2 = st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
-          var dm = DESCR_PAC[p.nome] || {};
-          var desc = st.c==='tag-ok'?(dm.ok||'Valor normal! ✅'):st.c==='tag-alt'?(dm.alt||'Valor ligeiramente fora do ideal.'):( dm.ru||'Valor alterado. Consulte seu médico.');
-          var range = p.refMax - p.refMin;
-          var pct2  = range > 0 ? Math.min(93, Math.max(7, ((u.valor-p.refMin)/range*80)+10)) : 50;
-          return '<div style="background:'+bg+';border-radius:10px;padding:14px;border:1.5px solid '+bdCor+';">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-            + '<span style="font-size:12px;font-weight:700;color:#333;">'+esc(p.nome)+'</span>'
-            + '<span style="font-size:16px;">'+emoji2+'</span></div>'
-            + '<div style="font-family:Georgia,serif;font-size:30px;font-weight:700;color:'+cor+';line-height:1;margin-bottom:2px;">'+u.valor+'</div>'
-            + '<div style="font-size:10px;color:#aaa;margin-bottom:8px;">'+esc(p.unidade||'')+' · ref: '+p.refMin+'–'+p.refMax+'</div>'
-            // Barra visual
-            + '<div style="height:6px;background:#e0dcd6;border-radius:3px;position:relative;margin-bottom:8px;">'
-            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'25;border-radius:3px;"></div>'
-            + '<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:'+cor+';border:2.5px solid #fff;box-shadow:0 0 0 1.5px '+cor+';"></div></div>'
-            // Descrição em linguagem simples
-            + '<div style="font-size:11.5px;color:#444;line-height:1.5;">'+desc+'</div>'
-            // Histórico mini
-            + (p.historico.length > 1
-              ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid '+bdCor+';display:flex;gap:8px;align-items:center;">'
-              + '<span style="font-size:9px;color:#aaa;font-weight:700;text-transform:uppercase;">Histórico</span>'
-              + p.historico.slice(-3).map(function(h) {
-                  var stH = statusVal(h.valor,p.refMin,p.refMax);
-                  var cH  = stH.c==='tag-ok'?'#1a7a40':stH.c==='tag-alt'?'#c87800':'#cc2222';
-                  return '<div style="text-align:center;">'
-                    +'<div style="font-size:11px;font-weight:700;color:'+cH+';">'+h.valor+'</div>'
-                    +'<div style="font-size:9px;color:#aaa;">'+fdt(h.data).split('/').slice(0,2).join('/')+'</div></div>';
-                }).join('')
-              + '</div>' : '')
-            + '</div>';
-        }).join('')
-      + '</div></div>';
-  });
-
-  el.innerHTML = html;
-}
-
-function renderMeusExames() {
-  var el = document.getElementById('meusExames'); if (!el) return;
-  if (!RESULTADOS || !RESULTADOS.length) {
-    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;">'
-      + '<p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>';
-    return;
-  }
-  // Reusar renderComo mas versão mais técnica para paciente
-  var mapa   = unificarExames(RESULTADOS);
-  var params = Object.values(mapa);
-  el.innerHTML = params.map(function(p) {
-    var ult = p.historico[p.historico.length-1];
-    var st  = statusVal(ult.valor, p.refMin, p.refMax);
-    var cor = st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
-    return '<div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #eee;">'
-      + '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">' + esc(p.nome) + '</div>'
-      + '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:' + cor + ';">'
-      + ult.valor + ' <span style="font-size:11px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade) + '</span></div>'
-      + '<div style="font-size:10px;color:#aaa;margin-top:4px;">Normal: ' + p.refMin + '–' + p.refMax + '</div>'
-      + (p.historico.length>1?'<div style="font-size:10px;color:#aaa;margin-top:2px;">' + p.historico.length + ' medições</div>':'')
-      + '</div>';
+  var el = document.getElementById('resAreas'); if(!el) return;
+  var byArea = {};
+  RESULTADOS.forEach(function(r){if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r;});
+  if(!Object.keys(byArea).length){el.innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;"><p style="color:#aaa;font-size:13px;">Nenhum resultado. Clique em <b>+ Exame</b>.</p></div>';return;}
+  el.innerHTML = Object.values(byArea).map(function(r){
+    var params = Object.entries(r.valores||{}).slice(0,6);
+    return '<div class="ac">'
+      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';"><div style="font-size:13px;font-weight:700;color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div><span style="font-size:10px;color:#aaa;">'+fdt(r.data)+'</span></div>'
+      +'<div class="ac-body">'
+      +(params.length?params.map(function(e){var st=statusVal(e[1].valor,e[1].refMin,e[1].refMax);return '<div class="ac-row"><span style="color:#555;font-weight:500;">'+esc(e[0])+'</span><span><b>'+e[1].valor+'</b> <span style="font-size:10px;color:#aaa;">'+esc(e[1].unidade)+'</span> <span class="tag '+st.c+'" style="font-size:9.5px;padding:2px 6px;">'+st.l+'</span></span></div>';}).join(''):'<p style="color:#aaa;font-size:12px;">Sem valores.</p>')
+      +'</div></div>';
   }).join('');
 }
-
 
 function renderExTbl() {
   var el = document.getElementById('exTbl'); if(!el) return;
@@ -1399,11 +1031,14 @@ function renderExTbl() {
   el.innerHTML = '<table class="tbl"><tr><th>Área</th><th>Data</th><th>Laboratório</th><th>Status</th><th>Ações</th></tr>'
     +RESULTADOS.map(function(r){
       return '<tr>'
-        +'<td><span style="color:'+r.areaCor+';font-weight:700;">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</span></td>'
+        +'<td><span style="color:'+(r.areaCor||'#154fa0')+';font-weight:700;">'+esc(r.areaIco||'📄')+' '+esc(r.areaNome)+'</span></td>'
         +'<td style="font-size:12px;">'+fdt(r.data)+'</td>'
         +'<td style="font-size:12px;color:#888;">'+esc(r.lab||'—')+'</td>'
         +'<td><span class="tag '+(r.temAlteracao?'tag-alt':'tag-ok')+'">'+(r.temAlteracao?'⚠':'✓')+'</span></td>'
-        +'<td><button class="bta bta-r" onclick="excluirRes(\''+r._id+'\')">🗑</button></td></tr>';
+        +'<td style="display:flex;gap:5px;">'
+        +'<button class="bta bta-o" style="font-size:11px;padding:4px 8px;" title="Editar" onclick="abrirEditarRes(\''+r._id+'\')">✏️</button>'
+        +'<button class="bta bta-r" onclick="excluirRes(\''+r._id+'\')">🗑</button>'
+        +'</td></tr>';
     }).join('')+'</table>';
 }
 
@@ -1417,421 +1052,7 @@ async function excluirRes(id) {
   unload();
 }
 
-// ═══════════════════ LEITURA PDF COM PDF.JS ═══════════════════
-var _iaResultados = [];
-
-// Configurar pdf.js worker
-if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
-
-async function lerPDFcomIA(file) {
-  if (!file) return;
-  load();
-  document.getElementById('iaResult').style.display = 'none';
-
-  try {
-    var texto = '';
-
-    if (file.type === 'application/pdf') {
-      // Ler PDF com pdf.js
-      var arrayBuffer = await file.arrayBuffer();
-      var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      for (var p = 1; p <= pdf.numPages; p++) {
-        var page = await pdf.getPage(p);
-        var content = await page.getTextContent();
-        texto += content.items.map(function(i) { return i.str; }).join(' ') + '\n';
-      }
-    } else {
-      // Para imagens, avisar limitação
-      texto = '';
-    }
-
-    if (!texto.trim()) {
-      alert('Não foi possível extrair texto deste arquivo.\n\nDicas:\n• Use o PDF original (não escaneado)\n• Ou adicione os valores manualmente pelo botão "+ Exame"');
-      unload();
-      return;
-    }
-
-    // Processar texto extraído
-    var resultado = parsearLaudo(texto, file.name);
-
-    if (!resultado.exames.length) {
-      alert('Nenhum valor numérico reconhecido no laudo.\n\nO PDF pode estar em formato de imagem (escaneado).\nTente adicionar os valores manualmente pelo botão "+ Exame".');
-      unload();
-      return;
-    }
-
-    _iaResultados = resultado;
-    exibirResultadoIA(resultado, file);
-
-  } catch(e) {
-    alert('Erro ao ler o arquivo: ' + e.message + '\n\nTente adicionar os valores manualmente pelo botão "+ Exame".');
-  }
-  unload();
-}
-
-
-// ══════════════════════════════════════════════════════
-//  PARSER PROFISSIONAL DE LAUDOS BRASILEIROS
-//  Suporta: São Matheus, Fleury, Delboni, e outros
-// ══════════════════════════════════════════════════════
-
-// Dicionário completo de exames com referências, sinônimos e sistemas corporais
-var DICT_EXAMES = [
-  // SISTEMA: Sangue (Hemograma)
-  { nome:'Hemoglobina', sinonimos:['hemoglobina'], unidade:'g/dL', refMin:13, refMax:18.6, sistema:'Sangue', icone:'🩸' },
-  { nome:'Hematócrito', sinonimos:['hematocrito','hematócrito'], unidade:'%', refMin:40, refMax:56, sistema:'Sangue', icone:'🩸' },
-  { nome:'Hemácias', sinonimos:['hemacias','hemácias'], unidade:'milh./mm³', refMin:4.5, refMax:6.0, sistema:'Sangue', icone:'🩸' },
-  { nome:'Leucócitos', sinonimos:['leucocitos','leucócitos'], unidade:'/mm³', refMin:4500, refMax:10000, sistema:'Sangue', icone:'🩸' },
-  { nome:'Plaquetas', sinonimos:['plaquetas','contagem de plaquetas'], unidade:'/mm³', refMin:140000, refMax:400000, sistema:'Sangue', icone:'🩸' },
-  { nome:'VGM', sinonimos:['v.g.m','vgm'], unidade:'u³', refMin:80, refMax:98, sistema:'Sangue', icone:'🩸' },
-  { nome:'HGM', sinonimos:['h.g.m','hgm'], unidade:'pg', refMin:28, refMax:32, sistema:'Sangue', icone:'🩸' },
-  { nome:'CHGM', sinonimos:['c.h.g.m','chgm'], unidade:'%', refMin:32, refMax:36, sistema:'Sangue', icone:'🩸' },
-  { nome:'RDW', sinonimos:['r.d.w','rdw'], unidade:'%', refMin:11, refMax:14, sistema:'Sangue', icone:'🩸' },
-  { nome:'Linfócitos', sinonimos:['linfocitos','linfócitos'], unidade:'/mm³', refMin:900, refMax:3500, sistema:'Sangue', icone:'🩸' },
-  { nome:'Neutrófilos', sinonimos:['segmentados','neutrofilos','neutrófilos'], unidade:'/mm³', refMin:2205, refMax:7000, sistema:'Sangue', icone:'🩸' },
-  { nome:'Monócitos', sinonimos:['monocitos','monócitos'], unidade:'/mm³', refMin:45, refMax:800, sistema:'Sangue', icone:'🩸' },
-  { nome:'Eosinófilos', sinonimos:['eosinofilos','eosinófilos'], unidade:'/mm³', refMin:45, refMax:400, sistema:'Sangue', icone:'🩸' },
-  // SISTEMA: Coração e Vasos
-  { nome:'Colesterol Total', sinonimos:['colesterol total'], unidade:'mg/dL', refMin:0, refMax:190, sistema:'Coração', icone:'❤️' },
-  { nome:'HDL', sinonimos:['colesterol h d l','colesterol hdl','hdl'], unidade:'mg/dL', refMin:40, refMax:999, sistema:'Coração', icone:'❤️' },
-  { nome:'LDL', sinonimos:['colesterol l d l','colesterol ldl','ldl'], unidade:'mg/dL', refMin:0, refMax:115, sistema:'Coração', icone:'❤️' },
-  { nome:'VLDL', sinonimos:['colesterol v l d l','colesterol vldl','vldl'], unidade:'mg/dL', refMin:0, refMax:30, sistema:'Coração', icone:'❤️' },
-  { nome:'Triglicerídeos', sinonimos:['triglicerides','triglicérides','triglicerídeos'], unidade:'mg/dL', refMin:0, refMax:150, sistema:'Coração', icone:'❤️' },
-  // SISTEMA: Fígado
-  { nome:'TGO (AST)', sinonimos:['tgo','ast','transaminase oxalacetica','transaminase oxalacética'], unidade:'U/L', refMin:0, refMax:40, sistema:'Fígado', icone:'🟤' },
-  { nome:'TGP (ALT)', sinonimos:['tgp','alt','transaminase piruv','transaminase pirúv'], unidade:'U/L', refMin:0, refMax:50, sistema:'Fígado', icone:'🟤' },
-  { nome:'GGT', sinonimos:['ggt','gama glutamil','gamma glutamil'], unidade:'U/L', refMin:7, refMax:61, sistema:'Fígado', icone:'🟤' },
-  { nome:'Fosfatase Alcalina', sinonimos:['fosfatase alcalina'], unidade:'U/L', refMin:40, refMax:130, sistema:'Fígado', icone:'🟤' },
-  { nome:'Bilirrubina Total', sinonimos:['bilirrubina total'], unidade:'mg/dL', refMin:0, refMax:1.2, sistema:'Fígado', icone:'🟤' },
-  { nome:'Bilirrubina Direta', sinonimos:['bilirrubina direta'], unidade:'mg/dL', refMin:0, refMax:0.3, sistema:'Fígado', icone:'🟤' },
-  { nome:'Bilirrubina Indireta', sinonimos:['bilirrubina indireta'], unidade:'mg/dL', refMin:0, refMax:0.8, sistema:'Fígado', icone:'🟤' },
-  // SISTEMA: Tireoide
-  { nome:'TSH', sinonimos:['tsh'], unidade:'mUI/L', refMin:0.4, refMax:4.0, sistema:'Tireoide', icone:'🦋' },
-  { nome:'T4 Livre', sinonimos:['t4 livre','t4livre','t4l'], unidade:'ng/dL', refMin:0.8, refMax:1.8, sistema:'Tireoide', icone:'🦋' },
-  { nome:'T3 Livre', sinonimos:['t3 livre','t3livre','t3l'], unidade:'pg/mL', refMin:2.3, refMax:4.2, sistema:'Tireoide', icone:'🦋' },
-  // SISTEMA: Hormônios
-  { nome:'Testosterona Total', sinonimos:['testosterona total'], unidade:'ng/dL', refMin:165, refMax:753, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'Testosterona Livre', sinonimos:['testosterona livre'], unidade:'ng/dL', refMin:3.03, refMax:14.8, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'SHBG', sinonimos:['shbg','globulina ligadora'], unidade:'nmol/L', refMin:14.6, refMax:94.6, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'FSH', sinonimos:['fsh'], unidade:'mUI/mL', refMin:1.4, refMax:18.1, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'LH', sinonimos:['lh'], unidade:'mUI/mL', refMin:1.5, refMax:9.3, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'Estradiol', sinonimos:['estradiol'], unidade:'pg/mL', refMin:20, refMax:55, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'Prolactina', sinonimos:['prolactina'], unidade:'ng/mL', refMin:2.1, refMax:17.7, sistema:'Hormônios', icone:'⚗️' },
-  { nome:'Insulina', sinonimos:['insulina'], unidade:'µUI/mL', refMin:2.6, refMax:25, sistema:'Hormônios', icone:'⚗️' },
-  // SISTEMA: Glicemia
-  { nome:'Glicose', sinonimos:['glicose','glicemia'], unidade:'mg/dL', refMin:70, refMax:99, sistema:'Glicemia', icone:'🍬' },
-  { nome:'HbA1c', sinonimos:['hba1c','hemoglobina glicada','glicada'], unidade:'%', refMin:0, refMax:5.7, sistema:'Glicemia', icone:'🍬' },
-  // SISTEMA: Rins
-  { nome:'Creatinina', sinonimos:['creatinina'], unidade:'mg/dL', refMin:0.7, refMax:1.3, sistema:'Rins', icone:'💧' },
-  { nome:'Ureia', sinonimos:['ureia','uréia'], unidade:'mg/dL', refMin:10, refMax:50, sistema:'Rins', icone:'💧' },
-  { nome:'Ácido Úrico', sinonimos:['acido urico','ácido úrico'], unidade:'mg/dL', refMin:3.5, refMax:7.2, sistema:'Rins', icone:'💧' },
-  // SISTEMA: Vitaminas e Minerais
-  { nome:'Vitamina D', sinonimos:['vitamina d','25-oh','25oh'], unidade:'ng/mL', refMin:30, refMax:100, sistema:'Vitaminas', icone:'☀️' },
-  { nome:'Vitamina B12', sinonimos:['vitamina b12','b12','cobalamina'], unidade:'pg/mL', refMin:200, refMax:900, sistema:'Vitaminas', icone:'💊' },
-  { nome:'Ferritina', sinonimos:['ferritina'], unidade:'ng/mL', refMin:30, refMax:400, sistema:'Vitaminas', icone:'💊' },
-  { nome:'Ferro Sérico', sinonimos:['ferro serico','ferro sérico'], unidade:'mcg/dL', refMin:60, refMax:170, sistema:'Vitaminas', icone:'💊' },
-  { nome:'Zinco', sinonimos:['zinco'], unidade:'mcg/dL', refMin:60, refMax:120, sistema:'Vitaminas', icone:'💊' },
-  { nome:'Magnésio', sinonimos:['magnesio','magnésio'], unidade:'mg/dL', refMin:1.9, refMax:2.5, sistema:'Vitaminas', icone:'💊' },
-  // SISTEMA: PSA
-  { nome:'PSA Total', sinonimos:['psa total','psa'], unidade:'ng/mL', refMin:0, refMax:4.0, sistema:'PSA', icone:'🩺' },
-];
-
-// NOMES DOS SISTEMAS para exibição lúdica
-var SISTEMAS_INFO = {
-  'Sangue':    { titulo:'Seu Sangue',       desc:'Como está a qualidade do seu sangue',           icone:'🩸', cor:'#cc0000' },
-  'Coração':   { titulo:'Coração e Vasos',  desc:'Colesterol e risco cardiovascular',              icone:'❤️', cor:'#e06020' },
-  'Fígado':    { titulo:'Seu Fígado',       desc:'Funcionamento e saúde do fígado',                icone:'🟤', cor:'#8b4513' },
-  'Tireoide':  { titulo:'Tireoide',         desc:'Controle do metabolismo',                        icone:'🦋', cor:'#6a5acd' },
-  'Hormônios': { titulo:'Hormônios',        desc:'Equilíbrio hormonal',                            icone:'⚗️', cor:'#2e8b57' },
-  'Glicemia':  { titulo:'Açúcar no Sangue', desc:'Controle da glicose',                            icone:'🍬', cor:'#daa520' },
-  'Rins':      { titulo:'Seus Rins',        desc:'Funcionamento e filtragem renal',                icone:'💧', cor:'#4682b4' },
-  'Vitaminas': { titulo:'Vitaminas e Minerais', desc:'Nutrientes essenciais',                      icone:'💊', cor:'#20b2aa' },
-  'PSA':       { titulo:'PSA Prostático',   desc:'Marcador de saúde prostática',                   icone:'🩺', cor:'#708090' },
-  'Outros':    { titulo:'Outros Exames',    desc:'Demais marcadores laboratoriais',                 icone:'🔬', cor:'#607080' },
-};
-
-function parsearLaudo(texto, nomeArquivo) {
-  var linhas = texto.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
-  var textoLower = texto.toLowerCase();
-
-  // ── Extrair data de coleta ──
-  // PRIORIDADE: "Data e Hora de Coleta" > "Data de Entrada" > primeira data no texto
-  var dataColeta = '';
-  // Tenta achar especificamente a data de coleta (não nascimento)
-  var mColeta = texto.match(/[Cc]oleta[^\n]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[^\n]{0,30}(\d{2})\/(\d{2})\/(\d{4})/);
-  // Fallback: pegar TODAS as datas e excluir datas de nascimento (muito antigas)
-  if (!mColeta) {
-    var todasDatas = [];
-    var re = /(\d{2})\/(\d{2})\/(\d{4})/g;
-    var m;
-    while ((m = re.exec(texto)) !== null) {
-      var ano = parseInt(m[3]);
-      if (ano >= 2020) todasDatas.push(m); // só datas recentes
-    }
-    if (todasDatas.length) mColeta = todasDatas[0];
-  }
-  if (mColeta) dataColeta = mColeta[3] + '-' + mColeta[2] + '-' + mColeta[1];
-
-  // ── Extrair laboratório ──
-  var lab = '';
-  var labPatterns = ['são matheus','fleury','delboni','einstein','hermes pardini','sabin','labclin'];
-  for (var i = 0; i < labPatterns.length; i++) {
-    if (textoLower.indexOf(labPatterns[i]) !== -1) {
-      lab = labPatterns[i].replace(/\b\w/g, function(c){ return c.toUpperCase(); });
-      break;
-    }
-  }
-  if (!lab) {
-    // Primeira linha não vazia com tamanho razoável
-    for (var j = 0; j < Math.min(8, linhas.length); j++) {
-      var l = linhas[j];
-      if (l.length > 3 && l.length < 50 && !/\d{2}\/\d{2}\/\d{4}/.test(l) && !/paciente/i.test(l) && !/cpf/i.test(l)) {
-        lab = l; break;
-      }
-    }
-  }
-
-  // ── Algoritmo de extração por dicionário ──
-  var exames = [];
-
-  DICT_EXAMES.forEach(function(def) {
-    // Tentar cada sinônimo
-    for (var si = 0; si < def.sinonimos.length; si++) {
-      var sin = def.sinonimos[si].toLowerCase();
-      var idx = textoLower.indexOf(sin);
-      if (idx === -1) continue;
-
-      // Pegar contexto ao redor (200 chars após)
-      var contexto = texto.substring(idx, idx + 200);
-      var ctxLower  = contexto.toLowerCase();
-
-      // Padrão: "Resultado:............ 22,7 U/L" (São Matheus)
-      // Padrão: "Hemoglobina.................. 17,70 g/dl"
-      // Padrão: "RESULTADO: 1.678,0 ng/dL"
-      var numPatterns = [
-        /[Rr]esultado[:\s.]+(\d[\d.,]+)/,
-        /[:\s]+(\d[\d.,]+)\s*(?:mg|g|u\/l|ui|ng|pg|nmol|mmol|mcg|milh|mUI|µUI|fL|%|u3)/i,
-        /\.{3,}\s*(\d[\d.,]+)/,
-        /\s{2,}(\d[\d.,]+)\s/,
-      ];
-
-      var valor = null;
-      for (var pi = 0; pi < numPatterns.length; pi++) {
-        var m = contexto.match(numPatterns[pi]);
-        if (m) {
-          var raw = m[1].replace(/\./g,'').replace(',','.');
-          var v   = parseFloat(raw);
-          if (!isNaN(v) && v > 0 && v < 10000000) { valor = v; break; }
-        }
-      }
-
-      if (valor === null) continue;
-
-      // Tentar extrair referência do próprio texto
-      var refMin = def.refMin, refMax = def.refMax;
-      var refM = contexto.match(/(\d[\d.,]*)\s*[a-z]*\s*[–\-a]\s*(\d[\d.,]*)/i);
-      if (refM) {
-        var r1 = parseFloat(refM[1].replace(',','.'));
-        var r2 = parseFloat(refM[2].replace(',','.'));
-        if (!isNaN(r1) && !isNaN(r2) && r2 > r1 && r2 < 1000000) {
-          refMin = r1; refMax = r2;
-        }
-      }
-
-      // Evitar duplicata
-      var jaExiste = exames.some(function(e){ return e.nome === def.nome; });
-      if (!jaExiste) {
-        exames.push({
-          nome: def.nome, valor: valor,
-          unidade: def.unidade, refMin: refMin, refMax: refMax,
-          sistema: def.sistema, icone: def.icone
-        });
-      }
-      break; // sinônimo encontrado, parar
-    }
-  });
-
-  return { laboratorio: lab, data: dataColeta, exames: exames };
-}
-
-
-
-function exibirResultadoIA(resultado, file) {
-  var exames = resultado.exames || [];
-  if (!exames.length) {
-    alert('Nenhum exame reconhecido automaticamente.\nVerifique se o PDF tem texto (não é escaneado) e tente de novo.\nOu adicione manualmente pelo botão "+ Exame".');
-    return;
-  }
-
-  if (resultado.data) document.getElementById('re-dt').value = resultado.data;
-  if (resultado.laboratorio) document.getElementById('re-lab').value = resultado.laboratorio;
-
-  var el = document.getElementById('iaValores');
-  el.innerHTML =
-    '<div style="font-size:11px;color:#aaa;margin-bottom:10px;display:flex;align-items:center;gap:10px;">'
-    + '<span>' + (resultado.laboratorio ? '🏥 ' + esc(resultado.laboratorio) : '') + '</span>'
-    + '<span>' + (resultado.data ? '📅 ' + fdt(resultado.data) : '') + '</span>'
-    + '<span style="margin-left:auto;font-size:10px;color:#1a7a40;font-weight:700;">✏️ Clique em qualquer valor para editar</span>'
-    + '</div>'
-    + '<div style="overflow-x:auto;">'
-    + '<table style="width:100%;border-collapse:collapse;font-size:13px;" id="tblIAValores">'
-    + '<thead><tr style="background:#f7f5f2;">'
-    + '<th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;white-space:nowrap;">Exame</th>'
-    + '<th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Sistema</th>'
-    + '<th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th>'
-    + '<th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unidade</th>'
-    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Ref.</th>'
-    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th>'
-    + '<th style="padding:8px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Del.</th>'
-    + '</tr></thead>'
-    + '<tbody id="tbodyIA">'
-    + exames.map(function(e, idx) {
-        var st = statusVal(e.valor, e.refMin, e.refMax);
-        return '<tr id="iarow-' + idx + '" style="border-bottom:1px solid #f0ede8;">'
-          + '<td style="padding:7px 10px;">'
-          + '<input value="' + esc(e.nome) + '" data-idx="' + idx + '" data-field="nome" '
-          + 'style="width:100%;border:none;background:transparent;font-size:13px;font-weight:600;outline:none;cursor:pointer;" '
-          + 'onfocus="this.style.background=\'#f0f8ff\';this.style.border=\'1px solid #2e8a48\';this.style.borderRadius=\'4px\'" '
-          + 'onblur="this.style.background=\'transparent\';this.style.border=\'none\'" '
-          + 'oninput="atualizarIA(' + idx + ')"></td>'
-          + '<td style="padding:7px 10px;font-size:11px;color:#888;">' + esc(e.sistema||'—') + '</td>'
-          + '<td style="padding:7px 10px;text-align:right;">'
-          + '<input type="number" step="0.01" value="' + e.valor + '" data-idx="' + idx + '" data-field="valor" id="ia-v-' + idx + '" '
-          + 'style="width:80px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;outline:none;background:#fffef0;" '
-          + 'oninput="atualizarIA(' + idx + ')"></td>'
-          + '<td style="padding:7px 10px;text-align:right;">'
-          + '<input value="' + esc(e.unidade) + '" data-idx="' + idx + '" data-field="unidade" '
-          + 'style="width:70px;border:none;background:transparent;font-size:11px;color:#888;text-align:right;outline:none;cursor:pointer;" '
-          + 'onfocus="this.style.border=\'1px solid #ddd\';this.style.borderRadius=\'4px\'" '
-          + 'onblur="this.style.border=\'none\'" '
-          + 'oninput="atualizarIA(' + idx + ')"></td>'
-          + '<td style="padding:7px 10px;text-align:center;font-size:10px;color:#aaa;">' + e.refMin + '–' + e.refMax + '</td>'
-          + '<td style="padding:7px 10px;text-align:center;" id="ia-st-' + idx + '">'
-          + '<span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span></td>'
-          + '<td style="padding:7px 10px;text-align:center;">'
-          + '<button onclick="removerLinhaIA(' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;" title="Remover">✕</button></td>'
-          + '</tr>';
-      }).join('')
-    + '</tbody></table></div>'
-    + '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;">'
-    + '<button onclick="adicionarLinhaIA()" style="padding:6px 12px;border-radius:6px;background:#f7f5f2;border:1.5px solid #ddd;font-size:12px;font-weight:600;cursor:pointer;">+ Adicionar exame</button>'
-    + '<span style="font-size:10.5px;color:#888;">Você pode editar nome, valor e unidade antes de salvar</span>'
-    + '</div>';
-
-  document.getElementById('iaResult').style.display = 'block';
-  if (FS) uploadArquivo(file);
-}
-
-function atualizarIA(idx) {
-  // Atualizar status ao vivo
-  var vEl = document.getElementById('ia-v-' + idx);
-  var stEl = document.getElementById('ia-st-' + idx);
-  if (!vEl || !stEl) return;
-  var v = parseFloat(vEl.value);
-  if (isNaN(v)) return;
-  // Buscar refMin/refMax do resultado original
-  var exame = (_iaResultados.exames || [])[idx];
-  if (!exame) return;
-  var st = statusVal(v, exame.refMin, exame.refMax);
-  stEl.innerHTML = '<span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span>';
-}
-
-function removerLinhaIA(idx) {
-  var row = document.getElementById('iarow-' + idx);
-  if (row) row.style.display = 'none';
-  if (_iaResultados.exames && _iaResultados.exames[idx]) {
-    _iaResultados.exames[idx]._removido = true;
-  }
-}
-
-function adicionarLinhaIA() {
-  if (!_iaResultados.exames) _iaResultados.exames = [];
-  var newIdx = _iaResultados.exames.length;
-  _iaResultados.exames.push({ nome:'Novo Exame', valor:0, unidade:'', refMin:0, refMax:999, sistema:'Outros', icone:'🔬' });
-  var tbody = document.getElementById('tbodyIA');
-  if (!tbody) return;
-  var tr = document.createElement('tr');
-  tr.id = 'iarow-' + newIdx;
-  tr.style.borderBottom = '1px solid #f0ede8';
-  tr.innerHTML =
-    '<td style="padding:7px 10px;">'
-    + '<input value="Novo Exame" data-idx="' + newIdx + '" data-field="nome" '
-    + 'style="width:100%;border:1px solid #2e8a48;background:#f0f8ff;border-radius:4px;font-size:13px;font-weight:600;outline:none;padding:2px 5px;" '
-    + 'oninput="atualizarIA(' + newIdx + ')"></td>'
-    + '<td style="padding:7px 10px;font-size:11px;color:#888;">—</td>'
-    + '<td style="padding:7px 10px;text-align:right;">'
-    + '<input type="number" step="0.01" value="0" data-idx="' + newIdx + '" data-field="valor" id="ia-v-' + newIdx + '" '
-    + 'style="width:80px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;" '
-    + 'oninput="atualizarIA(' + newIdx + ')"></td>'
-    + '<td style="padding:7px 10px;"><input value="" style="width:70px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:2px 4px;" placeholder="unidade"></td>'
-    + '<td style="padding:7px 10px;text-align:center;font-size:10px;color:#aaa;">0–999</td>'
-    + '<td style="padding:7px 10px;text-align:center;" id="ia-st-' + newIdx + '">'
-    + '<span class="tag tag-ok" style="font-size:9.5px;">Normal</span></td>'
-    + '<td style="padding:7px 10px;text-align:center;">'
-    + '<button onclick="removerLinhaIA(' + newIdx + ')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>';
-  tbody.appendChild(tr);
-}
-
-
-async function salvarValoresIA() {
-  var resultado = _iaResultados;
-  if (!resultado || !resultado.exames || !resultado.exames.length) { alert('Sem valores.'); return; }
-  var dt = document.getElementById('re-dt').value || resultado.data || new Date().toISOString().split('T')[0];
-  var lab = document.getElementById('re-lab').value || resultado.laboratorio || '';
-  // Ler valores editados da tabela
-  var vals = {}, temAlt = false;
-  var linhas = document.querySelectorAll('#tbodyIA tr');
-  linhas.forEach(function(row) {
-    if (row.style.display === 'none') return; // removido
-    var inputs = row.querySelectorAll('input');
-    if (!inputs.length) return;
-    var nomeEl  = inputs[0];
-    var valorEl = inputs[1];
-    var unitEl  = inputs[2];
-    if (!nomeEl || !valorEl) return;
-    var nome  = (nomeEl.value || '').trim();
-    var valor = parseFloat(valorEl.value);
-    var unit  = unitEl ? (unitEl.value || '') : '';
-    if (!nome || isNaN(valor)) return;
-    // Buscar refMin/refMax do original pelo nome
-    var ref = { refMin: 0, refMax: 999 };
-    DICT_EXAMES.forEach(function(d){ if(d.nome === nome) { ref.refMin = d.refMin; ref.refMax = d.refMax; } });
-    // Buscar no resultado original
-    (resultado.exames||[]).forEach(function(e){ if(e.nome === nome) { ref.refMin = e.refMin; ref.refMax = e.refMax; } });
-    vals[nome] = { valor: valor, unidade: unit, refMin: ref.refMin, refMax: ref.refMax };
-    var st = statusVal(valor, ref.refMin, ref.refMax);
-    if (st.c === 'tag-ru' || st.c === 'tag-alt') temAlt = true;
-  });
-  if (!Object.keys(vals).length) { alert('Nenhum valor para salvar.'); return; }
-  load();
-  try {
-    await FD.collection('users/' + EU.uid + '/resultados').add({
-      pacienteId: CUR_PAC_ID, data: dt,
-      areaId: 'pdf-import', areaNome: 'Laudo PDF · ' + (lab || 'Laboratório'),
-      areaIco: '📄', areaCor: '#154fa0',
-      lab: lab, obs: 'Extraído automaticamente do PDF',
-      valores: vals, temAlteracao: temAlt,
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    await FD.doc('users/' + EU.uid + '/pacientes/' + CUR_PAC_ID).update({
-      ultimaConsulta: dt, temAlteracao: temAlt,
-      totalExames: firebase.firestore.FieldValue.increment(1)
-    });
-    document.getElementById('iaResult').style.display = 'none';
-    _iaResultados = [];
-    var rSnap = await FD.collection('users/' + EU.uid + '/resultados').where('pacienteId', '==', CUR_PAC_ID).get();
-    RESULTADOS = []; rSnap.forEach(function(d) { RESULTADOS.push({_id: d.id, ...d.data()}); });
-    RESULTADOS.sort(function(a, b) { return (b.data||'').localeCompare(a.data||''); });
-    renderResAreas(); renderExTbl();
-    alert('✅ ' + resultado.exames.length + ' exames salvos!');
-  } catch(e) { alert('Erro: ' + e.message); }
-  unload();
-}
-
-
+// ═══════════════════ LAUDOS ═══════════════════
 function onDrop(e) { e.preventDefault(); onFileSelect(e.dataTransfer.files); }
 async function onFileSelect(files) {
   if(!FS){alert('Storage não disponível.');return;}
@@ -1846,7 +1067,7 @@ async function uploadArquivo(file) {
     var ref=FS.ref(path); await ref.put(file);
     var url=await ref.getDownloadURL();
     await FD.collection('users/'+EU.uid+'/laudos').add({pacienteId:CUR_PAC_ID,nome:file.name,tipo:file.type,tamanho:file.size,path:path,url:url,criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
-    var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).get();
+    var lSnap=await FD.collection('users/'+EU.uid+'/laudos').where('pacienteId','==',CUR_PAC_ID).orderBy('criadoEm','desc').get();
     LAUDOS=[]; lSnap.forEach(function(d){LAUDOS.push({_id:d.id,...d.data()});});
   } catch(e){alert('Erro upload: '+e.message);}
   unload();
@@ -1885,7 +1106,7 @@ async function salvarAg() {
       status:'pendente', criadoEm:firebase.firestore.FieldValue.serverTimestamp()
     });
     fecharMo('ag');
-    var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).get();
+    var aSnap=await FD.collection('users/'+EU.uid+'/agendamentos').where('pacienteId','==',CUR_PAC_ID).orderBy('data','desc').get();
     AGENDAMENTOS=[]; aSnap.forEach(function(d){AGENDAMENTOS.push({_id:d.id,...d.data()});});
     renderAgList();
   } catch(e){alert('Erro: '+e.message);}
@@ -1917,34 +1138,15 @@ async function excluirAg(id) {
 
 // ═══════════════════ PORTAL PACIENTE ═══════════════════
 async function carregarPaciente() {
-  // Paciente vê seus próprios dados
-  // Por enquanto mostra dashboard com dados do médico se vinculado
-  try {
-    // Tentar carregar resultados de qualquer médico que tenha este paciente
-    var snap = await FD.collection('adminIndex').get();
-    for (var i = 0; i < snap.docs.length; i++) {
-      var d = snap.docs[i];
-      if (d.data().tipo === 'medico') {
-        var medUid = d.id;
-        // Buscar paciente com este email
-        var email = EU.perfil.email || '';
-        var pSnap = await FD.collection('users/'+medUid+'/pacientes').where('email','==',email).get();
-        if (!pSnap.empty) {
-          var pacDoc = pSnap.docs[0];
-          CUR_PAC_ID = pacDoc.id;
-          CUR_PAC = {_id: pacDoc.id, ...pacDoc.data()};
-          // Carregar resultados
-          var rSnap = await FD.collection('users/'+medUid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
-          RESULTADOS = [];
-          rSnap.forEach(function(rd){ RESULTADOS.push({_id:rd.id,...rd.data()}); });
-          RESULTADOS.sort(function(a,b){ return (b.data||'').localeCompare(a.data||''); });
-          break;
-        }
-      }
-    }
-  } catch(e) { console.log('carregarPaciente:', e.message); }
+  // Tentar encontrar dados do médico via medicoEmail
 }
 
+function renderComo() {
+  var el = document.getElementById('comoConteudo'); if(!el) return;
+  el.innerHTML = '<div class="card"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:8px;">Olá! 👋</div>'
+    +'<p style="color:#666;font-size:13px;line-height:1.7;">Seus exames e resultados aparecerão aqui assim que seu médico os adicionar ao sistema.</p></div>';
+}
+function renderMeusExames(){ var el=document.getElementById('meusExames'); if(el) el.innerHTML='<div class="card" style="grid-column:1/-1;"><p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>'; }
 function renderSintHist(){ var el=document.getElementById('sintHist'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum sintoma registrado.</p></div>'; }
 function renderMinhaAgenda(){ var el=document.getElementById('minhaAgenda'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum agendamento.</p></div>'; }
 async function salvarSintoma(){
@@ -1959,87 +1161,6 @@ async function salvarSintoma(){
   unload();
 }
 
-function verComoPaciente() {
-  if (!CUR_PAC || !RESULTADOS.length) { alert('Sem dados de exames para este paciente.'); return; }
-  document.getElementById('vpNome').textContent = CUR_PAC.nome || '';
-  // Temporarily swap EU.perfil to render as patient
-  var _backup = RESULTADOS;
-  var el = document.getElementById('vpCorpo');
-  // Build patient view inline
-  var mapa = unificarExames(RESULTADOS);
-  var params = Object.values(mapa);
-  var total = params.length;
-  var ok    = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ok'; }).length;
-  var alerta= params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-alt'; }).length;
-  var ruim  = params.filter(function(p){ return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ru'; }).length;
-  var pct   = total > 0 ? Math.round(ok/total*100) : 0;
-  var bgGrad = pct>=90?'linear-gradient(135deg,#1a5230,#2e8a48)':pct>=70?'linear-gradient(135deg,#7a5800,#c87800)':'linear-gradient(135deg,#7a0000,#cc0000)';
-  var msg = pct>=90?'Excelente! Seus exames estão ótimos! 🌟':pct>=70?'Você está indo bem! Alguns pontos merecem atenção. 💪':'Atenção! Vários exames precisam de cuidado. ⚠️';
-  var html = '<div style="background:'+bgGrad+';border-radius:12px;padding:20px;margin-bottom:16px;color:#fff;">'
-    + '<div style="font-family:Georgia,serif;font-size:20px;font-weight:700;margin-bottom:6px;">Olá, ' + esc((CUR_PAC.nome||'').split(' ')[0]) + '!</div>'
-    + '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:14px;">' + msg + '</div>'
-    + '<div style="height:8px;background:rgba(0,0,0,.25);border-radius:4px;margin-bottom:12px;overflow:hidden;">'
-    + '<div style="height:100%;width:'+pct+'%;background:rgba(255,255,255,.9);border-radius:4px;"></div></div>'
-    + '<div style="display:flex;gap:10px;">'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+ok+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">✅ Normais</div></div>'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+alerta+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">⚠️ Atenção</div></div>'
-    + '<div style="flex:1;text-align:center;background:rgba(255,255,255,.15);border-radius:8px;padding:10px;"><div style="font-size:22px;font-weight:800;">'+ruim+'</div><div style="font-size:10px;color:rgba(255,255,255,.7);">🔴 Alterados</div></div>'
-    + '</div></div>';
-  // Group by sistema
-  var DESCRICOES_PAC = {
-    'Hemoglobina': {ok:'Seu sangue está transportando oxigênio muito bem! 🩸',alt:'Hemoglobina um pouco fora do ideal.',ru:'Hemoglobina alterada. Converse com seu médico.'},
-    'Colesterol Total': {ok:'Colesterol total controlado! Continue com a alimentação saudável. 🥗',alt:'Colesterol um pouco elevado. Reduza gorduras saturadas.',ru:'Colesterol alto. Importante consultar seu médico.'},
-    'HDL': {ok:'Colesterol bom (HDL) ótimo! Exercícios estão funcionando! 💚',alt:'HDL poderia ser mais alto. Exercícios físicos ajudam!',ru:'HDL baixo. Pratique mais atividade física.'},
-    'LDL': {ok:'Colesterol ruim (LDL) sob controle! 👍',alt:'LDL um pouco acima. Cuide da alimentação.',ru:'LDL elevado. Consulte seu médico.'},
-    'Triglicerídeos': {ok:'Triglicerídeos normais! Ótimo! 🎉',alt:'Elevados. Reduza açúcar, álcool e alimentos processados.',ru:'Muito altos. Veja seu médico.'},
-    'Glicose': {ok:'Açúcar no sangue normal. Continue assim! 🍎',alt:'Glicemia um pouco alta. Cuidado com açúcar e carboidratos.',ru:'Glicemia alterada. Consulte seu médico com urgência.'},
-    'TSH': {ok:'Sua tireoide está funcionando perfeitamente! 🦋',alt:'TSH ligeiramente alterado. Monitorar com seu médico.',ru:'TSH alterado. Consulte seu endocrinologista.'},
-    'Vitamina D': {ok:'Vitamina D em bom nível! ☀️ Parabéns!',alt:'Vitamina D um pouco baixa. Tome mais sol pela manhã!',ru:'Vitamina D baixa. Suplementação pode ser necessária.'},
-    'TGO (AST)': {ok:'Seu fígado está saudável! 🟤',alt:'Leve alteração no fígado. Evite álcool.',ru:'Fígado com alterações. Consulte seu médico.'},
-    'TGP (ALT)': {ok:'Fígado funcionando bem! 🟤',alt:'Leve alteração hepática.',ru:'Alteração no fígado. Consulte seu médico.'},
-  };
-  var porSistema = {};
-  params.forEach(function(p) {
-    var ult = p.historico[p.historico.length-1];
-    var st  = statusVal(ult.valor, p.refMin, p.refMax);
-    p._ultimo = ult; p._st = st;
-    // Find sistema from DICT
-    var sistema = 'Outros';
-    DICT_EXAMES.forEach(function(d){ if(d.nome === p.nome) sistema = d.sistema||'Outros'; });
-    if (!porSistema[sistema]) porSistema[sistema] = [];
-    porSistema[sistema].push(p);
-  });
-  Object.keys(porSistema).forEach(function(sis) {
-    var info = SISTEMAS_INFO[sis] || {titulo:sis, icone:'🔬', cor:'#666'};
-    var lista = porSistema[sis];
-    html += '<div style="margin-bottom:14px;">'
-      + '<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+info.cor+';'
-      + 'padding:7px 12px;background:'+info.cor+'15;border-radius:7px;margin-bottom:8px;border-left:3px solid '+info.cor+';">'
-      + info.icone + ' ' + info.titulo + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">'
-      + lista.map(function(p) {
-          var cor = p._st.c==='tag-ok'?'#1a7a40':p._st.c==='tag-alt'?'#c87800':'#cc2222';
-          var emoji = p._st.c==='tag-ok'?'✅':p._st.c==='tag-alt'?'⚠️':'🔴';
-          var descMap = DESCRICOES_PAC[p.nome] || {};
-          var desc = p._st.c==='tag-ok'?(descMap.ok||'Valor normal! ✅'):p._st.c==='tag-alt'?(descMap.alt||'Valor ligeiramente fora do ideal.'):( descMap.ru||'Valor alterado. Consulte seu médico.');
-          var pct2 = (p.refMax-p.refMin)>0 ? Math.min(95,Math.max(5,((p._ultimo.valor-p.refMin)/(p.refMax-p.refMin)*80)+10)) : 50;
-          return '<div style="background:#fff;border-radius:10px;padding:13px;border:1.5px solid #eee;">'
-            + '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-            + '<span style="font-size:12px;font-weight:700;">' + esc(p.nome) + '</span><span>' + emoji + '</span></div>'
-            + '<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:'+cor+';margin-bottom:4px;">'
-            + p._ultimo.valor + ' <span style="font-size:10px;font-family:sans-serif;color:#aaa;">' + esc(p.unidade||'') + '</span></div>'
-            + '<div style="height:5px;background:#e8e4de;border-radius:3px;margin:6px 0;position:relative;">'
-            + '<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'20;border-radius:3px;"></div>'
-            + '<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:'+cor+';border:2px solid #fff;"></div></div>'
-            + '<div style="font-size:11px;color:#666;line-height:1.5;">' + desc + '</div>'
-            + '</div>';
-        }).join('')
-      + '</div></div>';
-  });
-  el.innerHTML = html;
-  abrirMo('ver-paciente');
-}
-
 // ═══════════════════ MODAIS ═══════════════════
 function abrirMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.add('open'); if(id==='res'){document.getElementById('re-dt').value=new Date().toISOString().split('T')[0];carregarAreas();} if(id==='area'){paramCnt=0;document.getElementById('na-params').innerHTML='';addParam();addParam();} }
 function fecharMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.remove('open'); }
@@ -2052,9 +1173,631 @@ document.querySelectorAll('.mo').forEach(function(m){ m.addEventListener('click'
 function ptab(el,t){
   document.querySelectorAll('.ptab').forEach(function(x){x.classList.remove('on');});
   el.classList.add('on');
-  ['pt-res','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
+  ['pt-res','pt-res-pac','pt-exames','pt-laudos','pt-sint','pt-agenda'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.style.display=id===t?'block':'none';
   });
+}
+
+
+// ══════════════════════════════════════════════════════
+//  DICIONÁRIO DE EXAMES + SISTEMAS
+// ══════════════════════════════════════════════════════
+var SISTEMAS_INFO = {
+  'Sangue':    {titulo:'Seu Sangue',       desc:'Qualidade e componentes do sangue',        icone:'🩸', cor:'#cc0000'},
+  'Coração':   {titulo:'Coração e Vasos',  desc:'Colesterol e risco cardiovascular',         icone:'❤️', cor:'#e06020'},
+  'Fígado':    {titulo:'Seu Fígado',       desc:'Funcionamento e saúde do fígado',           icone:'🟤', cor:'#8b4513'},
+  'Tireoide':  {titulo:'Tireoide',         desc:'Controle do metabolismo',                   icone:'🦋', cor:'#6a5acd'},
+  'Hormônios': {titulo:'Hormônios',        desc:'Equilíbrio hormonal',                       icone:'⚗️', cor:'#2e8b57'},
+  'Glicemia':  {titulo:'Açúcar no Sangue', desc:'Controle da glicose e diabetes',            icone:'🍬', cor:'#daa520'},
+  'Rins':      {titulo:'Seus Rins',        desc:'Funcionamento renal',                       icone:'💧', cor:'#4682b4'},
+  'Vitaminas': {titulo:'Vitaminas e Minerais', desc:'Nutrientes essenciais',                 icone:'💊', cor:'#20b2aa'},
+  'PSA':       {titulo:'PSA Prostático',   desc:'Saúde prostática',                          icone:'🩺', cor:'#708090'},
+  'Outros':    {titulo:'Outros Exames',    desc:'Demais marcadores laboratoriais',           icone:'🔬', cor:'#607080'},
+};
+
+var DICT_EXAMES = [
+  {nome:'Hemoglobina',    sinonimos:['hemoglobina'],                          unidade:'g/dL',      refMin:13,    refMax:18.6, sistema:'Sangue',    icone:'🩸'},
+  {nome:'Hematócrito',    sinonimos:['hematocrito','hematócrito'],            unidade:'%',         refMin:40,    refMax:56,   sistema:'Sangue',    icone:'🩸'},
+  {nome:'Hemácias',       sinonimos:['hemacias','hemácias'],                  unidade:'milh./mm³', refMin:4.5,   refMax:6.0,  sistema:'Sangue',    icone:'🩸'},
+  {nome:'Leucócitos',     sinonimos:['leucocitos','leucócitos'],              unidade:'/mm³',      refMin:4500,  refMax:10000,sistema:'Sangue',    icone:'🩸'},
+  {nome:'Plaquetas',      sinonimos:['plaquetas','contagem de plaquetas'],    unidade:'/mm³',      refMin:140000,refMax:400000,sistema:'Sangue',   icone:'🩸'},
+  {nome:'Neutrófilos',    sinonimos:['segmentados','neutrofilos'],            unidade:'/mm³',      refMin:2205,  refMax:7000, sistema:'Sangue',    icone:'🩸'},
+  {nome:'Linfócitos',     sinonimos:['linfocitos','linfócitos'],              unidade:'/mm³',      refMin:900,   refMax:3500, sistema:'Sangue',    icone:'🩸'},
+  {nome:'VGM',            sinonimos:['v.g.m','vgm'],                         unidade:'u³',        refMin:80,    refMax:98,   sistema:'Sangue',    icone:'🩸'},
+  {nome:'HGM',            sinonimos:['h.g.m','hgm'],                         unidade:'pg',        refMin:28,    refMax:32,   sistema:'Sangue',    icone:'🩸'},
+  {nome:'Colesterol Total',sinonimos:['colesterol total'],                   unidade:'mg/dL',     refMin:0,     refMax:190,  sistema:'Coração',   icone:'❤️'},
+  {nome:'HDL',            sinonimos:['colesterol h d l','colesterol hdl','hdl'], unidade:'mg/dL', refMin:40,    refMax:999,  sistema:'Coração',   icone:'❤️'},
+  {nome:'LDL',            sinonimos:['colesterol l d l','colesterol ldl','ldl'], unidade:'mg/dL', refMin:0,     refMax:115,  sistema:'Coração',   icone:'❤️'},
+  {nome:'VLDL',           sinonimos:['colesterol v l d l','colesterol vldl','vldl'], unidade:'mg/dL', refMin:0, refMax:30,   sistema:'Coração',   icone:'❤️'},
+  {nome:'Triglicerídeos', sinonimos:['triglicerides','triglicérides','triglicerídeos'], unidade:'mg/dL', refMin:0, refMax:150, sistema:'Coração',  icone:'❤️'},
+  {nome:'TGO (AST)',      sinonimos:['tgo','ast','transaminase oxalacetica','transaminase oxalacética','tgo ast'], unidade:'U/L', refMin:0, refMax:40, sistema:'Fígado', icone:'🟤'},
+  {nome:'TGP (ALT)',      sinonimos:['tgp','alt','transaminase piruv','transaminase pirúv','tgp alt'], unidade:'U/L', refMin:0, refMax:50, sistema:'Fígado', icone:'🟤'},
+  {nome:'GGT',            sinonimos:['ggt','gama glutamil','gamma glutamil'], unidade:'U/L',       refMin:7,     refMax:61,   sistema:'Fígado',    icone:'🟤'},
+  {nome:'Fosfatase Alcalina',sinonimos:['fosfatase alcalina'],               unidade:'U/L',       refMin:40,    refMax:130,  sistema:'Fígado',    icone:'🟤'},
+  {nome:'Bilirrubina Total',sinonimos:['bilirrubina total'],                 unidade:'mg/dL',     refMin:0,     refMax:1.2,  sistema:'Fígado',    icone:'🟤'},
+  {nome:'Bilirrubina Direta',sinonimos:['bilirrubina direta'],               unidade:'mg/dL',     refMin:0,     refMax:0.3,  sistema:'Fígado',    icone:'🟤'},
+  {nome:'Bilirrubina Indireta',sinonimos:['bilirrubina indireta'],           unidade:'mg/dL',     refMin:0,     refMax:0.8,  sistema:'Fígado',    icone:'🟤'},
+  {nome:'TSH',            sinonimos:['tsh'],                                 unidade:'mUI/L',     refMin:0.4,   refMax:4.0,  sistema:'Tireoide',  icone:'🦋'},
+  {nome:'T4 Livre',       sinonimos:['t4 livre','t4livre','t4l'],            unidade:'ng/dL',     refMin:0.8,   refMax:1.8,  sistema:'Tireoide',  icone:'🦋'},
+  {nome:'T3 Livre',       sinonimos:['t3 livre','t3livre','t3l'],            unidade:'pg/mL',     refMin:2.3,   refMax:4.2,  sistema:'Tireoide',  icone:'🦋'},
+  {nome:'Testosterona Total',sinonimos:['testosterona total'],               unidade:'ng/dL',     refMin:165,   refMax:753,  sistema:'Hormônios', icone:'⚗️'},
+  {nome:'Testosterona Livre',sinonimos:['testosterona livre','testosterona livre calculada'], unidade:'ng/dL', refMin:3.03, refMax:14.8, sistema:'Hormônios', icone:'⚗️'},
+  {nome:'SHBG',           sinonimos:['shbg','globulina ligadora'],           unidade:'nmol/L',    refMin:14.6,  refMax:94.6, sistema:'Hormônios', icone:'⚗️'},
+  {nome:'LH',             sinonimos:['lh'],                                  unidade:'mUI/mL',    refMin:1.5,   refMax:9.3,  sistema:'Hormônios', icone:'⚗️'},
+  {nome:'FSH',            sinonimos:['fsh'],                                 unidade:'mUI/mL',    refMin:1.4,   refMax:18.1, sistema:'Hormônios', icone:'⚗️'},
+  {nome:'Estradiol',      sinonimos:['estradiol'],                           unidade:'pg/mL',     refMin:20,    refMax:55,   sistema:'Hormônios', icone:'⚗️'},
+  {nome:'Insulina',       sinonimos:['insulina'],                            unidade:'µUI/mL',    refMin:2.6,   refMax:25,   sistema:'Hormônios', icone:'⚗️'},
+  {nome:'Glicose',        sinonimos:['glicose','glicemia'],                  unidade:'mg/dL',     refMin:70,    refMax:99,   sistema:'Glicemia',  icone:'🍬'},
+  {nome:'HbA1c',          sinonimos:['hba1c','hemoglobina glicada'],         unidade:'%',         refMin:0,     refMax:5.7,  sistema:'Glicemia',  icone:'🍬'},
+  {nome:'Creatinina',     sinonimos:['creatinina'],                          unidade:'mg/dL',     refMin:0.7,   refMax:1.3,  sistema:'Rins',      icone:'💧'},
+  {nome:'Ureia',          sinonimos:['ureia','uréia'],                       unidade:'mg/dL',     refMin:10,    refMax:50,   sistema:'Rins',      icone:'💧'},
+  {nome:'Vitamina D',     sinonimos:['vitamina d','25-oh','25oh'],           unidade:'ng/mL',     refMin:30,    refMax:100,  sistema:'Vitaminas', icone:'☀️'},
+  {nome:'Vitamina B12',   sinonimos:['vitamina b12','b12'],                  unidade:'pg/mL',     refMin:200,   refMax:900,  sistema:'Vitaminas', icone:'💊'},
+  {nome:'Ferritina',      sinonimos:['ferritina'],                           unidade:'ng/mL',     refMin:30,    refMax:400,  sistema:'Vitaminas', icone:'💊'},
+  {nome:'PSA Total',      sinonimos:['psa total','psa'],                     unidade:'ng/mL',     refMin:0,     refMax:4.0,  sistema:'PSA',       icone:'🩺'},
+];
+
+// ── Normalizar nome de exame ──
+function normalizarNome(nome) {
+  if (!nome) return nome;
+  var lower = nome.trim().toLowerCase();
+  var aliases = {
+    'tgo':'TGO (AST)','ast':'TGO (AST)','transaminase oxalacetica':'TGO (AST)','transaminase oxalacética':'TGO (AST)',
+    'tgp':'TGP (ALT)','alt':'TGP (ALT)','transaminase piruv':'TGP (ALT)',
+    'ggt':'GGT','gama glutamil transferase - ggt':'GGT',
+    'hdl':'HDL','colesterol h d l':'HDL','colesterol hdl':'HDL',
+    'ldl':'LDL','colesterol l d l':'LDL','colesterol ldl':'LDL',
+    'vldl':'VLDL','colesterol v l d l':'VLDL',
+    'colesterol total':'Colesterol Total',
+    'triglicerides':'Triglicerídeos','triglicérides':'Triglicerídeos','triglicerídeos':'Triglicerídeos',
+    'hemoglobina':'Hemoglobina','hematocrito':'Hematócrito','hematócrito':'Hematócrito',
+    'leucocitos':'Leucócitos','leucócitos':'Leucócitos','plaquetas':'Plaquetas',
+    'glicose':'Glicose','glicemia':'Glicose',
+    'tsh':'TSH','t4 livre':'T4 Livre','t3 livre':'T3 Livre',
+    'testosterona total':'Testosterona Total',
+    'testosterona livre':'Testosterona Livre','testosterona livre calculada':'Testosterona Livre',
+    'shbg':'SHBG','lh':'LH','fsh':'FSH',
+    'vitamina d':'Vitamina D','vitamina b12':'Vitamina B12','ferritina':'Ferritina',
+    'creatinina':'Creatinina','ureia':'Ureia','uréia':'Ureia',
+    'psa':'PSA Total','psa total':'PSA Total',
+    'fosfatase alcalina':'Fosfatase Alcalina',
+    'bilirrubina total':'Bilirrubina Total','bilirrubina direta':'Bilirrubina Direta','bilirrubina indireta':'Bilirrubina Indireta',
+    'hba1c':'HbA1c','hemoglobina glicada':'HbA1c',
+  };
+  if (aliases[lower]) return aliases[lower];
+  for (var i=0;i<DICT_EXAMES.length;i++) {
+    var d=DICT_EXAMES[i];
+    if (d.nome.toLowerCase()===lower) return d.nome;
+    for (var j=0;j<d.sinonimos.length;j++) if (d.sinonimos[j]===lower) return d.nome;
+  }
+  return nome;
+}
+
+// ── Unificar exames de todas as áreas por nome ──
+function unificarExames(resultados) {
+  var mapa = {};
+  resultados.forEach(function(r) {
+    Object.keys(r.valores||{}).forEach(function(nomeOrig) {
+      var info = r.valores[nomeOrig];
+      var nome = normalizarNome(nomeOrig);
+      var key  = nome.trim().toLowerCase();
+      if (!mapa[key]) {
+        var sistema='Outros', icone='🔬';
+        for (var i=0;i<DICT_EXAMES.length;i++) {
+          var d=DICT_EXAMES[i];
+          if (d.nome.toLowerCase()===key||d.sinonimos.indexOf(key)!==-1) {
+            sistema=d.sistema; icone=d.icone; nome=d.nome; break;
+          }
+        }
+        mapa[key] = {nome:nome, unidade:info.unidade, refMin:info.refMin, refMax:info.refMax,
+                     sistema:sistema, icone:icone, historico:[]};
+      }
+      mapa[key].historico.push({data:r.data, valor:info.valor, lab:r.lab||''});
+    });
+  });
+  Object.values(mapa).forEach(function(p) {
+    p.historico.sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  });
+  return mapa;
+}
+
+// ── statusVal ── (se não existir)
+if (typeof statusVal === 'undefined') {
+  function statusVal(v,mn,mx) {
+    if(v===null||v===undefined||v==='') return {c:'tag',l:'—'};
+    var x=parseFloat(v); if(isNaN(x)) return {c:'tag',l:'—'};
+    if(x>=mn&&x<=mx) return {c:'tag-ok',l:'Normal'};
+    var d=x<mn?(mn-x)/mn:(x-mx)/mx;
+    return d>0.15?{c:'tag-ru',l:x<mn?'↓ Baixo':'↑ Alto'}:{c:'tag-alt',l:x<mn?'↓ Lim.':'↑ Lim.'};
+  }
+}
+
+// ══════════════════════════════════════
+//  RESUMO MÉDICO — visual com gráficos
+// ══════════════════════════════════════
+var _chartInstances = {};
+
+function renderResAreas() {
+  var el = document.getElementById('resAreas'); if(!el) return;
+  Object.values(_chartInstances).forEach(function(ch){try{ch.destroy();}catch(e){}});
+  _chartInstances = {};
+  if(!RESULTADOS.length) {
+    el.innerHTML='<div style="text-align:center;padding:40px;grid-column:1/-1;"><div style="font-size:40px;margin-bottom:10px;">🧪</div><p style="color:#aaa;font-size:13px;">Sem resultados. Clique em <b>+ Exame</b> ou envie um laudo PDF.</p></div>';
+    return;
+  }
+  var mapa=unificarExames(RESULTADOS), params=Object.values(mapa);
+  var alt=params.filter(function(p){return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ru';});
+  var aten=params.filter(function(p){return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-alt';});
+  var norm=params.filter(function(p){return statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax).c==='tag-ok';});
+  function secao(titulo,lista,cor,bg) {
+    if(!lista.length) return '';
+    return '<div style="grid-column:1/-1;margin-bottom:4px;padding:7px 12px;background:'+bg+';border-radius:8px;border-left:4px solid '+cor+';font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:'+cor+';">'+titulo+'</div>'
+      +lista.map(function(p){return cardMed(p);}).join('');
+  }
+  el.innerHTML='<div style="display:contents;">'+secao('🔴 Requer Atenção',alt,'#cc2222','#fff0f0')+secao('⚠️ Atenção',aten,'#c87800','#fff7e0')+secao('✅ Normal',norm,'#1a7a40','#e8f5ed')+'</div>';
+  params.forEach(function(p) {
+    if(p.historico.length<2) return;
+    var canvasId='ch-'+p.nome.replace(/[^a-zA-Z0-9]/g,'');
+    var canvas=document.getElementById(canvasId); if(!canvas) return;
+    var ex=Chart.getChart(canvas); if(ex) ex.destroy();
+    var st=statusVal(p.historico[p.historico.length-1].valor,p.refMin,p.refMax);
+    var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+    _chartInstances[canvasId]=new Chart(canvas,{type:'line',data:{
+      labels:p.historico.map(function(h){return fdt(h.data).split('/').slice(0,2).join('/');}),
+      datasets:[{data:p.historico.map(function(h){return h.valor;}),borderColor:cor,backgroundColor:cor+'22',borderWidth:2,pointRadius:4,pointBackgroundColor:cor,tension:0.3,fill:true}]
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#aaa'}},
+              y:{grid:{color:'#f0ede8'},ticks:{font:{size:9},color:'#aaa'},suggestedMin:p.refMin*0.7,suggestedMax:p.refMax*1.3}}}});
+  });
+}
+
+function cardMed(p) {
+  var ult=p.historico[p.historico.length-1];
+  var st=statusVal(ult.valor,p.refMin,p.refMax);
+  var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+  var emoji=st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
+  var range=p.refMax-p.refMin;
+  var pct=range>0?Math.min(93,Math.max(7,((ult.valor-p.refMin)/range*80)+10)):50;
+  var tend='';
+  if(p.historico.length>1){var prev=p.historico[p.historico.length-2].valor;var diff=((ult.valor-prev)/(prev||1)*100).toFixed(1);var seta=ult.valor>prev?'↑':ult.valor<prev?'↓':'→';var cS=(ult.valor>prev&&ult.valor>p.refMax)||(ult.valor<prev&&ult.valor<p.refMin)?'#cc2222':'#1a7a40';tend='<span style="font-size:11px;color:'+cS+';font-weight:700;">'+seta+' '+Math.abs(diff)+'%</span>';}
+  var cid='ch-'+p.nome.replace(/[^a-zA-Z0-9]/g,'');
+  return '<div style="background:#fff;border-radius:12px;padding:15px;border:1.5px solid #eee;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-size:12px;font-weight:700;color:#333;">'+esc(p.nome)+'</span><span>'+emoji+'</span></div>'
+    +'<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">'
+    +'<span style="font-family:Georgia,serif;font-size:32px;font-weight:700;line-height:1;color:'+cor+';">'+ult.valor+'</span>'
+    +'<span style="font-size:11px;color:#aaa;">'+esc(p.unidade||'')+'</span>'
+    +'<span style="margin-left:auto;">'+tend+'</span></div>'
+    +'<div style="position:relative;height:7px;background:#e8e4de;border-radius:4px;margin-bottom:4px;">'
+    +'<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'15;border-radius:4px;"></div>'
+    +'<div style="position:absolute;left:'+pct+'%;top:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:'+cor+';border:2px solid #fff;box-shadow:0 0 0 2px '+cor+';z-index:2;"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:9px;color:#bbb;margin-bottom:8px;"><span>'+p.refMin+'</span><span style="color:#1a7a40;font-weight:600;">Normal: '+p.refMin+'–'+p.refMax+'</span><span>'+p.refMax+'</span></div>'
+    +(p.historico.length>=2?'<div style="height:60px;"><canvas id="'+cid+'"></canvas></div>':'')
+    +'<div style="font-size:10px;color:#bbb;margin-top:6px;text-align:right;">'+fdt(ult.data)+(ult.lab?' · '+esc(ult.lab):'')+'</div>'
+    +'</div>';
+}
+
+// ══════════════════════════════════════
+//  VISÃO PACIENTE (médico vê pelo modal)
+// ══════════════════════════════════════
+function renderComoPacienteMed() {
+  var el=document.getElementById('comoConteudoMed'); if(!el) return;
+  // Reusar a mesma lógica do renderComo mas no elemento do médico
+  _renderComoPaciente(el);
+}
+
+function renderComo() {
+  var el=document.getElementById('comoConteudo'); if(!el) return;
+  _renderComoPaciente(el);
+}
+
+function _renderComoPaciente(el) {
+  if(!RESULTADOS||!RESULTADOS.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;">👋</div><p style="color:#666;font-size:13px;">Resultados aparecerão aqui quando seu médico os cadastrar.</p></div>';
+    return;
+  }
+  var mapa=unificarExames(RESULTADOS), params=Object.values(mapa);
+  var total=params.length;
+  var ok=params.filter(function(p){var u=p.historico[p.historico.length-1];return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ok';}).length;
+  var aten=params.filter(function(p){var u=p.historico[p.historico.length-1];return statusVal(u.valor,p.refMin,p.refMax).c==='tag-alt';}).length;
+  var ruim=params.filter(function(p){var u=p.historico[p.historico.length-1];return statusVal(u.valor,p.refMin,p.refMax).c==='tag-ru';}).length;
+  var pct=total>0?Math.round(ok/total*100):0;
+  var hero=pct>=90?{bg:'linear-gradient(135deg,#0d4a24,#1a8a40)',emoji:'🏆',titulo:'Saúde em dia!',sub:'Seus exames estão excelentes!',badge:'ÓTIMO'}:
+           pct>=70?{bg:'linear-gradient(135deg,#3a2800,#b07000)',emoji:'💪',titulo:'Indo muito bem!',sub:'A maioria está normal. Alguns merecem atenção.',badge:'BOM'}:
+           pct>=40?{bg:'linear-gradient(135deg,#3a1800,#b04000)',emoji:'⚠️',titulo:'Atenção necessária',sub:'Vários exames precisam de cuidado.',badge:'ATENÇÃO'}:
+                  {bg:'linear-gradient(135deg,#3a0000,#880000)',emoji:'❤️',titulo:'Consulte seu médico',sub:'Vários exames estão alterados.',badge:'URGENTE'};
+  var html='<div style="background:'+hero.bg+';border-radius:16px;padding:20px;margin-bottom:18px;color:#fff;position:relative;overflow:hidden;">'
+    +'<div style="position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.12;">'+hero.emoji+'</div>'
+    +'<div style="display:inline-block;padding:2px 10px;border-radius:20px;background:rgba(255,255,255,.2);font-size:10px;font-weight:700;letter-spacing:1.5px;margin-bottom:8px;">'+hero.badge+'</div>'
+    +'<div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:4px;">'+hero.emoji+' '+hero.titulo+'</div>'
+    +'<div style="font-size:12.5px;color:rgba(255,255,255,.85);margin-bottom:14px;">'+hero.sub+'</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;">Saúde geral</div>'
+    +'<div style="flex:1;height:9px;background:rgba(0,0,0,.3);border-radius:5px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6de090,#fff);border-radius:5px;"></div></div>'
+    +'<div style="font-size:15px;font-weight:800;color:#fff;">'+pct+'%</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:26px;font-weight:800;line-height:1;">'+ok+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.7);margin-top:2px;">✅ Normais</div></div>'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:26px;font-weight:800;line-height:1;">'+aten+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.7);margin-top:2px;">⚠️ Atenção</div></div>'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:26px;font-weight:800;line-height:1;">'+ruim+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.7);margin-top:2px;">🔴 Alterados</div></div>'
+    +'</div></div>';
+  var DESCR={
+    'Hemoglobina':{ok:'Seu sangue está transportando oxigênio muito bem! 🩸',alt:'Hemoglobina levemente alterada.',ru:'Hemoglobina alterada. Consulte seu médico.'},
+    'Hematócrito':{ok:'Concentração do sangue normal! ✅',alt:'Hematócrito levemente fora do ideal.',ru:'Hematócrito alterado.'},
+    'Leucócitos':{ok:'Suas defesas estão em boa forma! 🛡️',alt:'Leucócitos levemente alterados.',ru:'Leucócitos alterados. Consulte seu médico.'},
+    'Plaquetas':{ok:'Coagulação do sangue normal! ✅',alt:'Plaquetas levemente alteradas.',ru:'Plaquetas alteradas.'},
+    'Colesterol Total':{ok:'Colesterol total controlado! 🥗',alt:'Colesterol um pouco elevado. Reduza gorduras.',ru:'Colesterol alto. Consulte seu médico.'},
+    'HDL':{ok:'Colesterol bom (HDL) ótimo! 💚 Exercícios funcionando!',alt:'HDL poderia ser mais alto. Exercícios ajudam!',ru:'HDL baixo. Pratique mais atividade física.'},
+    'LDL':{ok:'Colesterol ruim (LDL) sob controle! 👍',alt:'LDL um pouco acima. Cuide da alimentação.',ru:'LDL elevado. Consulte seu médico.'},
+    'VLDL':{ok:'VLDL normal! ✅',alt:'VLDL levemente elevado.',ru:'VLDL alto. Consulte seu médico.'},
+    'Triglicerídeos':{ok:'Triglicerídeos normais! 🎉',alt:'Elevados. Reduza açúcar e processados.',ru:'Muito altos. Consulte seu médico.'},
+    'TGO (AST)':{ok:'Seu fígado está saudável! 🟤',alt:'Leve alteração no fígado. Evite álcool.',ru:'Fígado com alterações. Consulte seu médico.'},
+    'TGP (ALT)':{ok:'Fígado funcionando bem! 🟤',alt:'Leve alteração hepática. Evite álcool.',ru:'Fígado alterado. Consulte seu médico.'},
+    'GGT':{ok:'Enzima do fígado normal! ✅',alt:'GGT levemente elevada. Evite álcool.',ru:'GGT elevada. Consulte seu médico.'},
+    'Fosfatase Alcalina':{ok:'Normal! ✅',alt:'Levemente alterada.',ru:'Alta. Consulte seu médico.'},
+    'Glicose':{ok:'Açúcar no sangue normal! 🍎 Continue assim!',alt:'Glicemia um pouco alta. Cuidado com açúcar.',ru:'Glicemia alterada. Consulte seu médico urgente.'},
+    'TSH':{ok:'Tireoide funcionando perfeitamente! 🦋',alt:'TSH ligeiramente alterado.',ru:'TSH alterado. Consulte seu endocrinologista.'},
+    'Testosterona Total':{ok:'Testosterona total excelente! 💪',alt:'Testosterona levemente fora do ideal.',ru:'Testosterona alterada. Consulte seu médico.'},
+    'Testosterona Livre':{ok:'Testosterona livre ótima! 💪',alt:'Levemente fora do ideal.',ru:'Alterada. Consulte seu médico.'},
+    'SHBG':{ok:'Proteína transportadora normal! ✅',alt:'SHBG levemente alterado.',ru:'SHBG alterado.'},
+    'LH':{ok:'LH normal! ✅',alt:'LH levemente alterado.',ru:'LH alterado.'},
+    'Vitamina D':{ok:'Vitamina D em bom nível! ☀️',alt:'Vitamina D baixa. Tome mais sol!',ru:'Vitamina D muito baixa. Suplementação necessária.'},
+  };
+  var porSistema={};
+  params.forEach(function(p){
+    var u=p.historico[p.historico.length-1];
+    var st=statusVal(u.valor,p.refMin,p.refMax);
+    p._ultimo=u; p._st=st;
+    var sis=p.sistema||'Outros';
+    if(!porSistema[sis]) porSistema[sis]={ruim:[],atencao:[],ok:[]};
+    if(st.c==='tag-ru') porSistema[sis].ruim.push(p);
+    else if(st.c==='tag-alt') porSistema[sis].atencao.push(p);
+    else porSistema[sis].ok.push(p);
+  });
+  var ord=['Sangue','Coração','Fígado','Tireoide','Hormônios','Glicemia','Rins','Vitaminas','PSA','Outros'];
+  ord.forEach(function(sis){
+    if(!porSistema[sis]) return;
+    var info=SISTEMAS_INFO[sis]||{titulo:sis,icone:'🔬',cor:'#607080',desc:''};
+    var todos=porSistema[sis].ruim.concat(porSistema[sis].atencao,porSistema[sis].ok);
+    if(!todos.length) return;
+    var stG=porSistema[sis].ruim.length?'🔴':porSistema[sis].atencao.length?'⚠️':'✅';
+    html+='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:14px;">'
+      +'<div style="background:'+info.cor+'15;border-left:4px solid '+info.cor+';padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">'
+      +'<div style="display:flex;align-items:center;gap:9px;"><span style="font-size:22px;">'+info.icone+'</span>'
+      +'<div><div style="font-size:14px;font-weight:700;color:'+info.cor+';">'+info.titulo+'</div>'
+      +'<div style="font-size:11px;color:#888;">'+info.desc+'</div></div></div>'
+      +'<span style="font-size:18px;">'+stG+'</span></div>'
+      +'<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px;">'
+      +todos.map(function(p){
+        var u=p._ultimo,st=p._st;
+        var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+        var bg=st.c==='tag-ok'?'#f0faf4':st.c==='tag-alt'?'#fffbf0':'#fff8f8';
+        var bd=st.c==='tag-ok'?'#c8ead4':st.c==='tag-alt'?'#fce5a8':'#fecece';
+        var emoji2=st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴';
+        var dm=DESCR[p.nome]||{};
+        var desc=st.c==='tag-ok'?(dm.ok||'Valor normal! ✅'):st.c==='tag-alt'?(dm.alt||'Valor levemente fora do ideal.'):(dm.ru||'Valor alterado. Consulte seu médico.');
+        var r2=p.refMax-p.refMin;
+        var pct2=r2>0?Math.min(93,Math.max(7,((u.valor-p.refMin)/r2*80)+10)):50;
+        return '<div style="background:'+bg+';border-radius:10px;padding:13px;border:1.5px solid '+bd+';">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">'
+          +'<span style="font-size:12px;font-weight:700;color:#333;">'+esc(p.nome)+'</span>'
+          +'<span style="font-size:16px;">'+emoji2+'</span></div>'
+          +'<div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:'+cor+';line-height:1;margin-bottom:2px;">'+u.valor+'</div>'
+          +'<div style="font-size:10px;color:#aaa;margin-bottom:7px;">'+esc(p.unidade||'')+' · ref: '+p.refMin+'–'+p.refMax+'</div>'
+          +'<div style="height:6px;background:#e0dcd6;border-radius:3px;position:relative;margin-bottom:7px;">'
+          +'<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'25;border-radius:3px;"></div>'
+          +'<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:'+cor+';border:2.5px solid #fff;box-shadow:0 0 0 1.5px '+cor+';"></div></div>'
+          +'<div style="font-size:11.5px;color:#444;line-height:1.5;">'+desc+'</div>'
+          +(p.historico.length>1?'<div style="margin-top:7px;padding-top:7px;border-top:1px solid '+bd+';display:flex;gap:8px;align-items:center;">'
+          +'<span style="font-size:9px;color:#aaa;font-weight:700;text-transform:uppercase;">Histórico</span>'
+          +p.historico.slice(-3).map(function(h){var stH=statusVal(h.valor,p.refMin,p.refMax);var cH=stH.c==='tag-ok'?'#1a7a40':stH.c==='tag-alt'?'#c87800':'#cc2222';return '<div style="text-align:center;"><div style="font-size:11px;font-weight:700;color:'+cH+';">'+h.valor+'</div><div style="font-size:9px;color:#aaa;">'+fdt(h.data).split('/').slice(0,2).join('/')+'</div></div>';}).join('')
+          +'</div>':'')
+          +'</div>';
+      }).join('')+'</div></div>';
+  });
+  el.innerHTML=html;
+}
+
+function renderMeusExames() {
+  var el=document.getElementById('meusExames'); if(!el) return;
+  if(!RESULTADOS||!RESULTADOS.length){el.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:30px;"><p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>';return;}
+  var mapa=unificarExames(RESULTADOS),params=Object.values(mapa);
+  el.innerHTML=params.map(function(p){
+    var ult=p.historico[p.historico.length-1];var st=statusVal(ult.valor,p.refMin,p.refMax);var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+    return '<div style="background:#fff;border-radius:12px;padding:14px;border:1.5px solid #eee;">'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:4px;">'+esc(p.nome)+'</div>'
+      +'<div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:'+cor+';">'+ult.valor+' <span style="font-size:11px;font-family:sans-serif;color:#aaa;">'+esc(p.unidade||'')+'</span></div>'
+      +'<div style="font-size:10px;color:#aaa;margin-top:4px;">Normal: '+p.refMin+'–'+p.refMax+'</div>'
+      +(p.historico.length>1?'<div style="font-size:10px;color:#aaa;margin-top:2px;">'+p.historico.length+' medições</div>':'')
+      +'</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════
+//  LEITOR DE PDF
+// ══════════════════════════════════════
+var _iaResultados = {};
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function lerPDFcomIA(file) {
+  if (!file) return;
+  load();
+  document.getElementById('iaResult').style.display = 'none';
+  try {
+    var texto = '';
+    if (file.type === 'application/pdf') {
+      var arrayBuffer = await file.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+      for (var p=1; p<=pdf.numPages; p++) {
+        var page = await pdf.getPage(p);
+        var content = await page.getTextContent();
+        texto += content.items.map(function(i){return i.str;}).join(' ') + '\n';
+      }
+    }
+    if (!texto.trim()) {
+      alert('Não foi possível extrair texto deste PDF.\n\nO PDF pode ser uma imagem escaneada.\nTente adicionar os valores manualmente pelo botão "+ Exame".');
+      unload(); return;
+    }
+    var resultado = parsearLaudo(texto, file.name);
+    if (!resultado.exames.length) {
+      alert('Nenhum exame reconhecido automaticamente.\nO PDF pode ter formatação incomum.\nTente adicionar manualmente pelo botão "+ Exame".');
+      unload(); return;
+    }
+    _iaResultados = resultado;
+    exibirResultadoIA(resultado, file);
+  } catch(e) { alert('Erro ao ler PDF: ' + e.message); }
+  unload();
+}
+
+function parsearLaudo(texto, nomeArq) {
+  var textoLower = texto.toLowerCase();
+  // Data de coleta
+  var dataColeta = '';
+  var mColeta = texto.match(/[Cc]oleta[^\\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+  if (!mColeta) mColeta = texto.match(/[Ee]ntrada[^\\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+  if (!mColeta) {
+    var allDates=[], re=/(\\d{2})\\/(\\d{2})\\/(\\d{4})/g, m;
+    while((m=re.exec(texto))!==null){if(parseInt(m[3])>=2020)allDates.push(m);}
+    if(allDates.length) mColeta=allDates[0];
+  }
+  if(mColeta) dataColeta=mColeta[3]+'-'+mColeta[2]+'-'+mColeta[1];
+  // Lab
+  var lab='';
+  var labs=['são matheus','fleury','delboni','einstein','hermes pardini','sabin','labclin'];
+  for(var i=0;i<labs.length;i++){if(textoLower.indexOf(labs[i])!==-1){lab=labs[i].replace(/\\b\\w/g,function(c){return c.toUpperCase();});break;}}
+  // Exames
+  var exames=[];
+  DICT_EXAMES.forEach(function(def){
+    for(var si=0;si<def.sinonimos.length;si++){
+      var sin=def.sinonimos[si];
+      var idx=textoLower.indexOf(sin);
+      if(idx===-1) continue;
+      var ctx=texto.substring(idx,idx+200);
+      var valor=null;
+      var patterns=[
+        /[Rr]esultado[:\s.]+(\d[\d.,]+)/,
+        /[:\s]+(\d[\d.,]+)\s*(?:mg|g|u\/l|ui|ng|pg|nmol|mmol|mcg|milh|mUI|µUI|fL|%|u3)/i,
+        /\.{3,}\s*(\d[\d.,]+)/,
+        /\s{2,}(\d[\d.,]+)\s/,
+      ];
+      for(var pi=0;pi<patterns.length;pi++){
+        var pm=ctx.match(patterns[pi]);
+        if(pm){var raw=pm[1].replace(/\./g,'').replace(',','.');var v=parseFloat(raw);if(!isNaN(v)&&v>0&&v<10000000){valor=v;break;}}
+      }
+      if(valor===null) continue;
+      var refMin=def.refMin,refMax=def.refMax;
+      var refM=ctx.match(/(\d[\d.,]*)\s*[a-z]*\s*[–\-a]\s*(\d[\d.,]*)/i);
+      if(refM){var r1=parseFloat(refM[1].replace(',','.'));var r2=parseFloat(refM[2].replace(',','.'));if(!isNaN(r1)&&!isNaN(r2)&&r2>r1&&r2<1000000){refMin=r1;refMax=r2;}}
+      var jaExiste=exames.some(function(e){return e.nome===def.nome;});
+      if(!jaExiste) exames.push({nome:def.nome,valor:valor,unidade:def.unidade,refMin:refMin,refMax:refMax,sistema:def.sistema,icone:def.icone});
+      break;
+    }
+  });
+  return {laboratorio:lab,data:dataColeta,exames:exames};
+}
+
+function exibirResultadoIA(resultado, file) {
+  var exames=resultado.exames||[];
+  if(!exames.length){alert('Nenhum exame reconhecido.');return;}
+  if(resultado.data) document.getElementById('re-dt').value=resultado.data;
+  if(resultado.laboratorio) document.getElementById('re-lab').value=resultado.laboratorio;
+  var el=document.getElementById('iaValores');
+  el.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:8px;">'
+    +(resultado.laboratorio?'🏥 '+esc(resultado.laboratorio)+'  ':'')+( resultado.data?'📅 '+fdt(resultado.data):'')+' '
+    +'<span style="margin-left:auto;font-size:10px;color:#1a7a40;font-weight:700;">✏️ Clique no valor para editar</span></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px;" id="tblIAValores">'
+    +'<thead><tr style="background:#f7f5f2;">'
+    +'<th style="padding:7px 9px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Exame</th>'
+    +'<th style="padding:7px 9px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th>'
+    +'<th style="padding:7px 9px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unid.</th>'
+    +'<th style="padding:7px 9px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th>'
+    +'<th style="padding:7px 9px;text-align:center;font-size:9px;color:#aaa;">Del.</th>'
+    +'</tr></thead><tbody id="tbodyIA">'
+    +exames.map(function(e,idx){
+      var st=statusVal(e.valor,e.refMin,e.refMax);
+      return '<tr id="iarow-'+idx+'" style="border-bottom:1px solid #f0ede8;">'
+        +'<td style="padding:6px 9px;font-size:12.5px;font-weight:600;">'+esc(e.nome)+'</td>'
+        +'<td style="padding:6px 9px;text-align:right;">'
+        +'<input type="number" step="0.01" value="'+e.valor+'" id="ia-v-'+idx+'" '
+        +'style="width:75px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;" '
+        +'oninput="atualizarStatusIA('+idx+','+e.refMin+','+e.refMax+')"></td>'
+        +'<td style="padding:6px 9px;text-align:right;font-size:11px;color:#888;">'+esc(e.unidade||'')+'</td>'
+        +'<td style="padding:6px 9px;text-align:center;" id="ia-st-'+idx+'">'
+        +'<span class="tag '+st.c+'" style="font-size:9.5px;">'+st.l+'</span></td>'
+        +'<td style="padding:6px 9px;text-align:center;">'
+        +'<button onclick="document.getElementById(\'iarow-'+idx+'\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table>'
+    +'<div style="margin-top:8px;font-size:10.5px;color:#888;">Valores editáveis. Clique ✕ para remover um exame.</div>';
+  document.getElementById('iaResult').style.display='block';
+}
+
+function atualizarStatusIA(idx, refMin, refMax) {
+  var vEl=document.getElementById('ia-v-'+idx);
+  var stEl=document.getElementById('ia-st-'+idx);
+  if(!vEl||!stEl) return;
+  var v=parseFloat(vEl.value);
+  if(isNaN(v)) return;
+  var st=statusVal(v,refMin,refMax);
+  stEl.innerHTML='<span class="tag '+st.c+'" style="font-size:9.5px;">'+st.l+'</span>';
+}
+
+async function salvarValoresIA() {
+  var resultado=_iaResultados;
+  if(!resultado||!resultado.exames||!resultado.exames.length){alert('Sem valores.');return;}
+  var dt=document.getElementById('re-dt').value||resultado.data||new Date().toISOString().split('T')[0];
+  var lab=document.getElementById('re-lab').value||resultado.laboratorio||'';
+  var vals={},temAlt=false;
+  var linhas=document.querySelectorAll('#tbodyIA tr');
+  linhas.forEach(function(row,idx){
+    if(row.style.display==='none') return;
+    var nomeEl=row.querySelector('td:first-child');
+    var valorEl=document.getElementById('ia-v-'+idx);
+    if(!nomeEl||!valorEl) return;
+    var nome=(nomeEl.textContent||'').trim();
+    var valor=parseFloat(valorEl.value);
+    if(!nome||isNaN(valor)) return;
+    var ref={refMin:0,refMax:999};
+    DICT_EXAMES.forEach(function(d){if(d.nome===nome){ref.refMin=d.refMin;ref.refMax=d.refMax;}});
+    vals[nome]={valor:valor,unidade:'',refMin:ref.refMin,refMax:ref.refMax};
+    // Get unit from table
+    var unitEl=row.querySelector('td:nth-child(3)');
+    if(unitEl) vals[nome].unidade=unitEl.textContent.trim();
+    var st=statusVal(valor,ref.refMin,ref.refMax);
+    if(st.c==='tag-ru'||st.c==='tag-alt') temAlt=true;
+  });
+  if(!Object.keys(vals).length){alert('Nenhum valor para salvar.');return;}
+  load();
+  try {
+    await FD.collection('users/'+EU.uid+'/resultados').add({
+      pacienteId:CUR_PAC_ID, data:dt,
+      areaId:'pdf-import', areaNome:'Laudo PDF · '+(lab||'Laboratório'),
+      areaIco:'📄', areaCor:'#154fa0', lab:lab,
+      obs:'Extraído do PDF', valores:vals, temAlteracao:temAlt,
+      criadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({
+      ultimaConsulta:dt, temAlteracao:temAlt,
+      totalExames:firebase.firestore.FieldValue.increment(1)
+    });
+    document.getElementById('iaResult').style.display='none';
+    _iaResultados={};
+    var rSnap=await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    renderResAreas(); renderExTbl();
+    alert('✅ '+Object.keys(vals).length+' exames salvos!');
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
+}
+
+// ══════════════════════════════════════
+//  EDITAR RESULTADO SALVO
+// ══════════════════════════════════════
+function abrirEditarRes(id) {
+  var r=RESULTADOS.find(function(x){return x._id===id;}); if(!r) return;
+  var mo=document.getElementById('mo-editar-res');
+  if(!mo){
+    mo=document.createElement('div');
+    mo.className='mo'; mo.id='mo-editar-res';
+    mo.innerHTML='<div class="mo-box" style="max-width:600px;">'
+      +'<div class="mo-head"><span class="mo-title" id="editResTitle">✏️ Editar Resultado</span>'
+      +'<button class="mo-x" onclick="fecharMo(\'editar-res\')">✕</button></div>'
+      +'<div class="mo-body">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px;">'
+      +'<div class="fg"><label>Data</label><input id="editRes-dt" type="date"></div>'
+      +'<div class="fg"><label>Laboratório</label><input id="editRes-lab"></div>'
+      +'</div><div id="editRes-valores"></div></div>'
+      +'<div class="mo-foot">'
+      +'<button class="bta bta-o" onclick="fecharMo(\'editar-res\')">Cancelar</button>'
+      +'<button class="bta bta-gr" onclick="salvarEdicaoRes()">💾 Salvar</button>'
+      +'</div></div>';
+    mo.addEventListener('click',function(e){if(e.target===mo)mo.classList.remove('open');});
+    document.body.appendChild(mo);
+  }
+  document.getElementById('editRes-dt').value=r.data||'';
+  document.getElementById('editRes-lab').value=r.lab||'';
+  document.getElementById('editResTitle').textContent='✏️ Editar — '+(r.areaNome||'Resultado');
+  mo.dataset.resId=id;
+  var vals=r.valores||{};
+  var html='<div style="margin-bottom:8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;">VALORES</div>'
+    +'<table style="width:100%;border-collapse:collapse;" id="tblEditRes"><thead><tr style="background:#f7f5f2;">'
+    +'<th style="padding:6px 9px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Exame</th>'
+    +'<th style="padding:6px 9px;text-align:right;font-size:9px;color:#aaa;">Valor</th>'
+    +'<th style="padding:6px 9px;text-align:right;font-size:9px;color:#aaa;">Unid.</th>'
+    +'<th style="padding:6px 9px;text-align:center;font-size:9px;color:#aaa;">Del.</th>'
+    +'</tr></thead><tbody id="tbodyEditRes">'
+    +Object.keys(vals).map(function(nome,idx){
+      var v=vals[nome];
+      return '<tr id="editrow-'+idx+'" style="border-bottom:1px solid #f0ede8;">'
+        +'<td style="padding:6px 9px;"><input value="'+esc(nome)+'" '
+        +'style="width:100%;border:none;background:transparent;font-size:12.5px;font-weight:600;outline:none;" '
+        +'onfocus="this.style.background=\'#f0f8ff\';this.style.border=\'1px solid #2e8a48\';this.style.borderRadius=\'4px\'" '
+        +'onblur="this.style.background=\'transparent\';this.style.border=\'none\'"></td>'
+        +'<td style="padding:6px 9px;text-align:right;">'
+        +'<input type="number" step="0.01" value="'+v.valor+'" id="ev-'+idx+'" '
+        +'style="width:75px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;"></td>'
+        +'<td style="padding:6px 9px;text-align:right;">'
+        +'<input value="'+esc(v.unidade||'')+'" '
+        +'style="width:60px;border:none;background:transparent;font-size:11px;color:#888;text-align:right;outline:none;" '
+        +'onfocus="this.style.border=\'1px solid #ddd\';this.style.borderRadius=\'4px\'" onblur="this.style.border=\'none\'"></td>'
+        +'<td style="padding:6px 9px;text-align:center;">'
+        +'<button onclick="document.getElementById(\'editrow-'+idx+'\').style.display=\'none\'" '
+        +'style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table>'
+    +'<button onclick="adicionarLinhaEditRes()" style="margin-top:8px;padding:6px 12px;border-radius:6px;background:#f7f5f2;border:1.5px solid #ddd;font-size:12px;font-weight:600;cursor:pointer;width:100%;">+ Adicionar exame</button>';
+  document.getElementById('editRes-valores').innerHTML=html;
+  abrirMo('editar-res');
+}
+
+function adicionarLinhaEditRes(){
+  var tbody=document.getElementById('tbodyEditRes'); if(!tbody) return;
+  var idx=tbody.children.length;
+  var tr=document.createElement('tr');
+  tr.id='editrow-'+idx; tr.style.borderBottom='1px solid #f0ede8';
+  tr.innerHTML='<td style="padding:6px 9px;"><input value="Novo Exame" style="width:100%;border:1px solid #2e8a48;background:#f0f8ff;border-radius:4px;font-size:12.5px;font-weight:600;padding:2px 5px;"></td>'
+    +'<td style="padding:6px 9px;text-align:right;"><input type="number" step="0.01" value="0" id="ev-'+idx+'" style="width:75px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0;"></td>'
+    +'<td style="padding:6px 9px;"><input value="" placeholder="unid." style="width:60px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:2px 4px;text-align:right;"></td>'
+    +'<td style="padding:6px 9px;text-align:center;"><button onclick="this.closest(\'tr\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222;">✕</button></td>';
+  tbody.appendChild(tr);
+}
+
+async function salvarEdicaoRes(){
+  var mo=document.getElementById('mo-editar-res');
+  var id=mo?mo.dataset.resId:null; if(!id) return;
+  var dt=document.getElementById('editRes-dt').value;
+  var lab=document.getElementById('editRes-lab').value.trim();
+  var vals={},temAlt=false;
+  document.querySelectorAll('#tbodyEditRes tr').forEach(function(row,idx){
+    if(row.style.display==='none') return;
+    var inputs=row.querySelectorAll('input');
+    if(inputs.length<2) return;
+    var nome=(inputs[0].value||'').trim();
+    var valor=parseFloat(inputs[1].value);
+    var unit=inputs[2]?(inputs[2].value||''):'';
+    if(!nome||isNaN(valor)) return;
+    var ref={refMin:0,refMax:999};
+    DICT_EXAMES.forEach(function(d){if(d.nome===nome||d.sinonimos.indexOf(nome.toLowerCase())!==-1){ref.refMin=d.refMin;ref.refMax=d.refMax;}});
+    vals[nome]={valor:valor,unidade:unit,refMin:ref.refMin,refMax:ref.refMax};
+    var st=statusVal(valor,ref.refMin,ref.refMax);
+    if(st.c==='tag-ru'||st.c==='tag-alt') temAlt=true;
+  });
+  if(!Object.keys(vals).length){alert('Nenhum valor para salvar.');return;}
+  load();
+  try{
+    await FD.doc('users/'+EU.uid+'/resultados/'+id).update({data:dt,lab:lab,valores:vals,temAlteracao:temAlt});
+    await FD.doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({temAlteracao:temAlt});
+    fecharMo('editar-res');
+    var rSnap=await FD.collection('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push({_id:d.id,...d.data()});});
+    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    renderResAreas(); renderExTbl();
+    alert('✅ Resultado atualizado!');
+  } catch(e){alert('Erro: '+e.message);}
+  unload();
 }
 
 </script>
