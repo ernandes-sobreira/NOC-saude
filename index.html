@@ -11,7 +11,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;}
+body{font-family:sans-serif;background:#111820;min-height:100vh;}
+.loginWrap{position:fixed;inset:0;background:#111820;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;}
 .box{background:#fff;border-radius:16px;width:400px;max-width:96vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
 .topo{background:#111820;padding:16px 20px;display:flex;align-items:center;gap:10px;}
 .marca{font-size:22px;color:#6de090;letter-spacing:5px;font-weight:700;font-family:Georgia,serif;}
@@ -142,7 +143,8 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;ali
 </head>
 <body>
 
-<div class="box" id="loginBox">
+<div id="loginBox" class="loginWrap">
+<div class="box">
   <div class="topo">
     <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
       <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
@@ -209,6 +211,7 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;display:flex;ali
     <p style="font-size:11px;color:#aaa;text-align:center;margin-top:8px">Código: NOC@admin2025</p>
   </div>
 </div>
+</div><!-- /loginBox -->
 
 <div id="loader"><div class="spin"></div><span style="font-size:13px;color:#666;">Carregando...</span></div>
 
@@ -599,7 +602,7 @@ function sair() { FA.signOut(); }
 // ═══════════════════ INIT ═══════════════════
 FA.onAuthStateChanged(async function(user) {
   if (!user) {
-    document.getElementById('loginBox').style.display = 'block';
+    document.getElementById('loginBox').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     return;
   }
@@ -1010,20 +1013,7 @@ async function salvarRes() {
   unload();
 }
 
-function renderResAreas() {
-  var el = document.getElementById('resAreas'); if(!el) return;
-  var byArea = {};
-  RESULTADOS.forEach(function(r){if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r;});
-  if(!Object.keys(byArea).length){el.innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;"><p style="color:#aaa;font-size:13px;">Nenhum resultado. Clique em <b>+ Exame</b>.</p></div>';return;}
-  el.innerHTML = Object.values(byArea).map(function(r){
-    var params = Object.entries(r.valores||{}).slice(0,6);
-    return '<div class="ac">'
-      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';"><div style="font-size:13px;font-weight:700;color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div><span style="font-size:10px;color:#aaa;">'+fdt(r.data)+'</span></div>'
-      +'<div class="ac-body">'
-      +(params.length?params.map(function(e){var st=statusVal(e[1].valor,e[1].refMin,e[1].refMax);return '<div class="ac-row"><span style="color:#555;font-weight:500;">'+esc(e[0])+'</span><span><b>'+e[1].valor+'</b> <span style="font-size:10px;color:#aaa;">'+esc(e[1].unidade)+'</span> <span class="tag '+st.c+'" style="font-size:9.5px;padding:2px 6px;">'+st.l+'</span></span></div>';}).join(''):'<p style="color:#aaa;font-size:12px;">Sem valores.</p>')
-      +'</div></div>';
-  }).join('');
-}
+
 
 function renderExTbl() {
   var el = document.getElementById('exTbl'); if(!el) return;
@@ -1141,12 +1131,8 @@ async function carregarPaciente() {
   // Tentar encontrar dados do médico via medicoEmail
 }
 
-function renderComo() {
-  var el = document.getElementById('comoConteudo'); if(!el) return;
-  el.innerHTML = '<div class="card"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:8px;">Olá! 👋</div>'
-    +'<p style="color:#666;font-size:13px;line-height:1.7;">Seus exames e resultados aparecerão aqui assim que seu médico os adicionar ao sistema.</p></div>';
-}
-function renderMeusExames(){ var el=document.getElementById('meusExames'); if(el) el.innerHTML='<div class="card" style="grid-column:1/-1;"><p style="color:#aaa;font-size:13px;">Nenhum exame disponível.</p></div>'; }
+
+
 function renderSintHist(){ var el=document.getElementById('sintHist'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum sintoma registrado.</p></div>'; }
 function renderMinhaAgenda(){ var el=document.getElementById('minhaAgenda'); if(el) el.innerHTML='<div class="card"><p style="color:#aaa;font-size:13px;">Nenhum agendamento.</p></div>'; }
 async function salvarSintoma(){
