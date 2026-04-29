@@ -12,28 +12,53 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:sans-serif;background:#111820;min-height:100vh;}
-.loginWrap{position:fixed;inset:0;background:#111820;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;}
-.box{background:#fff;border-radius:16px;width:400px;max-width:96vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
-.topo{background:#111820;padding:16px 20px;display:flex;align-items:center;gap:10px;}
-.marca{font-size:22px;color:#6de090;letter-spacing:5px;font-weight:700;font-family:Georgia,serif;}
-.abas{display:flex;border-bottom:2px solid #eee;}
-.aba{flex:1;padding:12px 4px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#aaa;border-bottom:3px solid transparent;margin-bottom:-2px;user-select:none;}
-.aba.on{color:#1a7a40;border-bottom-color:#1a7a40;}
-.painel{padding:18px 20px;display:none;}
-.painel.on{display:block;}
-.msg{padding:10px 12px;border-radius:7px;font-size:13px;font-weight:600;margin-bottom:12px;display:none;}
+/* ═══ LOGIN SCREEN ═══ */
+#loginBox{position:fixed;inset:0;z-index:50;display:flex;overflow:hidden;}
+.lg-left{flex:1;background:linear-gradient(160deg,#0a1a10 0%,#111820 40%,#0d2a18 100%);display:flex;flex-direction:column;justify-content:center;padding:60px 48px;position:relative;overflow:hidden;}
+.lg-left::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 30% 50%,rgba(58,154,96,.18) 0%,transparent 70%);}
+.lg-left::after{content:'NOC';position:absolute;right:-40px;bottom:-60px;font-family:Georgia,serif;font-size:280px;font-weight:700;color:rgba(58,154,96,.04);line-height:1;pointer-events:none;}
+.lg-brand{font-family:Georgia,serif;font-size:52px;color:#6de090;letter-spacing:10px;font-weight:700;line-height:1;position:relative;z-index:1;}
+.lg-tagline{font-size:14px;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:10px;position:relative;z-index:1;}
+.lg-desc{font-size:15px;color:rgba(255,255,255,.6);line-height:1.8;margin-top:32px;max-width:340px;position:relative;z-index:1;}
+.lg-features{margin-top:40px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1;}
+.lg-feat{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.5);font-size:13px;}
+.lg-feat-ico{width:32px;height:32px;border-radius:8px;background:rgba(58,154,96,.15);border:1px solid rgba(58,154,96,.25);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.lg-right{width:460px;flex-shrink:0;background:#fff;display:flex;flex-direction:column;overflow-y:auto;}
+.lg-form-wrap{padding:48px 40px;flex:1;}
+.lg-logo-mobile{display:none;}
+.lg-title{font-family:Georgia,serif;font-size:26px;font-weight:700;color:#111820;margin-bottom:6px;}
+.lg-sub{font-size:13px;color:#888;margin-bottom:28px;}
+/* Tabs */
+.lg-tabs{display:flex;gap:0;border-bottom:2px solid #eee;margin-bottom:24px;}
+.lg-tab{flex:1;padding:11px 8px;text-align:center;font-size:12.5px;font-weight:700;cursor:pointer;color:#bbb;border-bottom:2.5px solid transparent;margin-bottom:-2px;transition:.15s;user-select:none;}
+.lg-tab:hover{color:#555;}
+.lg-tab.on{color:#111820;border-bottom-color:#1a7a40;}
+.lg-panel{display:none;}
+.lg-panel.on{display:block;}
+/* Form */
+.msg{padding:10px 13px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:14px;display:none;}
 .msg.ok{background:#e8f5ed;color:#1a5230;border:1px solid #2e8a48;}
 .msg.err{background:#fff0f0;color:#880000;border:1px solid #cc2222;}
-.lbl{font-size:9px;font-weight:700;color:#aaa;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:4px;}
-.inp{width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:14px;outline:none;margin-bottom:11px;font-family:sans-serif;display:block;}
-.inp:focus{border-color:#1a7a40;}
-.btn{width:100%;padding:12px;border-radius:7px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:sans-serif;margin-bottom:7px;}
+.lbl{font-size:9px;font-weight:700;color:#999;letter-spacing:1.5px;text-transform:uppercase;display:block;margin-bottom:5px;}
+.inp{width:100%;padding:11px 14px;border:1.5px solid #e8e4de;border-radius:9px;font-size:14px;outline:none;margin-bottom:13px;font-family:inherit;display:block;transition:.15s;background:#fafaf8;}
+.inp:focus{border-color:#1a7a40;background:#fff;box-shadow:0 0 0 3px rgba(26,122,64,.08);}
+.btn{width:100%;padding:13px;border-radius:9px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;transition:.15s;}
 .btn-dark{background:#111820;color:#fff;}
+.btn-dark:hover{background:#1a2e20;}
 .btn-green{background:#1a7a40;color:#fff;}
+.btn-green:hover{background:#145e30;}
 .btn-red{background:#980000;color:#fff;}
-.papeis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
-.papel{padding:11px;border-radius:7px;border:2px solid #ddd;background:#f9f9f9;cursor:pointer;text-align:center;font-size:12px;font-weight:700;}
+.papeis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;}
+.papel{padding:13px;border-radius:9px;border:2px solid #e8e4de;background:#fafaf8;cursor:pointer;text-align:center;font-size:12.5px;font-weight:700;transition:.15s;}
+.papel:hover{border-color:#1a7a40;}
 .papel.on{border-color:#1a7a40;background:#e8f5ed;}
+/* Mobile: hide left panel */
+@media(max-width:680px){
+  .lg-left{display:none;}
+  .lg-right{width:100%;min-height:100vh;}
+  .lg-form-wrap{padding:32px 24px;}
+  .lg-logo-mobile{display:flex;align-items:center;gap:10px;margin-bottom:24px;}
+}
 #app{display:none;position:fixed;inset:0;background:#f6f4f1;overflow-y:auto;}
 .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.07);margin-bottom:12px;}
 /* SHELL */
@@ -143,74 +168,120 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
 </head>
 <body>
 
-<div id="loginBox" class="loginWrap">
-<div class="box">
-  <div class="topo">
-    <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
-      <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
-      <path d="M17 34C17 24 20.5 14 24 12c3.5 2 7 12 7 22" stroke="#6de090" stroke-width="2" fill="none" stroke-linecap="round"/>
-    </svg>
-    <div class="marca">NOC</div>
-    <span style="font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.3);text-transform:uppercase;margin-left:2px;">sistema clínico</span>
-  </div>
+<div id="loginBox">
 
-  <div class="abas">
-    <div class="aba on" id="aba-entrar" onclick="irAba('entrar')">Entrar</div>
-    <div class="aba"    id="aba-criar"  onclick="irAba('criar')">Criar Conta</div>
-    <div class="aba"    id="aba-admin"  onclick="irAba('admin')">🔑 Admin</div>
-  </div>
-
-  <div class="painel on" id="p-entrar">
-    <div class="msg" id="m-entrar"></div>
-    <div class="lbl">E-MAIL</div>
-    <input class="inp" id="e-email" type="email" placeholder="seu@email.com">
-    <div class="lbl">SENHA</div>
-    <input class="inp" id="e-senha" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
-    <button class="btn btn-dark" onclick="entrar()">Entrar no Sistema</button>
-  </div>
-
-  <div class="painel" id="p-criar">
-    <div class="msg" id="m-criar"></div>
-    <div class="papeis">
-      <div class="papel on" id="r-pac" onclick="setPapel('paciente')">
-        <div style="font-size:22px;margin-bottom:4px">🧑‍⚕️</div>Paciente
-      </div>
-      <div class="papel" id="r-med" onclick="setPapel('medico')">
-        <div style="font-size:22px;margin-bottom:4px">👨‍⚕️</div>Médico
-      </div>
+  <!-- LADO ESQUERDO: Hero visual -->
+  <div class="lg-left">
+    <div class="lg-brand">NOC</div>
+    <div class="lg-tagline">Núcleo de Otimização Corporal</div>
+    <div class="lg-desc">
+      Plataforma clínica inteligente para acompanhamento personalizado de exames laboratoriais, hormônios e saúde preventiva.
     </div>
-    <div class="lbl">NOME COMPLETO</div>
-    <input class="inp" id="c-nome" placeholder="Seu nome completo">
-    <div id="f-med" style="display:none">
-      <div class="lbl">ESPECIALIDADE</div>
-      <select class="inp" id="c-esp" style="cursor:pointer">
-        <option value="endo">Endocrinologia</option>
-        <option value="derm">Dermatologia</option>
-        <option value="ambas">Endo + Derm</option>
-      </select>
-      <div class="lbl">CLÍNICA</div>
-      <input class="inp" id="c-clinica" value="NOC Cuiabá">
+    <div class="lg-features">
+      <div class="lg-feat"><div class="lg-feat-ico">🧪</div>Leitura automática de laudos em PDF</div>
+      <div class="lg-feat"><div class="lg-feat-ico">📊</div>Gráficos de evolução temporal</div>
+      <div class="lg-feat"><div class="lg-feat-ico">👁</div>Visão separada: médico e paciente</div>
+      <div class="lg-feat"><div class="lg-feat-ico">🔒</div>Dados seguros com Firebase</div>
     </div>
-    <div class="lbl">E-MAIL</div>
-    <input class="inp" id="c-email" type="email" placeholder="seu@email.com">
-    <div class="lbl">SENHA (mínimo 6 caracteres)</div>
-    <input class="inp" id="c-senha" type="password" placeholder="••••••••">
-    <button class="btn btn-green" onclick="criar()">Criar Conta</button>
+    <!-- Decoração: linha verde sutil -->
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#3a9a60,transparent);"></div>
   </div>
 
-  <div class="painel" id="p-admin">
-    <div class="msg" id="m-admin"></div>
-    <div class="lbl">E-MAIL ADMIN</div>
-    <input class="inp" id="a-email" type="email" placeholder="admin@noc.com.br">
-    <div class="lbl">SENHA</div>
-    <input class="inp" id="a-senha" type="password" placeholder="••••••••">
-    <div class="lbl">CÓDIGO ADMIN</div>
-    <input class="inp" id="a-code" type="password" placeholder="NOC@admin2025">
-    <button class="btn btn-dark" onclick="adminEntrar()">Entrar como Admin</button>
-    <button class="btn btn-red" onclick="adminCriar()">Criar conta Admin</button>
-    <p style="font-size:11px;color:#aaa;text-align:center;margin-top:8px">Código: NOC@admin2025</p>
+  <!-- LADO DIREITO: Formulário -->
+  <div class="lg-right">
+    <div class="lg-form-wrap">
+      <!-- Logo mobile (só aparece em celular) -->
+      <div class="lg-logo-mobile">
+        <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
+          <path d="M17 34C17 24 20.5 14 24 12c3.5 2 7 12 7 22" stroke="#1a7a40" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span style="font-family:Georgia,serif;font-size:22px;color:#111820;letter-spacing:4px;font-weight:700;">NOC</span>
+      </div>
+
+      <div class="lg-title">Bem-vindo de volta</div>
+      <div class="lg-sub">Acesse sua conta para continuar</div>
+
+      <!-- Tabs -->
+      <div class="lg-tabs">
+        <div class="lg-tab on" id="aba-entrar" onclick="irAba('entrar')">Entrar</div>
+        <div class="lg-tab" id="aba-criar" onclick="irAba('criar')">Criar Conta</div>
+        <div class="lg-tab" id="aba-admin" onclick="irAba('admin')">🔑 Admin</div>
+      </div>
+
+      <!-- ENTRAR -->
+      <div class="lg-panel on" id="p-entrar">
+        <div class="msg" id="m-entrar"></div>
+        <div class="lbl">E-MAIL</div>
+        <input class="inp" id="e-email" type="email" placeholder="seu@email.com" autocomplete="email">
+        <div class="lbl">SENHA</div>
+        <input class="inp" id="e-senha" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
+        <button class="btn btn-dark" onclick="entrar()" style="margin-top:4px;">Entrar no Sistema →</button>
+      </div>
+
+      <!-- CRIAR CONTA -->
+      <div class="lg-panel" id="p-criar">
+        <div class="msg" id="m-criar"></div>
+        <div class="papeis">
+          <div class="papel on" id="r-pac" onclick="setPapel('paciente')">
+            <div style="font-size:24px;margin-bottom:5px">🧑‍⚕️</div>
+            <div>Paciente</div>
+            <div style="font-size:10px;color:#888;font-weight:400;margin-top:2px;">Ver meus exames</div>
+          </div>
+          <div class="papel" id="r-med" onclick="setPapel('medico')">
+            <div style="font-size:24px;margin-bottom:5px">👨‍⚕️</div>
+            <div>Médico</div>
+            <div style="font-size:10px;color:#888;font-weight:400;margin-top:2px;">Painel clínico</div>
+          </div>
+        </div>
+        <div class="lbl">NOME COMPLETO</div>
+        <input class="inp" id="c-nome" placeholder="Seu nome completo">
+        <div id="f-med" style="display:none">
+          <div class="lbl">ESPECIALIDADE</div>
+          <select class="inp" id="c-esp" style="cursor:pointer">
+            <option value="endo">Endocrinologia</option>
+            <option value="derm">Dermatologia</option>
+            <option value="ambas">Endo + Dermatologia</option>
+          </select>
+          <div class="lbl">CLÍNICA</div>
+          <input class="inp" id="c-clinica" value="NOC Cuiabá">
+        </div>
+        <div class="lbl">E-MAIL</div>
+        <input class="inp" id="c-email" type="email" placeholder="seu@email.com">
+        <div class="lbl">SENHA <span style="font-weight:400;color:#bbb;">(mínimo 6 caracteres)</span></div>
+        <input class="inp" id="c-senha" type="password" placeholder="••••••••">
+        <button class="btn btn-green" onclick="criar()">Criar Conta</button>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="lg-panel" id="p-admin">
+        <div class="msg" id="m-admin"></div>
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="width:52px;height:52px;border-radius:14px;background:#111820;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">🔑</div>
+          <div style="font-size:15px;font-weight:700;color:#111;">Acesso Administrativo</div>
+          <div style="font-size:12px;color:#888;margin-top:3px;">Para Ernandes e equipe NOC</div>
+        </div>
+        <div class="lbl">E-MAIL</div>
+        <input class="inp" id="a-email" type="email" placeholder="admin@noc.com.br">
+        <div class="lbl">SENHA</div>
+        <input class="inp" id="a-senha" type="password" placeholder="••••••••">
+        <div class="lbl">CÓDIGO ADMIN</div>
+        <input class="inp" id="a-code" type="password" placeholder="NOC@admin2025">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <button class="btn btn-dark" onclick="adminEntrar()">Entrar</button>
+          <button class="btn btn-red" onclick="adminCriar()">Criar conta</button>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#ccc;">Código: NOC@admin2025</div>
+      </div>
+
+    </div>
+    <!-- Footer -->
+    <div style="padding:16px 40px;border-top:1px solid #f0ede8;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:11px;color:#bbb;">© 2025 NOC Cuiabá</span>
+      <span style="font-size:11px;color:#bbb;">Plataforma clínica digital</span>
+    </div>
   </div>
-</div>
+
 </div><!-- /loginBox -->
 
 <div id="loader"><div class="spin"></div><span style="font-size:13px;color:#666;">Carregando...</span></div>
@@ -537,8 +608,8 @@ function irAba(t) {
   for (var i = 0; i < lista.length; i++) {
     var x = lista[i];
     var a = document.getElementById('aba-'+x), p = document.getElementById('p-'+x);
-    if(a) a.className = 'aba'+(x===t?' on':'');
-    if(p) p.className = 'painel'+(x===t?' on':'');
+    if(a) a.className = 'lg-tab'+(x===t?' on':'');
+    if(p) p.className = 'lg-panel'+(x===t?' on':'');
     clearMsg(x);
   }
 }
