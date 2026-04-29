@@ -250,88 +250,94 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
 </style>
-<!-- Firebase Compat — funciona em arquivo local e GitHub Pages -->
+<!-- Firebase Compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script>
-(function(){
-  var cfg = {
-    apiKey: "AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
-    authDomain: "sopa-fd8b8.firebaseapp.com",
-    projectId: "sopa-fd8b8",
-    storageBucket: "sopa-fd8b8.firebasestorage.app",
-    messagingSenderId: "962393498465",
-    appId: "1:962393498465:web:fc2023af290ce9b6a31b20"
-  };
-  firebase.initializeApp(cfg);
-  var FA = firebase.auth();
-  var FD = firebase.firestore();
-  var FS = firebase.storage();
+firebase.initializeApp({
+  apiKey:"AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
+  authDomain:"sopa-fd8b8.firebaseapp.com",
+  projectId:"sopa-fd8b8",
+  storageBucket:"sopa-fd8b8.firebasestorage.app",
+  messagingSenderId:"962393498465",
+  appId:"1:962393498465:web:fc2023af290ce9b6a31b20"
+});
 
-  function _doc(path, id) {
-    var parts = path.split('/');
-    var r = FD;
-    for(var i=0;i<parts.length;i++){
-      r = (i%2===0) ? r.collection(parts[i]) : r.doc(parts[i]);
-    }
-    if(id) r = r.doc(id);
-    return r;
+var _FA = firebase.auth();
+var _FD = firebase.firestore();
+var _FS = firebase.storage();
+
+// Resolve path tipo "users/uid/perfil" + id "dados"
+// => collection(users).doc(uid).collection(perfil).doc(dados)
+function _fbDoc(path, id) {
+  var segs = path.split('/');
+  var r = _FD;
+  for(var i=0;i<segs.length;i++){
+    if(i%2===0) r = r.collection(segs[i]);
+    else r = r.doc(segs[i]);
   }
+  if(id) r = r.doc(id);
+  return r;
+}
 
-  window._fb = {
-    auth: FA, db: FD, stor: FS,
-    signInWithEmailAndPassword: function(a,em,ps){ return FA.signInWithEmailAndPassword(em,ps); },
-    createUserWithEmailAndPassword: function(a,em,ps){ return FA.createUserWithEmailAndPassword(em,ps); },
-    signOut: function(){ return FA.signOut(); },
-    onAuthStateChanged: function(a,cb){ return FA.onAuthStateChanged(cb); },
-    collection: function(db,path){ return FD.collection(path); },
-    doc: function(db,path,id){ return _doc(path,id); },
-    setDoc: function(ref,data,opts){ return (opts&&opts.merge)?ref.set(data,{merge:true}):ref.set(data); },
-    getDoc: async function(ref){
-      var s=await ref.get();
-      return {exists:function(){return s.exists;}, data:function(){return s.data();}, id:s.id};
-    },
-    getDocs: async function(q){
-      var s=await q.get();
-      return {forEach:function(cb){ s.forEach(function(d){ cb({id:d.id,data:function(){return d.data();},exists:function(){return d.exists;}}); }); }};
-    },
-    addDoc: async function(ref,data){ var r=await ref.add(data); return {id:r.id}; },
-    updateDoc: function(ref,data){ return ref.update(data); },
-    deleteDoc: function(ref){ return ref.delete(); },
-    query: function(ref){
-      var q=ref;
-      for(var i=1;i<arguments.length;i++){ if(arguments[i]&&arguments[i]._fn) q=arguments[i]._fn(q); }
-      return q;
-    },
-    where: function(f,op,v){ return {_fn:function(q){return q.where(f,op,v);}}; },
-    orderBy: function(f,d){ return {_fn:function(q){return q.orderBy(f,d||'asc');}}; },
-    limit: function(n){ return {_fn:function(q){return q.limit(n);}}; },
-    serverTimestamp: function(){ return firebase.firestore.FieldValue.serverTimestamp(); },
-    ref: function(s,path){ return FS.ref(path); },
-    uploadBytes: function(ref,file){ return ref.put(file); },
-    getDownloadURL: function(ref){ return ref.getDownloadURL(); },
-    deleteObject: function(ref){ return ref.delete(); }
-  };
-  window._fbReady = true;
-  window.dispatchEvent(new Event('fbready'));
-})();
+window._fb = {
+  // Auth
+  signInWithEmailAndPassword: function(a,em,ps){ return _FA.signInWithEmailAndPassword(em,ps); },
+  createUserWithEmailAndPassword: function(a,em,ps){ return _FA.createUserWithEmailAndPassword(em,ps); },
+  signOut: function(){ return _FA.signOut(); },
+  onAuthStateChanged: function(a,cb){ return _FA.onAuthStateChanged(cb); },
+  // Firestore
+  collection: function(db,path){ return _FD.collection(path); },
+  doc: _fbDoc,
+  setDoc: function(ref,data,opts){ return (opts&&opts.merge)?ref.set(data,{merge:true}):ref.set(data); },
+  getDoc: async function(ref){
+    var s = await ref.get();
+    return { exists: function(){ return s.exists; }, data: function(){ return s.data(); }, id: s.id };
+  },
+  getDocs: async function(q){
+    var s = await q.get();
+    return { forEach: function(cb){
+      s.forEach(function(d){ cb({ id:d.id, data:function(){return d.data();}, exists:function(){return d.exists;} }); });
+    }};
+  },
+  addDoc: async function(ref,data){ var r = await ref.add(data); return { id: r.id }; },
+  updateDoc: function(ref,data){ return ref.update(data); },
+  deleteDoc: function(ref){ return ref.delete(); },
+  query: function(ref){
+    var q = ref;
+    for(var i=1;i<arguments.length;i++){
+      if(arguments[i] && arguments[i]._fn) q = arguments[i]._fn(q);
+    }
+    return q;
+  },
+  where: function(f,op,v){ return {_fn:function(q){return q.where(f,op,v);}}; },
+  orderBy: function(f,d){ return {_fn:function(q){return q.orderBy(f,d||'asc');}}; },
+  limit: function(n){ return {_fn:function(q){return q.limit(n);}}; },
+  serverTimestamp: function(){ return firebase.firestore.FieldValue.serverTimestamp(); },
+  // Storage
+  ref: function(s,path){ return _FS.ref(path); },
+  uploadBytes: function(ref,file){ return ref.put(file); },
+  getDownloadURL: function(ref){ return ref.getDownloadURL(); },
+  deleteObject: function(ref){ return ref.delete(); }
+};
+
+window._fbReady = true;
+window.dispatchEvent(new Event('fbready'));
 </script>
 </head>
 <body>
 <script>
-// Funções de UI — definidas imediatamente, sem dependência do Firebase
 function authTab(t){
-  var login = document.getElementById('ap-login');
-  var cad = document.getElementById('ap-cadastro');
-  var tLogin = document.getElementById('atab-login');
-  var tCad = document.getElementById('atab-cadastro');
-  if(!login||!cad) return;
-  login.style.display = t==='login' ? 'block' : 'none';
-  cad.style.display = t==='cadastro' ? 'block' : 'none';
-  if(tLogin){ tLogin.classList.toggle('on', t==='login'); }
-  if(tCad){ tCad.classList.toggle('on', t==='cadastro'); }
+  var pl = document.getElementById('ap-login');
+  var pc = document.getElementById('ap-cadastro');
+  var tl = document.getElementById('atab-login');
+  var tc = document.getElementById('atab-cadastro');
+  if(pl) pl.style.display = t==='login'?'block':'none';
+  if(pc) pc.style.display = t==='cadastro'?'block':'none';
+  if(tl){ tl.classList.toggle('on', t==='login'); }
+  if(tc){ tc.classList.toggle('on', t==='cadastro'); }
 }
 </script>
 
@@ -359,7 +365,7 @@ function authTab(t){
   </div>
 
   <!-- LOGIN -->
-  <div class="auth-panel on" id="ap-login" style="display:block;">
+  <div class="auth-panel on" id="ap-login" style="display:block" style="display:block;">
    <div style="margin:4px 0 16px;font-size:12.5px;color:var(--t3);">Médico ou paciente? Basta fazer login — identificamos automaticamente pelo cadastro.</div>
    <div class="auth-err" id="lerr"></div>
    <div class="fld"><label>E-mail</label><input id="l-email" type="email" placeholder="seu@email.com" autocomplete="email"></div>
@@ -368,7 +374,7 @@ function authTab(t){
   </div>
 
   <!-- CADASTRO -->
-  <div class="auth-panel" id="ap-cadastro" style="display:none;">
+  <div class="auth-panel" id="ap-cadastro" style="display:none" style="display:none;">
    <div class="auth-err" id="cerr"></div>
    <div class="auth-role" style="margin-bottom:16px;">
     <div class="role-btn on" id="crole-pac" onclick="selCRole('paciente')">
@@ -750,7 +756,7 @@ waitFB(function(){
   });
 });
 
-// authTab definido no topo do body
+/* authTab no topo */
 
 function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
 function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
@@ -780,36 +786,57 @@ async function doLogin(){
 }
 
 async function doCadastro(){
-  var nm=document.getElementById('c-nome').value.trim();
-  var em=document.getElementById('c-email').value.trim();
-  var ps=document.getElementById('c-pass').value;
-  var err=document.getElementById('cerr');
+  var nm  = document.getElementById('c-nome').value.trim();
+  var em  = document.getElementById('c-email').value.trim();
+  var ps  = document.getElementById('c-pass').value;
+  var err = document.getElementById('cerr');
   err.style.display='none';
-  if(!nm||!em||!ps){ err.textContent='Preencha todos os campos.'; err.style.display='block'; return; }
-  if(ps.length<6){ err.textContent='Senha mínimo 6 caracteres.'; err.style.display='block'; return; }
+  if(!nm){ err.textContent='Digite seu nome.'; err.style.display='block'; return; }
+  if(!em){ err.textContent='Digite seu e-mail.'; err.style.display='block'; return; }
+  if(!ps||ps.length<6){ err.textContent='Senha precisa ter pelo menos 6 caracteres.'; err.style.display='block'; return; }
+  // Verificar se Firebase está pronto
+  if(!window._fb||!window._fbReady){ err.textContent='Sistema ainda carregando. Aguarde 2 segundos e tente de novo.'; err.style.display='block'; return; }
   load('Criando conta...');
-  var fb=window._fb;
   try {
-    var cred=await fb.createUserWithEmailAndPassword(fb.auth,em,ps);
-    var uid=cred.user.uid;
-    // Verificar código admin secreto
-    var cRoleFinal=cRole;
-    if(document.getElementById('c-admin-code')&&document.getElementById('c-admin-code').value==='NOC@admin2025') cRoleFinal='admin';
-    var perfil={ nome:nm, tipo:cRoleFinal, email:em, criadoEm:fb.serverTimestamp() };
-    if(cRoleFinal==='admin'){
-      await fb.setDoc(fb.doc(fb.db,'adminIndex',cred.user.uid),{tipo:'admin',email:em,nome:nm,criadoEm:fb.serverTimestamp()});
+    // Criar conta no Firebase Auth
+    var cred = await window._fb.createUserWithEmailAndPassword(null, em, ps);
+    var uid  = cred.user.uid;
+    // Verificar papel
+    var cRoleFinal = cRole || 'paciente';
+    var adminCode  = document.getElementById('c-admin-code');
+    if(adminCode && adminCode.value === 'NOC@admin2025') cRoleFinal = 'admin';
+    // Montar perfil
+    var perfil = { nome:nm, tipo:cRoleFinal, email:em };
+    if(cRoleFinal === 'medico'){
+      var espEl = document.getElementById('c-esp');
+      var clEl  = document.getElementById('c-clinica');
+      perfil.especialidade = espEl ? espEl.value : 'endo';
+      perfil.clinica       = clEl  ? clEl.value.trim() : 'NOC';
+    } else if(cRoleFinal === 'paciente'){
+      var mcEl = document.getElementById('c-medcode');
+      perfil.medicoEmail = mcEl ? mcEl.value.trim() : '';
     }
-    if(cRoleFinal==='medico'||cRole==='medico'){
-      perfil.especialidade=document.getElementById('c-esp').value;
-      perfil.clinica=document.getElementById('c-clinica').value.trim();
-    } else if(cRoleFinal==='paciente') {
-      var medEmail=document.getElementById('c-medcode').value.trim();
-      perfil.medicoEmail=medEmail;
+    // Salvar perfil no Firestore
+    var perfilRef = _fbDoc('users/'+uid+'/perfil', 'dados');
+    await perfilRef.set(perfil);
+    // Se admin, registrar no índice
+    if(cRoleFinal === 'admin'){
+      var admRef = _fbDoc('adminIndex', uid);
+      await admRef.set({tipo:'admin', email:em, nome:nm});
     }
-    await fb.setDoc(fb.doc(fb.db,'users/'+uid+'/perfil','dados'), perfil);
-    toast('Conta criada!');
+    // Registrar médico no adminIndex para listagem
+    if(cRoleFinal === 'medico'){
+      var medRef = _fbDoc('adminIndex', uid);
+      await medRef.set({tipo:'medico', email:em, nome:nm});
+    }
+    toast('Conta criada com sucesso! Entrando...');
   } catch(e){
-    err.textContent=e.message; err.style.display='block';
+    var msg = e.message || String(e);
+    if(msg.includes('email-already-in-use')) msg = 'Este e-mail já tem uma conta. Use "Entrar".';
+    if(msg.includes('invalid-email'))       msg = 'E-mail inválido.';
+    if(msg.includes('weak-password'))       msg = 'Senha fraca. Use pelo menos 6 caracteres.';
+    err.textContent = msg;
+    err.style.display = 'block';
   }
   unload();
 }
