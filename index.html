@@ -7,9 +7,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
-
+<!-- Firebase Compat (funciona em arquivo local e GitHub Pages) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
 <style>
+
 :root{
   --bg:#f6f4f1;--bg2:#fff;--bg3:#edeae4;--bg4:#e2ddd5;
   --sb:#111820;--sbh:rgba(255,255,255,.06);--sba:rgba(80,180,120,.13);
@@ -249,294 +254,130 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font
 .sec-head{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);font-weight:700;margin-bottom:11px;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
+
+/* Auth tabs override */
+.auth-tab-wrap { display:flex; border-bottom:2px solid #e0dbd4; }
+.atab { flex:1; padding:12px 8px; text-align:center; font-size:13px; font-weight:700;
+        cursor:pointer; color:#888; border-bottom:2px solid transparent;
+        margin-bottom:-2px; user-select:none; font-family:'DM Sans',sans-serif; }
+.atab.active { color:#111820; border-bottom-color:#1a7a40; }
+.apanel { display:none; padding:20px 24px; }
+.apanel.active { display:block; }
 </style>
-
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script>
-firebase.initializeApp({
-  apiKey:"AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
-  authDomain:"sopa-fd8b8.firebaseapp.com",
-  projectId:"sopa-fd8b8",
-  storageBucket:"sopa-fd8b8.firebasestorage.app",
-  messagingSenderId:"962393498465",
-  appId:"1:962393498465:web:fc2023af290ce9b6a31b20"
-});
-var _FA=firebase.auth(),_FD=firebase.firestore(),_FS=firebase.storage();
-
-function fbDoc(path,id){
-  var s=path.split('/'),r=_FD;
-  for(var i=0;i<s.length;i++) r=i%2===0?r.collection(s[i]):r.doc(s[i]);
-  return id?r.doc(id):r;
-}
-
-// Expõe _fb para o código existente
-window._fb={
-  signInWithEmailAndPassword:function(a,e,p){return _FA.signInWithEmailAndPassword(e,p);},
-  createUserWithEmailAndPassword:function(a,e,p){return _FA.createUserWithEmailAndPassword(e,p);},
-  signOut:function(){return _FA.signOut();},
-  onAuthStateChanged:function(a,cb){return _FA.onAuthStateChanged(cb);},
-  collection:function(d,p){return _FD.collection(p);},
-  doc:fbDoc,
-  setDoc:function(r,d,o){return o&&o.merge?r.set(d,{merge:true}):r.set(d);},
-  getDoc:async function(r){var s=await r.get();return{exists:function(){return s.exists;},data:function(){return s.data();},id:s.id};},
-  getDocs:async function(q){var s=await q.get();return{forEach:function(cb){s.forEach(function(d){cb({id:d.id,data:function(){return d.data();},exists:function(){return d.exists;}});});};},
-  addDoc:async function(r,d){var x=await r.add(d);return{id:x.id};},
-  updateDoc:function(r,d){return r.update(d);},
-  deleteDoc:function(r){return r.delete();},
-  query:function(r){var q=r;for(var i=1;i<arguments.length;i++){if(arguments[i]&&arguments[i]._fn)q=arguments[i]._fn(q);}return q;},
-  where:function(f,o,v){return{_fn:function(q){return q.where(f,o,v);}};},
-  orderBy:function(f,d){return{_fn:function(q){return q.orderBy(f,d||'asc');}};},
-  limit:function(n){return{_fn:function(q){return q.limit(n);}};},
-  serverTimestamp:function(){return firebase.firestore.FieldValue.serverTimestamp();},
-  ref:function(s,p){return _FS.ref(p);},
-  uploadBytes:function(r,f){return r.put(f);},
-  getDownloadURL:function(r){return r.getDownloadURL();},
-  deleteObject:function(r){return r.delete();}
-};
-window._fbReady=true;
-window.dispatchEvent(new Event('fbready'));
-
-// ── UI: essas funções precisam existir ANTES de qualquer clique ──
-function showErr(msg){
-  var e=document.getElementById('auth-err');
-  if(e){e.textContent=msg;e.style.display='block';setTimeout(function(){e.style.display='none';},7000);}
-  else alert('ERRO: '+msg);
-}
-
-function authTab(t){
-  ['login','cadastro','admin'].forEach(function(x){
-    var p=document.getElementById('ap-'+x);
-    var b=document.getElementById('atab-'+x);
-    if(p)p.style.display=x===t?'block':'none';
-    if(b){b.classList.toggle('on',x===t);}
-  });
-}
-
-var cRole='paciente';
-function selCRole(r){
-  cRole=r;
-  var ep=document.getElementById('crole-pac');
-  var em=document.getElementById('crole-med');
-  var mf=document.getElementById('c-med-fields');
-  var pf=document.getElementById('c-pac-fields');
-  if(ep){ep.style.border=r==='paciente'?'2px solid #2e8a48':'2px solid #ddd';ep.style.background=r==='paciente'?'#e8f5ed':'#f7f5f2';}
-  if(em){em.style.border=r==='medico'?'2px solid #154fa0':'2px solid #ddd';em.style.background=r==='medico'?'#e8f0fb':'#f7f5f2';}
-  if(mf)mf.style.display=r==='medico'?'block':'none';
-  if(pf)pf.style.display=r==='paciente'?'block':'none';
-}
-
-async function doLogin(){
-  var em=(document.getElementById('l-email').value||'').trim();
-  var ps=document.getElementById('l-pass').value||'';
-  if(!em||!ps){showErr('Preencha e-mail e senha.');return;}
-  document.getElementById('btnLogin').textContent='Entrando...';
-  try{
-    await _FA.signInWithEmailAndPassword(em,ps);
-  }catch(e){
-    var m=e.message||'Erro desconhecido';
-    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')m='E-mail ou senha incorretos.';
-    showErr(m);
-    document.getElementById('btnLogin').textContent='Entrar no Sistema';
-  }
-}
-
-async function doCadastro(){
-  var nm=(document.getElementById('c-nome').value||'').trim();
-  var em=(document.getElementById('c-email').value||'').trim();
-  var ps=document.getElementById('c-pass').value||'';
-  if(!nm){showErr('Digite seu nome.');return;}
-  if(!em){showErr('Digite seu e-mail.');return;}
-  if(ps.length<6){showErr('Senha precisa ter no mínimo 6 caracteres.');return;}
-  document.getElementById('btnCadastro').textContent='Criando...';
-  try{
-    var cr=await _FA.createUserWithEmailAndPassword(em,ps);
-    var uid=cr.user.uid;
-    var p={nome:nm,tipo:cRole,email:em};
-    if(cRole==='medico'){
-      p.especialidade=(document.getElementById('c-esp')||{value:'endo'}).value;
-      p.clinica=((document.getElementById('c-clinica')||{value:'NOC'}).value||'').trim();
-      await fbDoc('adminIndex',uid).set({tipo:'medico',email:em,nome:nm});
-    } else {
-      p.medicoEmail=((document.getElementById('c-medcode')||{value:''}).value||'').trim();
-    }
-    await fbDoc('users/'+uid+'/perfil','dados').set(p);
-    // onAuthStateChanged abre o app
-  }catch(e){
-    var m=e.message||'Erro';
-    if(e.code==='auth/email-already-in-use')m='E-mail já cadastrado. Use "Entrar".';
-    if(e.code==='auth/invalid-email')m='E-mail inválido.';
-    if(e.code==='auth/weak-password')m='Senha fraca.';
-    showErr(m);
-    document.getElementById('btnCadastro').textContent='Criar Conta';
-  }
-}
-
-async function doAdminLogin(){
-  var em=(document.getElementById('adm-email').value||'').trim();
-  var ps=document.getElementById('adm-pass').value||'';
-  var code=document.getElementById('adm-code').value||'';
-  if(code!=='NOC@admin2025'){showErr('Código incorreto. Use: NOC@admin2025');return;}
-  if(!em||!ps){showErr('Preencha e-mail e senha.');return;}
-  document.getElementById('btnAdmLogin').textContent='Entrando...';
-  try{
-    await _FA.signInWithEmailAndPassword(em,ps);
-  }catch(e){
-    var m=e.message||'Erro';
-    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')m='E-mail ou senha incorretos.';
-    showErr(m);
-    document.getElementById('btnAdmLogin').textContent='Entrar como Admin';
-  }
-}
-
-async function doAdminCadastro(){
-  var em=(document.getElementById('adm-email').value||'').trim();
-  var ps=document.getElementById('adm-pass').value||'';
-  var code=document.getElementById('adm-code').value||'';
-  if(code!=='NOC@admin2025'){showErr('Código incorreto. Use: NOC@admin2025');return;}
-  if(!em||!ps){showErr('Preencha e-mail e senha.');return;}
-  if(ps.length<6){showErr('Senha mínimo 6 caracteres.');return;}
-  document.getElementById('btnAdmCad').textContent='Criando...';
-  try{
-    var cr=await _FA.createUserWithEmailAndPassword(em,ps);
-    var uid=cr.user.uid;
-    await fbDoc('users/'+uid+'/perfil','dados').set({nome:'Admin NOC',tipo:'admin',email:em});
-    await fbDoc('adminIndex',uid).set({tipo:'admin',email:em,nome:'Admin NOC'});
-    // onAuthStateChanged abre o app
-  }catch(e){
-    var m=e.message||'Erro';
-    if(e.code==='auth/email-already-in-use')m='E-mail já cadastrado. Use "Entrar como Admin".';
-    showErr(m);
-    document.getElementById('btnAdmCad').textContent='Criar conta Admin';
-  }
-}
-
-function doLogout(){
-  _FA.signOut().then(function(){
-    document.getElementById('app').style.display='none';
-    document.getElementById('authScreen').style.display='flex';
-    authTab('login');
-  });
-}
-</script>
 </head>
 <body>
 
-<div id="loader"><div class="spin"></div><div id="loaderTxt" style="font-size:13px;color:var(--t3);">Carregando...</div></div>
-<div id="toast"></div>
-
-<!-- ══════════════════════════
-     TELA DE AUTH
-══════════════════════════ -->
+<!-- ══ AUTH ══ -->
 <div id="authScreen" style="position:fixed;inset:0;background:#111820;z-index:9999;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:16px;">
-<div style="background:#fff;border-radius:18px;width:440px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden;margin:auto;">
+<div style="background:#fff;border-radius:18px;width:420px;max-width:96vw;overflow:hidden;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
 
-  <div style="background:#111820;padding:20px 24px;display:flex;align-items:center;gap:12px;">
-    <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+  <!-- Logo -->
+  <div style="background:#111820;padding:18px 22px;display:flex;align-items:center;gap:10px;">
+    <svg width="30" height="30" viewBox="0 0 48 48" fill="none">
       <circle cx="24" cy="24" r="22" stroke="#3a9a60" stroke-width="1.5" fill="rgba(58,154,96,.1)"/>
       <path d="M17 34C17 24 20.5 14 24 12c3.5 2 7 12 7 22" stroke="#6de090" stroke-width="2" fill="none" stroke-linecap="round"/>
     </svg>
     <div>
-      <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#6de090;letter-spacing:5px;font-weight:700;">NOC</div>
-      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);">sistema clínico</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#6de090;letter-spacing:5px;font-weight:700;">NOC</div>
+      <div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);">sistema clínico</div>
     </div>
   </div>
 
-  <div style="display:flex;border-bottom:2px solid #e0dbd4;">
-    <div id="atab-login" onclick="authTab('login')" style="flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#3a9a60;border-bottom:2px solid #3a9a60;margin-bottom:-2px;">Entrar</div>
-    <div id="atab-cadastro" onclick="authTab('cadastro')" style="flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;">Criar Conta</div>
-    <div id="atab-admin" onclick="authTab('admin')" style="flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;">🔑 Admin</div>
+  <!-- Abas -->
+  <div class="auth-tab-wrap">
+    <div class="atab active" id="atab-login"    onclick="showTab('login')">Entrar</div>
+    <div class="atab"        id="atab-cadastro" onclick="showTab('cadastro')">Criar Conta</div>
+    <div class="atab"        id="atab-admin"    onclick="showTab('admin')">🔑 Admin</div>
   </div>
 
-  <div id="auth-err" style="display:none;margin:12px 20px 0;padding:10px 14px;background:#fff0f0;border:1.5px solid #cc2222;border-radius:8px;font-size:13px;color:#880000;font-weight:600;"></div>
+  <!-- Mensagem de erro/sucesso -->
+  <div id="auth-msg" style="display:none;margin:10px 20px 0;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;"></div>
 
-  <!-- ENTRAR -->
-  <div id="ap-login" style="padding:20px 24px;display:block;">
-    <p style="font-size:12px;color:#666;margin-bottom:14px;">Médico ou paciente? Identificamos pelo cadastro.</p>
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-MAIL</label>
-    <input id="l-email" type="email" placeholder="seu@email.com" autocomplete="email"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;">
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">SENHA</label>
+  <!-- ── ENTRAR ── -->
+  <div class="apanel active" id="ap-login">
+    <p style="font-size:12px;color:#666;margin-bottom:14px;">Médico, paciente ou admin? Identificamos pelo cadastro.</p>
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">E-MAIL</label>
+    <input id="l-email" type="email" placeholder="seu@email.com"
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">SENHA</label>
     <input id="l-pass" type="password" placeholder="••••••••"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:16px;"
-      onkeydown="if(event.key==='Enter')doLogin()">
-    <button id="btnLogin" onclick="doLogin()"
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;"
+      onkeydown="if(event.key==='Enter')fazLogin()">
+    <button onclick="fazLogin()"
       style="width:100%;padding:12px;border-radius:7px;background:#111820;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
       Entrar no Sistema
     </button>
   </div>
 
-  <!-- CRIAR CONTA -->
-  <div id="ap-cadastro" style="padding:20px 24px;display:none;">
+  <!-- ── CRIAR CONTA ── -->
+  <div class="apanel" id="ap-cadastro">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-      <div id="crole-pac" onclick="selCRole('paciente')"
+      <div id="rbtn-pac" onclick="escolherPapel('paciente')"
         style="padding:10px;border-radius:7px;border:2px solid #2e8a48;background:#e8f5ed;cursor:pointer;text-align:center;">
         <div style="font-size:20px;margin-bottom:3px;">🧑‍⚕️</div>
-        <div style="font-size:12px;font-weight:700;">Sou Paciente</div>
+        <div style="font-size:12px;font-weight:700;color:#111;">Sou Paciente</div>
         <div style="font-size:10px;color:#555;">Ver meus exames</div>
       </div>
-      <div id="crole-med" onclick="selCRole('medico')"
+      <div id="rbtn-med" onclick="escolherPapel('medico')"
         style="padding:10px;border-radius:7px;border:2px solid #ddd;background:#f7f5f2;cursor:pointer;text-align:center;">
         <div style="font-size:20px;margin-bottom:3px;">👨‍⚕️</div>
-        <div style="font-size:12px;font-weight:700;">Sou Médico</div>
+        <div style="font-size:12px;font-weight:700;color:#111;">Sou Médico</div>
         <div style="font-size:10px;color:#555;">Gerenciar pacientes</div>
       </div>
     </div>
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">NOME COMPLETO *</label>
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">NOME COMPLETO *</label>
     <input id="c-nome" placeholder="Seu nome completo"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
-    <div id="c-med-fields" style="display:none;">
-      <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">ESPECIALIDADE</label>
-      <select id="c-esp" style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <div id="campos-medico" style="display:none;">
+      <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">ESPECIALIDADE</label>
+      <select id="c-esp" style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
         <option value="endo">Endocrinologia</option>
         <option value="derm">Dermatologia</option>
         <option value="ambas">Endo + Dermatologia</option>
       </select>
-      <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">CLÍNICA</label>
+      <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">CLÍNICA</label>
       <input id="c-clinica" value="NOC Cuiabá"
-        style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+        style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
     </div>
-    <div id="c-pac-fields">
-      <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-MAIL DO SEU MÉDICO</label>
-      <input id="c-medcode" placeholder="Ex: caio@noc.com.br"
-        style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <div id="campos-paciente">
+      <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">E-MAIL DO SEU MÉDICO</label>
+      <input id="c-medmail" placeholder="Ex: caio@noc.com.br"
+        style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
     </div>
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-MAIL *</label>
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">E-MAIL *</label>
     <input id="c-email" type="email" placeholder="seu@email.com"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">SENHA * (mín. 6 caracteres)</label>
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">SENHA * (mínimo 6 caracteres)</label>
     <input id="c-pass" type="password" placeholder="••••••••"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:16px;">
-    <button id="btnCadastro" onclick="doCadastro()"
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;">
+    <button onclick="fazCadastro()"
       style="width:100%;padding:12px;border-radius:7px;background:#1a7a40;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
       Criar Conta
     </button>
   </div>
 
-  <!-- ADMIN -->
-  <div id="ap-admin" style="padding:20px 24px;display:none;">
-    <div style="text-align:center;margin-bottom:16px;">
-      <div style="font-size:30px;margin-bottom:5px;">🔑</div>
-      <div style="font-size:15px;font-weight:700;color:#111820;">Acesso Administrativo</div>
+  <!-- ── ADMIN ── -->
+  <div class="apanel" id="ap-admin">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:28px;margin-bottom:4px;">🔑</div>
+      <div style="font-size:15px;font-weight:700;color:#111;">Acesso Administrativo</div>
       <div style="font-size:11px;color:#666;margin-top:3px;">Para Ernandes e equipe NOC</div>
     </div>
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">E-MAIL ADMIN</label>
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">E-MAIL ADMIN</label>
     <input id="adm-email" type="email" placeholder="admin@noc.com.br"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">SENHA</label>
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">SENHA</label>
     <input id="adm-pass" type="password" placeholder="••••••••"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
-    <label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#999;font-weight:700;display:block;margin-bottom:5px;">CÓDIGO ADMIN</label>
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:11px;">
+    <label style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;font-weight:700;display:block;margin-bottom:4px;">CÓDIGO ADMIN</label>
     <input id="adm-code" type="password" placeholder="NOC@admin2025"
-      style="width:100%;padding:10px 12px;border:1.5px solid #c8c2b4;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:16px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <button id="btnAdmLogin" onclick="doAdminLogin()"
+      style="width:100%;padding:10px 12px;border:1.5px solid #ccc;border-radius:7px;font-size:13.5px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <button onclick="fazAdminLogin()"
         style="padding:12px;border-radius:7px;background:#111820;color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
         Entrar como Admin
       </button>
-      <button id="btnAdmCad" onclick="doAdminCadastro()"
+      <button onclick="fazAdminCadastro()"
         style="padding:12px;border-radius:7px;background:#980000;color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
         Criar conta Admin
       </button>
@@ -547,9 +388,6 @@ function doLogout(){
 </div>
 </div>
 
-<!-- ══════════════════════════
-     APP
-══════════════════════════ -->
 <div id="app" style="display:none">
 <div class="shell">
 
@@ -752,1605 +590,199 @@ function doLogout(){
 </div><!-- shell -->
 </div><!-- app -->
 
-<!-- ════ MODAIS ════ -->
-
-<!-- Novo Paciente -->
-<div class="mo" id="mo-novo-pac">
- <div class="mo-box">
-  <div class="mo-head"><div class="mo-title">👤 Novo Paciente</div><button class="mo-x" onclick="closeMo('novo-pac')">✕</button></div>
-  <div class="mo-body">
-   <div class="fgrid">
-    <div class="fg span2 sec-sep">Dados Pessoais</div>
-    <div class="fg span2"><label>Nome Completo *</label><input id="np-nm" placeholder="Nome completo"></div>
-    <div class="fg"><label>Data de Nascimento</label><input id="np-dn" type="date"></div>
-    <div class="fg"><label>Sexo</label><select id="np-sx"><option value="">—</option><option>Masculino</option><option>Feminino</option><option>Outro</option></select></div>
-    <div class="fg"><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div>
-    <div class="fg"><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div>
-    <div class="fg"><label>E-mail</label><input id="np-em" type="email" placeholder="paciente@email.com"></div>
-    <div class="fg"><label>Cidade / UF</label><input id="np-cid" placeholder="Cuiabá, MT"></div>
-    <div class="fg span2 sec-sep">Acompanhamento</div>
-    <div class="fg"><label>Especialidade *</label><select id="np-esp"><option value="">—</option><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option><option value="ambas">Endo + Derm</option></select></div>
-    <div class="fg"><label>Primeira Consulta</label><input id="np-pc" type="date"></div>
-    <div class="fg span2"><label>Queixa / Diagnóstico</label><textarea id="np-qx" placeholder="Queixa principal ou diagnóstico..."></textarea></div>
-    <div class="fg span2"><label>Histórico</label><textarea id="np-ht" placeholder="Doenças, cirurgias, alergias..."></textarea></div>
-    <div class="fg span2 sec-sep">Biometria</div>
-    <div class="fg"><label>Peso (kg)</label><input id="np-ps" type="number" step="0.1" placeholder="80.0"></div>
-    <div class="fg"><label>Altura (cm)</label><input id="np-al" type="number" placeholder="175"></div>
-    <div class="fg span2 sec-sep">Conta do Paciente</div>
-    <div class="fg span2"><label>E-mail de login do paciente <span style="font-size:10px;color:var(--t4);">(se tiver conta — vincula acesso)</span></label><input id="np-uid-email" type="email" placeholder="email que o paciente usa no login"></div>
-   </div>
-  </div>
-  <div class="mo-foot"><button class="btn btn-o" onclick="closeMo('novo-pac')">Cancelar</button><button class="btn btn-gr" onclick="salvarPac()">Salvar</button></div>
- </div>
-</div>
-
-<!-- Novo Resultado -->
-<div class="mo" id="mo-novo-res">
- <div class="mo-box">
-  <div class="mo-head"><div class="mo-title">🧪 Adicionar Resultado</div><button class="mo-x" onclick="closeMo('novo-res')">✕</button></div>
-  <div class="mo-body">
-   <div class="fgrid" style="margin-bottom:14px;">
-    <div class="fg"><label>Data do Exame *</label><input id="re-dt" type="date"></div>
-    <div class="fg"><label>Laboratório</label><input id="re-lb" placeholder="Lab. São Matheus"></div>
-    <div class="fg span2"><label>Área *</label><select id="re-area" onchange="loadAreaParams()"><option value="">— Selecionar —</option></select></div>
-   </div>
-   <div id="re-params"></div>
-   <div class="fg"><label>Observação Clínica</label><textarea id="re-obs" placeholder="Interpretação, conduta..."></textarea></div>
-  </div>
-  <div class="mo-foot"><button class="btn btn-o" onclick="closeMo('novo-res')">Cancelar</button><button class="btn btn-gr" onclick="salvarRes()">Salvar</button></div>
- </div>
-</div>
-
-<!-- Nova Área -->
-<div class="mo" id="mo-nova-area">
- <div class="mo-box" style="max-width:540px;">
-  <div class="mo-head"><div class="mo-title">⚙️ Nova Área de Exame</div><button class="mo-x" onclick="closeMo('nova-area')">✕</button></div>
-  <div class="mo-body">
-   <div class="fgrid">
-    <div class="fg"><label>Nome *</label><input id="na-nm" placeholder="Ex: Perfil Lipídico"></div>
-    <div class="fg"><label>Ícone</label><input id="na-ico" placeholder="🩸" maxlength="4"></div>
-    <div class="fg"><label>Especialidade</label><select id="na-esp"><option value="ambas">Ambas</option><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option></select></div>
-    <div class="fg"><label>Cor</label><select id="na-cor"><option value="#d44a20">Coral</option><option value="#b87800">Âmbar</option><option value="#1a7a40">Verde</option><option value="#154fa0">Azul</option><option value="#5020a0">Lilás</option><option value="#007878">Teal</option></select></div>
-    <div class="fg span2 sec-sep">Parâmetros</div>
-   </div>
-   <div id="na-params"></div>
-   <button class="btn btn-o" style="width:100%;margin-top:8px;" onclick="addParam()">+ Parâmetro</button>
-  </div>
-  <div class="mo-foot"><button class="btn btn-o" onclick="closeMo('nova-area')">Cancelar</button><button class="btn btn-gr" onclick="salvarArea()">Salvar Área</button></div>
- </div>
-</div>
-
-<!-- Novo Agendamento -->
-<div class="mo" id="mo-novo-ag">
- <div class="mo-box" style="max-width:500px;">
-  <div class="mo-head"><div class="mo-title">📅 Novo Agendamento</div><button class="mo-x" onclick="closeMo('novo-ag')">✕</button></div>
-  <div class="mo-body">
-   <div class="fgrid">
-    <div class="fg"><label>Data *</label><input id="ag-dt" type="date"></div>
-    <div class="fg"><label>Horário</label><input id="ag-hr" type="time" placeholder="09:00"></div>
-    <div class="fg span2"><label>Tipo de Consulta</label><input id="ag-tp" placeholder="Ex: Retorno hormonal"></div>
-    <div class="fg span2"><label>Local</label><input id="ag-lc" placeholder="NOC Cuiabá · Sala 3"></div>
-    <div class="fg span2"><label>Observação</label><textarea id="ag-ob" rows="2" placeholder="Trazer exames, solicitar preparo..."></textarea></div>
-   </div>
-  </div>
-  <div class="mo-foot"><button class="btn btn-o" onclick="closeMo('novo-ag')">Cancelar</button><button class="btn btn-gr" onclick="salvarAg()">Salvar</button></div>
- </div>
-</div>
-
-<!-- Modal: Admin — Novo Médico -->
-<div class="mo" id="mo-adm-novo-med">
- <div class="mo-box" style="max-width:500px;">
-  <div class="mo-head"><div class="mo-title">👨‍⚕️ Cadastrar Médico</div><button class="mo-x" onclick="closeMo('adm-novo-med')">✕</button></div>
-  <div class="mo-body">
-   <div class="fgrid">
-    <div class="fg span2"><label>Nome Completo *</label><input id="am-nome" placeholder="Dr. Fulano de Tal"></div>
-    <div class="fg"><label>Especialidade *</label>
-     <select id="am-esp"><option value="endo">Endocrinologia</option><option value="derm">Dermatologia</option><option value="ambas">Endo + Derm</option></select>
-    </div>
-    <div class="fg"><label>CRM</label><input id="am-crm" placeholder="00000/MT"></div>
-    <div class="fg span2"><label>Clínica / Setor</label><input id="am-clinica" value="NOC Cuiabá"></div>
-    <div class="fg span2 sec-sep">Acesso ao Sistema</div>
-    <div class="fg"><label>E-mail de login *</label><input id="am-email" type="email" placeholder="medico@noc.com.br"></div>
-    <div class="fg"><label>Senha inicial *</label><input id="am-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-   </div>
-  </div>
-  <div class="mo-foot"><button class="btn btn-o" onclick="closeMo('adm-novo-med')">Cancelar</button><button class="btn btn-gr" onclick="admCriarMedico()">Criar Médico</button></div>
- </div>
-</div>
 
 
 <script>
-// ════════════════════════
-//  ESTADO
-// ════════════════════════
-var S={
-  user:null, perfil:null, tipo:null,
-  medicoId:null,  // para paciente: uid do médico
-  pacientes:[], areas:[], resultados:[], laudos:[],
-  sint:[], agendamentos:[],
-  curPacId:null, curPac:null,
-  filterEsp:'todos', evolChart:null, pCount:0
-};
-
-// ════════════════════════
-//  UTILS
-// ════════════════════════
-function load(t){ var l=document.getElementById('loader'); l.classList.add('on'); if(t) document.getElementById('loaderTxt').textContent=t||'Carregando...'; }
-function unload(){ document.getElementById('loader').classList.remove('on'); }
-function toast(m,t){ var el=document.getElementById('toast'); el.textContent=m; el.className='on '+(t||'ok'); clearTimeout(el._t); el._t=setTimeout(function(){el.className='';},3000); }
-function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''; }
-function fdt(s){ if(!s) return '—'; return new Date(s+'T12:00:00').toLocaleDateString('pt-BR'); }
-function idade(n){ if(!n) return ''; var d=new Date(n+'T12:00:00'),h=new Date(),a=h.getFullYear()-d.getFullYear(); if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--; return a+' anos'; }
-function imc(p,a){ if(!p||!a) return null; return (parseFloat(p)/Math.pow(parseFloat(a)/100,2)).toFixed(1); }
-function waitFB(cb){ cb(); }
-function mPath(uid){ return 'users/'+uid; }  // médico: users/{uid}
-function fmtHora(t){ if(!t) return ''; var d=new Date('1970-01-01T'+t); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
-
-// ════════════════════════
-//  AUTH
-// ════════════════════════
-waitFB(function(){
-  _FA.onAuthStateChanged( function(user){
-    if(user){ S.user=user; initApp(); }
-    else { showAuth(); }
-  });
+// ══════════════════════════════════════
+// FIREBASE INIT
+// ══════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
+  authDomain:"sopa-fd8b8.firebaseapp.com",
+  projectId:"sopa-fd8b8",
+  storageBucket:"sopa-fd8b8.firebasestorage.app",
+  messagingSenderId:"962393498465",
+  appId:"1:962393498465:web:fc2023af290ce9b6a31b20"
 });
+var _FA=firebase.auth(), _FD=firebase.firestore(), _FS=firebase.storage();
 
-function authTab(t){
-  document.getElementById('atab-login').classList.toggle('on', t==='login');
-  document.getElementById('atab-cadastro').classList.toggle('on', t==='cadastro');
-  document.getElementById('ap-login').style.display = t==='login' ? 'block' : 'none';
-  document.getElementById('ap-cadastro').style.display = t==='cadastro' ? 'block' : 'none';
+function fbDoc(path,id){
+  var s=path.split('/'),r=_FD;
+  for(var i=0;i<s.length;i++) r=i%2===0?r.collection(s[i]):r.doc(s[i]);
+  return id?r.doc(id):r;
 }
 
-function showAuth(){ document.getElementById('authScreen').style.display='block'; document.getElementById('app').style.display='none'; }
-function showApp(){ document.getElementById('authScreen').style.display='none'; document.getElementById('app').style.display='block'; }
+// Wrapper _fb para compatibilidade com código existente
+window._fb={
+  signInWithEmailAndPassword:function(a,e,p){return _FA.signInWithEmailAndPassword(e,p);},
+  createUserWithEmailAndPassword:function(a,e,p){return _FA.createUserWithEmailAndPassword(e,p);},
+  signOut:function(){return _FA.signOut();},
+  onAuthStateChanged:function(a,cb){return _FA.onAuthStateChanged(cb);},
+  collection:function(d,p){return _FD.collection(p);},
+  doc:fbDoc,
+  setDoc:function(r,d,o){return o&&o.merge?r.set(d,{merge:true}):r.set(d);},
+  getDoc:async function(r){var s=await r.get();return{exists:function(){return s.exists;},data:function(){return s.data();},id:s.id};},
+  getDocs:async function(q){var s=await q.get();return{forEach:function(cb){s.forEach(function(d){cb({id:d.id,data:function(){return d.data();},exists:function(){return d.exists;}});});};},
+  addDoc:async function(r,d){var x=await r.add(d);return{id:x.id};},
+  updateDoc:function(r,d){return r.update(d);},
+  deleteDoc:function(r){return r.delete();},
+  query:function(r){var q=r;for(var i=1;i<arguments.length;i++){if(arguments[i]&&arguments[i]._fn)q=arguments[i]._fn(q);}return q;},
+  where:function(f,o,v){return{_fn:function(q){return q.where(f,o,v);}};},
+  orderBy:function(f,d){return{_fn:function(q){return q.orderBy(f,d||'asc');}};},
+  limit:function(n){return{_fn:function(q){return q.limit(n);}};},
+  serverTimestamp:function(){return firebase.firestore.FieldValue.serverTimestamp();},
+  ref:function(s,p){return _FS.ref(p);},
+  uploadBytes:function(r,f){return r.put(f);},
+  getDownloadURL:function(r){return r.getDownloadURL();},
+  deleteObject:function(r){return r.delete();}
+};
+window._fbReady=true;
 
-var cRole='paciente';
-function selCRole(r){
-  cRole=r;
-  document.getElementById('crole-pac').classList.toggle('on',r==='paciente');
-  document.getElementById('crole-med').classList.toggle('on',r==='medico');
-  document.getElementById('c-med-fields').style.display=r==='medico'?'block':'none';
-  document.getElementById('c-pac-fields').style.display=r==='paciente'?'block':'none';
+// ══════════════════════════════════════
+// UI AUTH — abas e formulários
+// ══════════════════════════════════════
+function showTab(t){
+  ['login','cadastro','admin'].forEach(function(x){
+    var p=document.getElementById('ap-'+x);
+    var b=document.getElementById('atab-'+x);
+    if(p) p.className='apanel'+(x===t?' active':'');
+    if(b) b.className='atab'+(x===t?' active':'');
+  });
+  document.getElementById('auth-msg').style.display='none';
 }
 
-async function doLogin(){
-  var em=document.getElementById('l-email').value.trim();
-  var ps=document.getElementById('l-pass').value;
-  var err=document.getElementById('lerr');
-  err.style.display='none';
-  if(!em||!ps){ err.textContent='Preencha e-mail e senha.'; err.style.display='block'; return; }
-  var btn=document.getElementById('btnLogin'); btn.disabled=true; btn.textContent='Entrando...';
-  waitFB(function(){
-    window._fb.signInWithEmailAndPassword(window._fb.auth,em,ps).catch(function(e){
-      err.textContent='E-mail ou senha incorretos.'; err.style.display='block';
-      btn.disabled=false; btn.textContent='Entrar no Sistema';
-    });
+function authMsg(msg, tipo){
+  var el=document.getElementById('auth-msg');
+  el.textContent=msg;
+  el.style.background=tipo==='err'?'#fff0f0':'#e8f5ed';
+  el.style.border='1.5px solid '+(tipo==='err'?'#cc2222':'#2e8a48');
+  el.style.color=tipo==='err'?'#880000':'#1a5230';
+  el.style.display='block';
+}
+
+var papel='paciente';
+function escolherPapel(r){
+  papel=r;
+  var bp=document.getElementById('rbtn-pac');
+  var bm=document.getElementById('rbtn-med');
+  var cp=document.getElementById('campos-paciente');
+  var cm=document.getElementById('campos-medico');
+  if(bp){ bp.style.border=r==='paciente'?'2px solid #2e8a48':'2px solid #ddd'; bp.style.background=r==='paciente'?'#e8f5ed':'#f7f5f2'; }
+  if(bm){ bm.style.border=r==='medico'?'2px solid #154fa0':'2px solid #ddd'; bm.style.background=r==='medico'?'#e8f0fb':'#f7f5f2'; }
+  if(cp) cp.style.display=r==='paciente'?'block':'none';
+  if(cm) cm.style.display=r==='medico'?'block':'none';
+}
+
+// ── ENTRAR ──
+async function fazLogin(){
+  var em=(document.getElementById('l-email').value||'').trim();
+  var ps=document.getElementById('l-pass').value||'';
+  if(!em||!ps){authMsg('Preencha e-mail e senha.','err');return;}
+  authMsg('Entrando...','ok');
+  try{
+    await _FA.signInWithEmailAndPassword(em,ps);
+  }catch(e){
+    var m='E-mail ou senha incorretos.';
+    if(e.code&&!['auth/user-not-found','auth/wrong-password','auth/invalid-credential'].includes(e.code)) m=e.message;
+    authMsg(m,'err');
+  }
+}
+
+// ── CRIAR CONTA ──
+async function fazCadastro(){
+  var nm=(document.getElementById('c-nome').value||'').trim();
+  var em=(document.getElementById('c-email').value||'').trim();
+  var ps=document.getElementById('c-pass').value||'';
+  if(!nm){authMsg('Digite seu nome.','err');return;}
+  if(!em){authMsg('Digite seu e-mail.','err');return;}
+  if(ps.length<6){authMsg('Senha precisa ter no mínimo 6 caracteres.','err');return;}
+  authMsg('Criando conta...','ok');
+  try{
+    var cr=await _FA.createUserWithEmailAndPassword(em,ps);
+    var uid=cr.user.uid;
+    var p={nome:nm,tipo:papel,email:em};
+    if(papel==='medico'){
+      p.especialidade=(document.getElementById('c-esp')||{value:'endo'}).value;
+      p.clinica=((document.getElementById('c-clinica')||{value:'NOC'}).value).trim();
+      await fbDoc('adminIndex',uid).set({tipo:'medico',email:em,nome:nm});
+    } else {
+      p.medicoEmail=((document.getElementById('c-medmail')||{value:''}).value).trim();
+    }
+    await fbDoc('users/'+uid+'/perfil','dados').set(p);
+    authMsg('Conta criada! Carregando...','ok');
+    // onAuthStateChanged abre o app automaticamente
+  }catch(e){
+    var m=e.message||'Erro desconhecido';
+    if(e.code==='auth/email-already-in-use') m='E-mail já cadastrado. Use "Entrar".';
+    if(e.code==='auth/invalid-email') m='E-mail inválido.';
+    if(e.code==='auth/weak-password') m='Senha muito fraca.';
+    authMsg(m,'err');
+  }
+}
+
+// ── ADMIN LOGIN ──
+async function fazAdminLogin(){
+  var em=(document.getElementById('adm-email').value||'').trim();
+  var ps=document.getElementById('adm-pass').value||'';
+  var code=document.getElementById('adm-code').value||'';
+  if(code!=='NOC@admin2025'){authMsg('Código admin incorreto.','err');return;}
+  if(!em||!ps){authMsg('Preencha e-mail e senha.','err');return;}
+  authMsg('Entrando...','ok');
+  try{
+    await _FA.signInWithEmailAndPassword(em,ps);
+  }catch(e){
+    var m='E-mail ou senha incorretos.';
+    if(e.code&&!['auth/user-not-found','auth/wrong-password','auth/invalid-credential'].includes(e.code)) m=e.message;
+    authMsg(m,'err');
+  }
+}
+
+// ── ADMIN CRIAR CONTA ──
+async function fazAdminCadastro(){
+  var em=(document.getElementById('adm-email').value||'').trim();
+  var ps=document.getElementById('adm-pass').value||'';
+  var code=document.getElementById('adm-code').value||'';
+  if(code!=='NOC@admin2025'){authMsg('Código incorreto. Use: NOC@admin2025','err');return;}
+  if(!em){authMsg('Digite o e-mail.','err');return;}
+  if(ps.length<6){authMsg('Senha mínimo 6 caracteres.','err');return;}
+  authMsg('Criando conta admin...','ok');
+  try{
+    var cr=await _FA.createUserWithEmailAndPassword(em,ps);
+    var uid=cr.user.uid;
+    await fbDoc('users/'+uid+'/perfil','dados').set({nome:'Admin NOC',tipo:'admin',email:em});
+    await fbDoc('adminIndex',uid).set({tipo:'admin',email:em,nome:'Admin NOC'});
+    authMsg('Conta admin criada! Carregando...','ok');
+  }catch(e){
+    var m=e.message||'Erro';
+    if(e.code==='auth/email-already-in-use') m='E-mail já cadastrado. Use "Entrar como Admin".';
+    authMsg(m,'err');
+  }
+}
+
+function doLogout(){
+  _FA.signOut().then(function(){
+    document.getElementById('app').style.display='none';
+    document.getElementById('authScreen').style.display='flex';
+    showTab('login');
   });
 }
 
-async function doCadastro(){
-  var nm=document.getElementById('c-nome').value.trim();
-  var em=document.getElementById('c-email').value.trim();
-  var ps=document.getElementById('c-pass').value;
-  var err=document.getElementById('cerr');
-  err.style.display='none';
-  if(!nm||!em||!ps){ err.textContent='Preencha todos os campos.'; err.style.display='block'; return; }
-  if(ps.length<6){ err.textContent='Senha mínimo 6 caracteres.'; err.style.display='block'; return; }
-  load('Criando conta...');
-  var fb=window._fb;
-  try {
-    var cred=await fb.createUserWithEmailAndPassword(fb.auth,em,ps);
-    var uid=cred.user.uid;
-    // Verificar código admin secreto
-    var cRoleFinal=cRole;
-    if(document.getElementById('c-admin-code')&&document.getElementById('c-admin-code').value==='NOC@admin2025') cRoleFinal='admin';
-    var perfil={ nome:nm, tipo:cRoleFinal, email:em, criadoEm:fb.serverTimestamp() };
-    if(cRoleFinal==='admin'){
-      await fb.setDoc(fb.doc(fb.db,'adminIndex',cred.user.uid),{tipo:'admin',email:em,nome:nm,criadoEm:fb.serverTimestamp()});
-    }
-    if(cRoleFinal==='medico'||cRole==='medico'){
-      perfil.especialidade=document.getElementById('c-esp').value;
-      perfil.clinica=document.getElementById('c-clinica').value.trim();
-    } else if(cRoleFinal==='paciente') {
-      var medEmail=document.getElementById('c-medcode').value.trim();
-      perfil.medicoEmail=medEmail;
-    }
-    await fb.setDoc(fb.doc(fb.db,'users/'+uid+'/perfil','dados'), perfil);
-    toast('Conta criada!');
-  } catch(e){
-    err.textContent=e.message; err.style.display='block';
-  }
-  unload();
-}
-
-function doLogout(){ window._fb.signOut(window._fb.auth).then(function(){ showAuth(); }); }
-
-// ════════════════════════
-//  INIT APP
-// ════════════════════════
-async function initApp(){
-  load('Carregando...');
-  var fb=window._fb;
-  try {
-    var snap=await fb.getDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'));
-    if(snap.exists()){
-      S.perfil=snap.data();
-      S.tipo=S.perfil.tipo||'medico';
-    } else {
-      // conta antiga sem perfil → assumir médico
-      S.perfil={nome:S.user.email,tipo:'medico',especialidade:'Médico',clinica:'NOC'};
-      S.tipo='medico';
-      await fb.setDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'),S.perfil);
-    }
-    showApp();
-    setupUI();
-    if(S.tipo==='medico'){
-      await Promise.all([loadPacientes(), loadAreas()]);
-      renderPainel();
-      go('painel');
-    } else {
-      // paciente: encontrar médico pelo email
-      await initPaciente();
-      go('como');
-    }
-  } catch(e){ toast('Erro ao carregar: '+e.message,'err'); }
-  unload();
-}
-
-function setupUI(){
-  var p=S.perfil;
-  document.getElementById('sbAv').textContent=(p.nome||'?')[0].toUpperCase();
-  document.getElementById('sbNm').textContent=p.nome||S.user.email;
-  document.getElementById('sbSp').textContent=S.tipo==='medico'?(p.especialidade||'')+(p.clinica?' · '+p.clinica:''):'Paciente';
-  var badge=document.getElementById('sbBadge');
-  badge.textContent=S.tipo==='medico'?'MÉDICO':'PACIENTE';
-  badge.className='sb-badge '+(S.tipo==='medico'?'badge-med':'badge-pac');
-  document.getElementById('topDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  buildNav();
-}
-
-function buildNav(){
-  var nav=document.getElementById('sbNav');
-  if(S.tipo==='medico'){
-    nav.innerHTML=
-      ni('painel','<path d="M1 1h6v6H1zm8 0h6v6H9zM1 9h6v6H1zm8 4h2v-2H9v-2H7v6h2z"/>','Painel')+
-      ni('pacientes','<circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6H2z"/>','Pacientes')+
-      ni('config','<circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.4" fill="none"/>','Configurações');
-  } else {
-    nav.innerHTML=
-      ni('como','<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>','Como estou?')+
-      ni('meus-exames','<path d="M2 2h12v2H2zM2 6h12v2H2zM2 10h8v2H2z"/>','Meus Exames')+
-      ni('meus-laudos','<rect x="3" y="1" width="10" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 5h4M6 8h4M6 11h2" stroke="currentColor" stroke-width="1.2" fill="none"/>','Laudos')+
-      ni('sintomas','<path d="M8 1a7 7 0 100 14A7 7 0 008 1zM8 5v3l2 1" stroke="currentColor" stroke-width="1.4" fill="none"/>','Sintomas')+
-      ni('minha-agenda','<rect x="1" y="3" width="14" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 1v4M11 1v4M1 7h14" stroke="currentColor" stroke-width="1.2" fill="none"/>','Agenda');
-  }
-}
-
-function ni(id,svg,lbl){
-  return '<div class="ni" id="ni-'+id+'" onclick="go(\''+id+'\')">'
-    +'<svg viewBox="0 0 16 16" fill="currentColor">'+svg+'</svg>'+lbl+'</div>';
-}
+function waitFB(cb){ cb(); }
 function show(id){ var e=document.getElementById(id); if(e) e.style.display=''; }
 function hide(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }
+function showApp(){ hide('authScreen'); var a=document.getElementById('app'); if(a) a.style.display='block'; }
+function showAuth(){ var a=document.getElementById('app'); if(a) a.style.display='none'; document.getElementById('authScreen').style.display='flex'; }
+
+// onAuthStateChanged
+_FA.onAuthStateChanged(function(user){
+  if(user){ S.user=user; initApp(); }
+  else { showAuth(); }
+});
+
+// ══════════════════════════════════════
+// CÓDIGO PRINCIPAL DO APP
+// ══════════════════════════════════════
 
-// ════════════════════════
-//  NAVEGAÇÃO
-// ════════════════════════
-var titles={painel:'Painel',pacientes:'Pacientes',pront:'Prontuário',config:'Configurações',
-  como:'Como estou?','meus-exames':'Meus Exames','meus-laudos':'Meus Laudos',
-  sintomas:'Sintomas','minha-agenda':'Minha Agenda'};
-function go(id){
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
-  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
-  var pg=document.getElementById('pg-'+id);
-  if(pg) pg.classList.add('on');
-  var ni=document.getElementById('ni-'+id);
-  if(ni) ni.classList.add('on');
-  document.getElementById('topTitle').textContent=titles[id]||id;
-  var ta=document.getElementById('topActs');
-  if(id==='pacientes') ta.innerHTML='<button class="btn btn-gr" onclick="openMo(\'novo-pac\')">+ Novo Paciente</button>';
-  else if(id==='config') ta.innerHTML='<button class="btn btn-gr" onclick="openMo(\'nova-area\')">+ Nova Área</button>';
-  else if(id==='pront'&&S.curPac) ta.innerHTML='<button class="btn btn-o btn-sm" onclick="go(\'pacientes\')">← Pacientes</button><button class="btn btn-gr btn-sm" onclick="openMo(\'novo-res\')">+ Exame</button>';
-  else ta.innerHTML='';
-  if(id==='pacientes') filterPacs();
-  if(id==='meus-exames') renderMeusExames();
-  if(id==='meus-laudos') renderMeusLaudos();
-  if(id==='minha-agenda') renderMinhaAgenda();
-  if(id==='sintomas'){ document.getElementById('sintData').value=new Date().toISOString().split('T')[0]; renderSintHist(); }
-}
-
-function ptab(el,t){
-  document.querySelectorAll('.ptab').forEach(function(x){x.classList.remove('on');});
-  el.classList.add('on');
-  ['pt-res','pt-exames','pt-laudos','pt-evol','pt-sint','pt-agenda'].forEach(function(id){
-    var e=document.getElementById(id); if(e) e.style.display=id===t?'block':'none';
-  });
-  if(t==='pt-evol') renderEvol();
-  if(t==='pt-sint') renderSintMedico();
-  if(t==='pt-agenda') renderAgMedico();
-}
-
-// ════════════════════════
-//  PORTAL MÉDICO — PACIENTES
-// ════════════════════════
-async function loadPacientes(){
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.user.uid)+'/pacientes'),fb.orderBy('nome'));
-  var snap=await fb.getDocs(q);
-  S.pacientes=[];
-  snap.forEach(function(d){ S.pacientes.push({id:d.id,...d.data()}); });
-  document.getElementById('sPac').textContent=S.pacientes.length;
-  document.getElementById('sAlt').textContent=S.pacientes.filter(function(p){return p.temAlteracao;}).length;
-}
-
-function renderPacs(list){
-  var el=document.getElementById('patRows');
-  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">👥</div><p>Nenhum paciente encontrado.</p></div>'; return; }
-  var ec={endo:'background:var(--A3);color:var(--A);border:1px solid var(--A2)',derm:'background:var(--T3);color:var(--T);border:1px solid var(--T2)',ambas:'background:var(--P3);color:var(--P);border:1px solid var(--P2)'};
-  var en={endo:'Endocrinologia',derm:'Dermatologia',ambas:'Endo+Derm'};
-  var bgs=['#111820','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-  el.innerHTML=list.map(function(p){
-    var ini=(p.nome||'?')[0].toUpperCase();
-    var bg=bgs[p.nome.charCodeAt(0)%6];
-    var esp=p.especialidade||'endo';
-    return '<div class="pt-row" onclick="abrirPront(\''+p.id+'\')">'
-      +'<div style="display:flex;align-items:center;gap:9px;">'
-      +'<div style="width:32px;height:32px;border-radius:50%;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;">'+ini+'</div>'
-      +'<div><div class="pt-nm">'+esc(p.nome)+'</div><div class="pt-info">'+idade(p.dataNasc)+(p.cidade?' · '+esc(p.cidade):'')+'</div></div></div>'
-      +'<div><span class="ptag" style="'+ec[esp]+'">'+en[esp]+'</span></div>'
-      +'<div style="font-size:12px;color:var(--t3);">'+fdt(p.ultimaConsulta||p.primeiraConsulta)+'</div>'
-      +'<div style="font-size:12px;color:var(--t3);">'+(p.totalExames||0)+'</div>'
-      +'<div><span class="ptag '+(p.temAlteracao?'sM':'sE')+'">'+(p.temAlteracao?'⚠ Alt.':'✓')+'</span></div>'
-      +'<div style="display:flex;gap:4px;" onclick="event.stopPropagation()">'
-      +'<button class="btn btn-o btn-sm" onclick="abrirPront(\''+p.id+'\')">📋</button>'
-      +'<button class="btn btn-del" onclick="delPac(\''+p.id+'\',\''+esc(p.nome)+'\')">🗑</button>'
-      +'</div></div>';
-  }).join('');
-}
-
-function filterPacs(){
-  var q=(document.getElementById('searchInp').value||'').toLowerCase();
-  var f=S.pacientes.filter(function(p){
-    var m=(p.nome||'').toLowerCase().includes(q)||((p.cpf||'').includes(q));
-    var e=S.filterEsp==='todos'||(S.filterEsp==='alterado'?p.temAlteracao:p.especialidade===S.filterEsp);
-    return m&&e;
-  });
-  renderPacs(f);
-}
-function fchip(el,v){ document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); S.filterEsp=v; filterPacs(); }
-
-function renderPainel(){
-  var el=document.getElementById('panelPacs');
-  var rec=S.pacientes.slice(0,6);
-  if(!rec.length){ el.innerHTML='<div class="empty"><div class="ei">👥</div><p>Nenhum paciente.</p></div>'; return; }
-  var bgs=['#111820','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-  el.innerHTML='<div>'+rec.map(function(p){
-    var ini=(p.nome||'?')[0].toUpperCase();
-    var bg=bgs[p.nome.charCodeAt(0)%6];
-    return '<div style="display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--bg3);cursor:pointer;" onclick="abrirPront(\''+p.id+'\')">'
-      +'<div style="width:34px;height:34px;border-radius:50%;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;">'+ini+'</div>'
-      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+esc(p.nome)+'</div>'
-      +'<div style="font-size:10.5px;color:var(--t3);">'+idade(p.dataNasc)+'</div></div>'
-      +'<span style="font-size:11px;color:var(--t3);">'+fdt(p.ultimaConsulta||p.primeiraConsulta)+'</span>'
-      +'</div>';
-  }).join('')+'</div>';
-  document.getElementById('sExm').textContent=S.pacientes.reduce(function(a,p){return a+(p.totalExames||0);},0);
-}
-
-async function salvarPac(){
-  var nm=document.getElementById('np-nm').value.trim();
-  var esp=document.getElementById('np-esp').value;
-  if(!nm||!esp){ toast('Nome e especialidade obrigatórios.','err'); return; }
-  load('Salvando...');
-  var fb=window._fb;
-  try {
-    var ps=document.getElementById('np-ps').value;
-    var al=document.getElementById('np-al').value;
-    var pacUidEmail=document.getElementById('np-uid-email').value.trim();
-    var docData={
-      nome:nm, dataNasc:document.getElementById('np-dn').value,
-      sexo:document.getElementById('np-sx').value,
-      especialidade:esp,
-      cpf:document.getElementById('np-cpf').value.trim(),
-      telefone:document.getElementById('np-tel').value.trim(),
-      email:document.getElementById('np-em').value.trim(),
-      cidade:document.getElementById('np-cid').value.trim(),
-      primeiraConsulta:document.getElementById('np-pc').value,
-      queixa:document.getElementById('np-qx').value.trim(),
-      historico:document.getElementById('np-ht').value.trim(),
-      peso:ps?parseFloat(ps):null, altura:al?parseFloat(al):null, imc:imc(ps,al),
-      totalExames:0, temAlteracao:false,
-      pacienteEmail:pacUidEmail||null,
-      criadoEm:fb.serverTimestamp()
-    };
-    // Se o médico informou e-mail do paciente, registrar o vínculo
-    // O paciente vai usar esse e-mail para criar conta e ser reconhecido
-    var ref=await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/pacientes'),docData);
-    // Salvar vínculo na conta do paciente (se tiver e-mail informado)
-    // vínculo fica em users/{medicoUid}/vinculos/{pacienteEmail} para busca reversa
-    if(pacUidEmail){
-      await fb.setDoc(fb.doc(fb.db,mPath(S.user.uid)+'/vinculos',pacUidEmail.replace(/\./g,'_').replace(/@/g,'AT')),{
-        pacienteEmail:pacUidEmail, pacienteId:ref.id, medicoNome:S.perfil.nome||'',
-        criadoEm:fb.serverTimestamp()
-      });
-    }
-    closeMo('novo-pac'); await loadPacientes(); renderPainel();
-    toast('Paciente salvo!');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-async function delPac(id,nm){
-  if(!confirm('Excluir "'+nm+'"?')) return;
-  load('Excluindo...');
-  try { await window._fb.deleteDoc(window._fb.doc(window._fb.db,mPath(S.user.uid)+'/pacientes',id)); await loadPacientes(); renderPainel(); toast('Excluído.'); }
-  catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  PRONTUÁRIO
-// ════════════════════════
-async function abrirPront(id){
-  load('Carregando prontuário...');
-  S.curPacId=id;
-  var fb=window._fb;
-  try {
-    var snap=await fb.getDoc(fb.doc(fb.db,mPath(S.user.uid)+'/pacientes',id));
-    if(!snap.exists()){ toast('Não encontrado.','err'); unload(); return; }
-    S.curPac={id,...snap.data()};
-    var p=S.curPac;
-    document.getElementById('prAv').textContent=(p.nome||'?')[0].toUpperCase();
-    document.getElementById('prNome').textContent=p.nome||'—';
-    var meta=[];
-    if(p.dataNasc) meta.push(fdt(p.dataNasc)+' · '+idade(p.dataNasc));
-    if(p.sexo) meta.push(p.sexo);
-    if(p.cidade) meta.push(p.cidade);
-    if(p.imc) meta.push('IMC: '+p.imc);
-    document.getElementById('prMeta').textContent=meta.join(' · ');
-    var ec={endo:'background:var(--A3);color:var(--A);border:1px solid var(--A2)',derm:'background:var(--T3);color:var(--T);border:1px solid var(--T2)',ambas:'background:var(--P3);color:var(--P);border:1px solid var(--P2)'};
-    var en={endo:'Endocrinologia',derm:'Dermatologia',ambas:'Endo+Derm'};
-    var esp=p.especialidade||'endo';
-    document.getElementById('prTags').innerHTML=
-      '<span class="ptag" style="'+ec[esp]+'">'+en[esp]+'</span>'
-      +(p.temAlteracao?'<span class="ptag sR">⚠ Tem alterações</span>':'<span class="ptag sE">✓ Ok</span>');
-    await Promise.all([loadRes(id), loadLaudos(id), loadSint(id), loadAg(id)]);
-    renderResAreas(); renderExTbl(); renderLaudoList(); renderEvolSel();
-    go('pront');
-    ptab(document.querySelector('#ptabs .ptab'),'pt-res');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  ÁREAS
-// ════════════════════════
-var defaultAreas=[
-  {nome:'Perfil Lipídico',ico:'🩸',cor:'#d44a20',esp:'endo',params:[
-    {nome:'Colesterol Total',unidade:'mg/dL',refMin:0,refMax:190},
-    {nome:'HDL',unidade:'mg/dL',refMin:40,refMax:200},
-    {nome:'LDL',unidade:'mg/dL',refMin:0,refMax:115},
-    {nome:'Triglicerídeos',unidade:'mg/dL',refMin:0,refMax:150}]},
-  {nome:'Hormônios Sexuais',ico:'⚗️',cor:'#b87800',esp:'endo',params:[
-    {nome:'Testosterona Total',unidade:'ng/dL',refMin:165,refMax:753},
-    {nome:'Testosterona Livre',unidade:'ng/dL',refMin:3.03,refMax:14.8},
-    {nome:'SHBG',unidade:'nmol/L',refMin:14.6,refMax:94.6},
-    {nome:'LH',unidade:'mUI/mL',refMin:1.5,refMax:9.3},
-    {nome:'FSH',unidade:'mUI/mL',refMin:1.4,refMax:18.1},
-    {nome:'Estradiol',unidade:'pg/mL',refMin:20,refMax:55}]},
-  {nome:'Tireoide',ico:'🦋',cor:'#154fa0',esp:'endo',params:[
-    {nome:'TSH',unidade:'mUI/L',refMin:0.4,refMax:4.0},
-    {nome:'T4 Livre',unidade:'ng/dL',refMin:0.8,refMax:1.8},
-    {nome:'T3 Livre',unidade:'pg/mL',refMin:2.3,refMax:4.2},
-    {nome:'Anti-TPO',unidade:'UI/mL',refMin:0,refMax:35}]},
-  {nome:'Vitaminas e Minerais',ico:'💊',cor:'#1a7a40',esp:'ambas',params:[
-    {nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100},
-    {nome:'Vitamina B12',unidade:'pg/mL',refMin:200,refMax:900},
-    {nome:'Zinco',unidade:'mcg/dL',refMin:60,refMax:120},
-    {nome:'Ferritina',unidade:'ng/mL',refMin:30,refMax:400},
-    {nome:'Magnésio',unidade:'mg/dL',refMin:1.6,refMax:2.6}]},
-  {nome:'Função Hepática',ico:'🫀',cor:'#154fa0',esp:'endo',params:[
-    {nome:'AST (TGO)',unidade:'U/L',refMin:0,refMax:40},
-    {nome:'ALT (TGP)',unidade:'U/L',refMin:0,refMax:50},
-    {nome:'GGT',unidade:'U/L',refMin:7,refMax:61},
-    {nome:'Fosfatase Alcalina',unidade:'U/L',refMin:40,refMax:130}]},
-  {nome:'Glicemia / Metabólico',ico:'🍬',cor:'#9a5800',esp:'endo',params:[
-    {nome:'Glicemia Jejum',unidade:'mg/dL',refMin:70,refMax:99},
-    {nome:'HbA1c',unidade:'%',refMin:0,refMax:5.7},
-    {nome:'Insulina Jejum',unidade:'µUI/mL',refMin:2.6,refMax:25},
-    {nome:'Cortisol Basal',unidade:'µg/dL',refMin:5,refMax:23}]},
-  {nome:'Hematologia',ico:'🔴',cor:'#980000',esp:'endo',params:[
-    {nome:'Hemoglobina',unidade:'g/dL',refMin:13.5,refMax:17.5},
-    {nome:'Hematócrito',unidade:'%',refMin:40,refMax:52},
-    {nome:'Leucócitos',unidade:'x10³/µL',refMin:4.0,refMax:11.0},
-    {nome:'Plaquetas',unidade:'x10³/µL',refMin:150,refMax:400}]},
-  {nome:'PSA',ico:'🩺',cor:'#4e1ea0',esp:'endo',params:[
-    {nome:'PSA Total',unidade:'ng/mL',refMin:0,refMax:4.0},
-    {nome:'PSA Livre',unidade:'ng/mL',refMin:0,refMax:2.0}]},
-  {nome:'Função Renal',ico:'💧',cor:'#4e1ea0',esp:'endo',params:[
-    {nome:'Creatinina',unidade:'mg/dL',refMin:0.7,refMax:1.3},
-    {nome:'Ureia',unidade:'mg/dL',refMin:10,refMax:50},
-    {nome:'Ácido Úrico',unidade:'mg/dL',refMin:2.4,refMax:7.0}]},
-  {nome:'Dermatologia',ico:'🔬',cor:'#007070',esp:'derm',params:[
-    {nome:'IgE Total',unidade:'UI/mL',refMin:0,refMax:100},
-    {nome:'Eosinófilos',unidade:'%',refMin:1,refMax:5},
-    {nome:'PCR',unidade:'mg/L',refMin:0,refMax:5}]}
-];
-
-async function loadAreas(){
-  var fb=window._fb;
-  var snap=await fb.getDocs(fb.collection(fb.db,mPath(S.user.uid)+'/areas'));
-  S.areas=[];
-  snap.forEach(function(d){ S.areas.push({id:d.id,...d.data()}); });
-  if(!S.areas.length){ await importDefaultAreas(); }
-  renderConfigAreas(); renderAreaSel();
-}
-
-async function importDefaultAreas(){
-  load('Importando áreas padrão...');
-  var fb=window._fb;
-  for(var a of defaultAreas) await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/areas'),a);
-  var snap=await fb.getDocs(fb.collection(fb.db,mPath(S.user.uid)+'/areas'));
-  S.areas=[]; snap.forEach(function(d){ S.areas.push({id:d.id,...d.data()}); });
-  unload();
-}
-
-function renderConfigAreas(){
-  var el=document.getElementById('configAreas');
-  if(!S.areas.length){ el.innerHTML='<div class="empty"><div class="ei">⚙️</div><p>Nenhuma área.</p></div>'; return; }
-  el.innerHTML=S.areas.map(function(a){
-    return '<div style="background:#fff;border:1.5px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh);">'
-      +'<div style="padding:12px 15px;display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-bottom:1px solid var(--bdr);">'
-      +'<div style="font-size:13px;font-weight:700;color:'+a.cor+';">'+esc(a.ico||'📋')+' '+esc(a.nome)+'</div>'
-      +'<div style="display:flex;gap:6px;"><span class="ptag sN" style="font-size:10px;">'+esc(a.esp||'ambas')+'</span>'
-      +'<button class="btn btn-del btn-sm" onclick="delArea(\''+a.id+'\')">Excluir</button></div></div>'
-      +'<div style="padding:10px 15px;">'
-      +(a.params||[]).map(function(p){ return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bg3);font-size:12px;"><span style="color:var(--t2);">'+esc(p.nome)+'</span><span style="font-size:10.5px;color:var(--t4);">'+p.refMin+'–'+p.refMax+' '+esc(p.unidade)+'</span></div>'; }).join('')
-      +'</div></div>';
-  }).join('');
-}
-
-function renderAreaSel(){
-  var sel=document.getElementById('re-area');
-  sel.innerHTML='<option value="">— Selecionar —</option>'
-    +S.areas.map(function(a){ return '<option value="'+a.id+'">'+esc(a.ico||'')+'  '+esc(a.nome)+'</option>'; }).join('');
-}
-
-function loadAreaParams(){
-  var aid=document.getElementById('re-area').value;
-  var area=S.areas.find(function(a){return a.id===aid;});
-  var el=document.getElementById('re-params');
-  if(!area||!area.params){ el.innerHTML=''; return; }
-  el.innerHTML='<div class="rf-grid">'
-    +area.params.map(function(p,i){
-      return '<div class="rf-fld"><label>'+esc(p.nome)+' ('+esc(p.unidade)+')</label>'
-        +'<input id="rp-'+i+'" type="number" step="0.01" placeholder="—" data-nome="'+esc(p.nome)+'" data-min="'+p.refMin+'" data-max="'+p.refMax+'" data-unit="'+esc(p.unidade)+'"></div>';
-    }).join('')+'</div>';
-}
-
-var pCount=0;
-function addParam(){
-  pCount++;
-  var d=document.createElement('div');
-  d.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;';
-  d.id='pm-'+pCount;
-  d.innerHTML='<div class="rf-fld"><label>Nome</label><input class="pm-n" placeholder="Parâmetro"></div>'
-    +'<div class="rf-fld"><label>Unidade</label><input class="pm-u" placeholder="mg/dL"></div>'
-    +'<div class="rf-fld"><label>Ref. Mín</label><input class="pm-mi" type="number" step="0.01"></div>'
-    +'<div class="rf-fld"><label>Ref. Máx</label><input class="pm-ma" type="number" step="0.01"></div>';
-  document.getElementById('na-params').appendChild(d);
-}
-
-async function salvarArea(){
-  var nm=document.getElementById('na-nm').value.trim();
-  if(!nm){ toast('Nome obrigatório.','err'); return; }
-  load('Salvando...');
-  var params=[];
-  document.querySelectorAll('[id^="pm-"]').forEach(function(d){
-    var n=d.querySelector('.pm-n').value.trim();
-    if(n) params.push({nome:n,unidade:d.querySelector('.pm-u').value.trim(),
-      refMin:parseFloat(d.querySelector('.pm-mi').value)||0,
-      refMax:parseFloat(d.querySelector('.pm-ma').value)||999});
-  });
-  try {
-    await window._fb.addDoc(window._fb.collection(window._fb.db,mPath(S.user.uid)+'/areas'),{
-      nome:nm, ico:document.getElementById('na-ico').value||'📋',
-      cor:document.getElementById('na-cor').value, esp:document.getElementById('na-esp').value, params
-    });
-    closeMo('nova-area');
-    pCount=0; document.getElementById('na-params').innerHTML='';
-    await loadAreas(); toast('Área criada!');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-async function delArea(id){
-  if(!confirm('Excluir área?')) return;
-  load('...');
-  try { await window._fb.deleteDoc(window._fb.doc(window._fb.db,mPath(S.user.uid)+'/areas',id)); await loadAreas(); toast('Excluído.'); }
-  catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  RESULTADOS
-// ════════════════════════
-function status(v,mn,mx){
-  if(v===null||v===undefined||v==='') return {c:'sN',l:'—'};
-  var x=parseFloat(v); if(isNaN(x)) return {c:'sN',l:'—'};
-  if(x>=mn&&x<=mx) return {c:'sE',l:'Normal'};
-  if(x<mn){ var d=(mn-x)/mn; return d>0.15?{c:'sR',l:'↓ Baixo'}:{c:'sM',l:'↓ Limítrofe'}; }
-  var d=(x-mx)/mx; return d>0.15?{c:'sR',l:'↑ Alto'}:{c:'sM',l:'↑ Limítrofe'};
-}
-
-async function loadRes(pid){
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.user.uid)+'/resultados'),fb.where('pacienteId','==',pid),fb.orderBy('data','desc'));
-  var snap=await fb.getDocs(q);
-  S.resultados=[]; snap.forEach(function(d){ S.resultados.push({id:d.id,...d.data()}); });
-  document.getElementById('sExm').textContent=(document.getElementById('sExm').textContent||0);
-}
-
-async function salvarRes(){
-  var dt=document.getElementById('re-dt').value;
-  var aid=document.getElementById('re-area').value;
-  if(!dt||!aid){ toast('Data e área obrigatórias.','err'); return; }
-  var area=S.areas.find(function(a){return a.id===aid;});
-  var vals={}, temAlt=false;
-  (area.params||[]).forEach(function(p,i){
-    var inp=document.getElementById('rp-'+i);
-    if(inp&&inp.value!==''){
-      var v=parseFloat(inp.value);
-      vals[p.nome]={valor:v,unidade:p.unidade,refMin:p.refMin,refMax:p.refMax};
-      var st=status(v,p.refMin,p.refMax);
-      if(st.c==='sR'||st.c==='sM') temAlt=true;
-    }
-  });
-  load('Salvando...');
-  var fb=window._fb;
-  try {
-    // registrar pacienteUid para acesso do paciente
-    var pacUid=S.curPac.pacienteUid||null;
-    await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/resultados'),{
-      pacienteId:S.curPacId, medicoId:S.user.uid, pacienteUid:pacUid,
-      data:dt, areaId:aid, areaNome:area.nome, areaIco:area.ico||'📋', areaCor:area.cor||'#154fa0',
-      lab:document.getElementById('re-lb').value.trim(),
-      obs:document.getElementById('re-obs').value.trim(),
-      valores:vals, temAlteracao:temAlt, criadoEm:fb.serverTimestamp()
-    });
-    await fb.updateDoc(fb.doc(fb.db,mPath(S.user.uid)+'/pacientes',S.curPacId),{
-      ultimaConsulta:dt, temAlteracao:temAlt, totalExames:(S.curPac.totalExames||0)+1
-    });
-    closeMo('novo-res');
-    await loadRes(S.curPacId);
-    renderResAreas(); renderExTbl(); renderEvolSel();
-    toast('Resultado salvo!');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-function renderResAreas(){
-  var el=document.getElementById('resAreas');
-  var byArea={};
-  S.resultados.forEach(function(r){ if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r; });
-  if(!Object.keys(byArea).length){ el.innerHTML='<div class="empty" style="grid-column:1/-1;"><div class="ei">🧪</div><p>Nenhum resultado. Clique em <b>+ Exame</b>.</p></div>'; return; }
-  el.innerHTML=Object.values(byArea).map(function(r){
-    var params=Object.entries(r.valores||{});
-    return '<div class="area-card">'
-      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';">'
-      +'<div class="ac-title" style="color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div>'
-      +'<span style="font-size:10px;color:var(--t4);">'+fdt(r.data)+'</span></div>'
-      +'<div class="ac-body">'
-      +(params.length?params.slice(0,6).map(function(e){
-        var st=status(e[1].valor,e[1].refMin,e[1].refMax);
-        return '<div class="ac-row"><span class="ac-nm">'+esc(e[0])+'</span>'
-          +'<span><b class="ac-val">'+e[1].valor+'</b> <span style="font-size:9.5px;color:var(--t4);">'+esc(e[1].unidade)+'</span>'
-          +'<span class="ac-st '+st.c+'">'+st.l+'</span></span></div>';
-      }).join(''):'<div class="ac-empty">Sem valores.</div>')
-      +'</div>'
-      +'<button class="ac-btn" onclick="openResArea(\''+r.areaId+'\')">+ Novo resultado desta área</button>'
-      +'</div>';
-  }).join('');
-}
-
-function openResArea(aid){
-  openMo('novo-res');
-  setTimeout(function(){ document.getElementById('re-area').value=aid; loadAreaParams(); document.getElementById('re-dt').value=new Date().toISOString().split('T')[0]; },100);
-}
-
-function renderExTbl(){
-  var el=document.getElementById('exTbl');
-  if(!S.resultados.length){ el.innerHTML='<div class="empty"><div class="ei">🧪</div><p>Sem resultados.</p></div>'; return; }
-  el.innerHTML='<div style="background:#fff;border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);">'
-    +S.resultados.map(function(r){
-      return '<div style="display:flex;align-items:center;gap:11px;padding:12px 15px;border-bottom:1px solid var(--bg3);cursor:pointer;transition:.12s;" onclick="toggleDet(\''+r.id+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'#fff\'">'
-        +'<div style="width:34px;height:34px;border-radius:8px;background:'+r.areaCor+'18;border:1.5px solid '+r.areaCor+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">'+esc(r.areaIco||'📋')+'</div>'
-        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+esc(r.areaNome)+'</div>'
-        +'<div style="font-size:11px;color:var(--t3);">'+fdt(r.data)+(r.lab?' · '+esc(r.lab):'')+'</div></div>'
-        +'<span style="font-size:11.5px;color:var(--t3);">'+Object.keys(r.valores||{}).length+' params</span>'
-        +'<span class="ptag '+(r.temAlteracao?'sM':'sE')+'">'+(r.temAlteracao?'⚠ Alt.':'✓')+'</span>'
-        +'<button class="btn btn-del btn-sm" onclick="event.stopPropagation();delRes(\''+r.id+'\')">🗑</button></div>'
-        +'<div id="det-'+r.id+'" style="display:none;padding:8px 15px 12px 60px;background:var(--bg3);border-bottom:1px solid var(--bdr);">'
-        +Object.entries(r.valores||{}).map(function(e){
-          var st=status(e[1].valor,e[1].refMin,e[1].refMax);
-          return '<span style="display:inline-flex;align-items:center;gap:4px;margin:3px 3px;font-size:12px;padding:3px 9px;border-radius:20px;background:#fff;border:1px solid var(--bdr);">'
-            +esc(e[0])+': <b>'+e[1].valor+'</b> <span style="font-size:9px;color:var(--t4);">'+esc(e[1].unidade)+'</span>'
-            +'<span class="ac-st '+st.c+'">'+st.l+'</span></span>';
-        }).join('')
-        +(r.obs?'<div style="margin-top:6px;font-size:11.5px;color:var(--t3);font-style:italic;">💬 '+esc(r.obs)+'</div>':'')
-        +'</div>';
-    }).join('')+'</div>';
-}
-
-function toggleDet(id){ var e=document.getElementById('det-'+id); if(e) e.style.display=e.style.display==='none'?'block':'none'; }
-
-async function delRes(id){
-  if(!confirm('Excluir resultado?')) return;
-  load('...');
-  try { await window._fb.deleteDoc(window._fb.doc(window._fb.db,mPath(S.user.uid)+'/resultados',id)); await loadRes(S.curPacId); renderResAreas(); renderExTbl(); toast('Excluído.'); }
-  catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  LAUDOS
-// ════════════════════════
-async function loadLaudos(pid){
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.user.uid)+'/laudos'),fb.where('pacienteId','==',pid),fb.orderBy('criadoEm','desc'));
-  var snap=await fb.getDocs(q);
-  S.laudos=[]; snap.forEach(function(d){ S.laudos.push({id:d.id,...d.data()}); });
-  document.getElementById('sLau').textContent=S.laudos.length;
-}
-
-function goUpload(){ ptab(document.querySelectorAll('.ptab')[2],'pt-laudos'); setTimeout(function(){ document.getElementById('upZone').scrollIntoView({behavior:'smooth'}); },200); }
-function onDrop(e){ e.preventDefault(); document.getElementById('upZone').classList.remove('drag'); onFileSelect(e.dataTransfer.files); }
-
-async function onFileSelect(files){
-  for(var i=0;i<files.length;i++) await uploadFile(files[i]);
-  renderLaudoList();
-}
-
-async function uploadFile(file){
-  if(file.size>10*1024*1024){ toast('Máx 10MB: '+file.name,'err'); return; }
-  load('Enviando '+file.name+'...');
-  var fb=window._fb;
-  try {
-    var path='laudos/'+S.user.uid+'/'+S.curPacId+'/'+Date.now()+'_'+file.name;
-    var sRef=fb.ref(fb.stor,path);
-    await fb.uploadBytes(sRef,file);
-    var url=await fb.getDownloadURL(sRef);
-    var pacUid=S.curPac.pacienteUid||null;
-    await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/laudos'),{
-      pacienteId:S.curPacId, medicoId:S.user.uid, pacienteUid:pacUid,
-      nome:file.name, tipo:file.type, tamanho:file.size, path, url,
-      criadoEm:fb.serverTimestamp()
-    });
-    await loadLaudos(S.curPacId);
-    toast(file.name+' enviado!');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-function renderLaudoList(){
-  var el=document.getElementById('laudoList');
-  if(!S.laudos.length){ el.innerHTML='<div class="empty"><div class="ei">📁</div><p>Nenhum laudo.</p></div>'; return; }
-  el.innerHTML='<div class="up-list">'+S.laudos.map(function(l){
-    var ico=l.tipo&&l.tipo.includes('pdf')?'📄':l.tipo&&l.tipo.includes('image')?'🖼️':'📎';
-    return '<div class="up-item">'
-      +'<span style="font-size:22px;">'+ico+'</span>'
-      +'<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.nome)+'</div>'
-      +'<div style="font-size:10.5px;color:var(--t3);">'+Math.round(l.tamanho/1024)+' KB</div></div>'
-      +'<div style="display:flex;gap:5px;">'
-      +'<button class="btn btn-o btn-sm" onclick="window.open(\''+esc(l.url)+'\',\'_blank\')">👁 Abrir</button>'
-      +'<button class="btn btn-del btn-sm" onclick="delLaudo(\''+l.id+'\',\''+esc(l.path)+'\')">🗑</button>'
-      +'</div></div>';
-  }).join('')+'</div>';
-}
-
-async function delLaudo(id,path){
-  if(!confirm('Excluir arquivo?')) return;
-  load('...');
-  var fb=window._fb;
-  try {
-    await fb.deleteDoc(fb.doc(fb.db,mPath(S.user.uid)+'/laudos',id));
-    try{ await fb.deleteObject(fb.ref(fb.stor,path)); }catch(e){}
-    await loadLaudos(S.curPacId); renderLaudoList(); toast('Excluído.');
-  } catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  SINTOMAS
-// ════════════════════════
-async function loadSint(pid){
-  var fb=window._fb;
-  // No médico: carrega sintomas do path do PACIENTE
-  // Sintomas ficam em users/{pacienteUid}/sintomas/{id}
-  // Se não há vínculo por UID, busca pelo caminho do médico (compatibilidade)
-  var pacUid=S.curPac&&S.curPac.pacienteUid;
-  S.sint=[];
-  if(pacUid){
-    try{
-      var q=fb.query(fb.collection(fb.db,'users/'+pacUid+'/sintomas'),fb.orderBy('data','desc'));
-      var snap=await fb.getDocs(q);
-      snap.forEach(function(d){ S.sint.push({id:d.id,...d.data()}); });
-    }catch(e){}
-  }
-}
-
-async function loadAg(pid){
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.user.uid)+'/agendamentos'),fb.where('pacienteId','==',pid),fb.orderBy('data','desc'));
-  var snap=await fb.getDocs(q);
-  S.agendamentos=[]; snap.forEach(function(d){ S.agendamentos.push({id:d.id,...d.data()}); });
-}
-
-function renderSintMedico(){
-  var el=document.getElementById('sintList');
-  if(!S.sint.length){ el.innerHTML='<div class="empty"><div class="ei">💬</div><p>Nenhum sintoma registrado pelo paciente.</p></div>'; return; }
-  var intCor={leve:'background:var(--G2);color:var(--G);border:1px solid var(--G);', moderado:'background:var(--A2);color:var(--A);border:1px solid var(--A);', intenso:'background:var(--R2);color:var(--R);border:1px solid var(--R);'};
-  el.innerHTML='<div style="background:#fff;border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);">'
-    +S.sint.map(function(s){
-      return '<div class="sint-item">'
-        +'<div style="width:34px;height:34px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">💬</div>'
-        +'<div style="flex:1;"><div class="sint-txt">'+esc(s.texto||s.txt||'')+'</div>'
-        +'<div style="display:flex;gap:6px;align-items:center;margin-top:4px;">'
-        +'<span class="sint-int" style="'+intCor[s.intensidade||s.int||'leve']+'">'+esc(s.intensidade||s.int||'leve')+'</span>'
-        +'<span class="sint-date">'+fdt(s.data)+'</span>'
-        +'</div></div></div>';
-    }).join('')+'</div>';
-}
-
-// ════════════════════════
-//  AGENDAMENTOS
-// ════════════════════════
-async function salvarAg(){
-  var dt=document.getElementById('ag-dt').value;
-  if(!dt){ toast('Data obrigatória.','err'); return; }
-  load('...');
-  var fb=window._fb;
-  try {
-    var pacUid=S.curPac.pacienteUid||null;
-    await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/agendamentos'),{
-      pacienteId:S.curPacId, pacienteNome:S.curPac.nome, pacienteUid:pacUid,
-      medicoId:S.user.uid, medicoNome:S.perfil.nome||'',
-      data:dt, hora:document.getElementById('ag-hr').value,
-      tipo:document.getElementById('ag-tp').value.trim(),
-      local:document.getElementById('ag-lc').value.trim(),
-      obs:document.getElementById('ag-ob').value.trim(),
-      status:'pendente', criadoEm:fb.serverTimestamp()
-    });
-    closeMo('novo-ag'); await loadAg(S.curPacId); renderAgMedico();
-    toast('Agendamento salvo!');
-  } catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-function renderAgMedico(){
-  var el=document.getElementById('agList');
-  if(!S.agendamentos.length){ el.innerHTML='<div class="empty"><div class="ei">📅</div><p>Nenhum agendamento.</p></div>'; return; }
-  var stCor={pendente:'sM',confirmado:'sE',cancelado:'sR'};
-  el.innerHTML=S.agendamentos.map(function(a){
-    var d=new Date((a.data||'')+'T12:00:00');
-    return '<div class="ag-item">'
-      +'<div class="ag-date"><div class="ag-day">'+d.getDate()+'</div><div class="ag-mon">'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</div></div>'
-      +'<div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">'+esc(a.tipo||'Consulta')+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);">'+(a.hora?fmtHora(a.hora)+' · ':'')+esc(a.local||'')+'</div>'
-      +(a.obs?'<div style="font-size:11px;color:var(--t4);margin-top:2px;">'+esc(a.obs)+'</div>':'')+'</div>'
-      +'<div class="ag-status">'
-      +'<span class="ptag '+stCor[a.status||'pendente']+'">'+esc(a.status||'pendente')+'</span>'
-      +'<button class="btn btn-del btn-sm" onclick="delAg(\''+a.id+'\')">🗑</button>'
-      +'</div></div>';
-  }).join('');
-}
-
-async function delAg(id){
-  if(!confirm('Cancelar agendamento?')) return;
-  load('...');
-  try { await window._fb.deleteDoc(window._fb.doc(window._fb.db,mPath(S.user.uid)+'/agendamentos',id)); await loadAg(S.curPacId); renderAgMedico(); toast('Cancelado.'); }
-  catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  EVOLUÇÃO
-// ════════════════════════
-function renderEvolSel(){
-  var sel=document.getElementById('evolParam');
-  var ops=new Set();
-  S.resultados.forEach(function(r){ Object.keys(r.valores||{}).forEach(function(k){ ops.add(k); }); });
-  sel.innerHTML='<option value="">— Parâmetro —</option>'
-    +Array.from(ops).map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
-}
-
-function renderEvol(){
-  var p=document.getElementById('evolParam').value; if(!p) return;
-  var pts=[];
-  S.resultados.forEach(function(r){ if(r.valores&&r.valores[p]!==undefined) pts.push({dt:r.data,v:r.valores[p].valor,mn:r.valores[p].refMin,mx:r.valores[p].refMax,u:r.valores[p].unidade}); });
-  pts.sort(function(a,b){return a.dt.localeCompare(b.dt);});
-  if(!pts.length){ toast('Sem dados.','err'); return; }
-  if(S.evolChart) S.evolChart.destroy();
-  var ctx=document.getElementById('evolCanvas').getContext('2d');
-  S.evolChart=new Chart(ctx,{type:'line',data:{
-    labels:pts.map(function(d){return fdt(d.dt);}),
-    datasets:[
-      {label:p,data:pts.map(function(d){return d.v;}),borderColor:'#1a7a40',backgroundColor:'rgba(26,122,64,.07)',fill:true,tension:0.4,pointRadius:7,
-       pointBackgroundColor:pts.map(function(d){var s=status(d.v,d.mn,d.mx);return s.c==='sE'?'#1a7a40':s.c==='sM'?'#9a5800':'#980000';}),borderWidth:2.5},
-      pts[0].mx>0?{label:'Ref. máx',data:pts.map(function(){return pts[0].mx;}),borderColor:'#980000',borderDash:[6,4],fill:false,pointRadius:0,borderWidth:1.5}:null,
-      pts[0].mn>0?{label:'Ref. mín',data:pts.map(function(){return pts[0].mn;}),borderColor:'#1a7a40',borderDash:[4,4],fill:false,pointRadius:0,borderWidth:1.5}:null
-    ].filter(Boolean)
-  },options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:10}}},
-    scales:{y:{grid:{color:'#f0ede8'},title:{display:true,text:pts[0].u||'',color:'#888'}},x:{grid:{display:false}}}}
-  });
-}
-
-// ════════════════════════
-//  PORTAL PACIENTE
-// ════════════════════════
-async function initPaciente(){
-  // Busca medicoId a partir do email registrado no perfil
-  var fb=window._fb;
-  var medEmail=S.perfil.medicoEmail||'';
-  S.medicoId=null;
-  // Estratégia: o médico salva em users/{medicoUid}/vinculos/{emailKey}
-  // Mas não temos o medicoUid ainda. Usamos query em todos os usuários seria inviável.
-  // Solução: usamos uma coleção pública de índice: vinculoIndex/{emailKey} → {medicoId}
-  // O médico grava esse índice ao cadastrar o paciente.
-  if(medEmail){
-    var key=medEmail.replace(/\./g,'_').replace(/@/g,'AT');
-    try {
-      // tentativa em vinculoIndex (coleção raiz)
-      var snap=await fb.getDoc(fb.doc(fb.db,'vinculoIndex',key));
-      if(snap.exists()) S.medicoId=snap.data().medicoId;
-    } catch(e){}
-  }
-  if(S.medicoId){
-    await Promise.all([
-      loadMeusResultados(),
-      loadMeusLaudosPac(),
-      loadMinhasAgendas()
-    ]);
-    renderComo();
-  }
-  // Sintomas - paciente escreve em sua própria pasta
-  await loadMeusSintomas();
-}
-
-// Reescrever salvarPac para também gravar vinculoIndex
-var _salvarPacOrig=salvarPac;
-// já inclui vinculoIndex abaixo:
-async function salvarPac(){
-  var nm=document.getElementById('np-nm').value.trim();
-  var esp=document.getElementById('np-esp').value;
-  if(!nm||!esp){ toast('Nome e especialidade obrigatórios.','err'); return; }
-  load('Salvando...');
-  var fb=window._fb;
-  try {
-    var ps=document.getElementById('np-ps').value;
-    var al=document.getElementById('np-al').value;
-    var pacEmail=document.getElementById('np-uid-email').value.trim();
-    var docData={
-      nome:nm, dataNasc:document.getElementById('np-dn').value,
-      sexo:document.getElementById('np-sx').value,
-      especialidade:esp,
-      cpf:document.getElementById('np-cpf').value.trim(),
-      telefone:document.getElementById('np-tel').value.trim(),
-      email:document.getElementById('np-em').value.trim(),
-      cidade:document.getElementById('np-cid').value.trim(),
-      primeiraConsulta:document.getElementById('np-pc').value,
-      queixa:document.getElementById('np-qx').value.trim(),
-      historico:document.getElementById('np-ht').value.trim(),
-      peso:ps?parseFloat(ps):null, altura:al?parseFloat(al):null, imc:imc(ps,al),
-      totalExames:0, temAlteracao:false,
-      pacienteEmail:pacEmail||null, pacienteUid:null,
-      criadoEm:fb.serverTimestamp()
-    };
-    var ref=await fb.addDoc(fb.collection(fb.db,mPath(S.user.uid)+'/pacientes'),docData);
-    // Gravar índice de vínculo (coleção raiz — acessível pelo paciente)
-    if(pacEmail){
-      var key=pacEmail.replace(/\./g,'_').replace(/@/g,'AT');
-      await fb.setDoc(fb.doc(fb.db,'vinculoIndex',key),{
-        medicoId:S.user.uid, pacienteId:ref.id, pacienteEmail:pacEmail,
-        medicoNome:S.perfil.nome||'', criadoEm:fb.serverTimestamp()
-      });
-    }
-    closeMo('novo-pac'); await loadPacientes(); renderPainel();
-    toast('Paciente salvo!');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-async function loadMeusResultados(){
-  if(!S.medicoId) return;
-  var fb=window._fb;
-  // paciente lê results do médico onde pacienteUid == seu uid
-  var q=fb.query(fb.collection(fb.db,mPath(S.medicoId)+'/resultados'),fb.where('pacienteUid','==',S.user.uid),fb.orderBy('data','desc'));
-  try{ var snap=await fb.getDocs(q); S.resultados=[]; snap.forEach(function(d){ S.resultados.push({id:d.id,...d.data()}); }); }catch(e){}
-}
-
-async function loadMeusLaudosPac(){
-  if(!S.medicoId) return;
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.medicoId)+'/laudos'),fb.where('pacienteUid','==',S.user.uid),fb.orderBy('criadoEm','desc'));
-  try{ var snap=await fb.getDocs(q); S.laudos=[]; snap.forEach(function(d){ S.laudos.push({id:d.id,...d.data()}); }); }catch(e){}
-}
-
-async function loadMinhasAgendas(){
-  if(!S.medicoId) return;
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,mPath(S.medicoId)+'/agendamentos'),fb.where('pacienteUid','==',S.user.uid),fb.orderBy('data','desc'));
-  try{ var snap=await fb.getDocs(q); S.agendamentos=[]; snap.forEach(function(d){ S.agendamentos.push({id:d.id,...d.data()}); }); }catch(e){}
-}
-
-async function loadMeusSintomas(){
-  var fb=window._fb;
-  var q=fb.query(fb.collection(fb.db,'users/'+S.user.uid+'/sintomas'),fb.orderBy('data','desc'));
-  try{ var snap=await fb.getDocs(q); S.sint=[]; snap.forEach(function(d){ S.sint.push({id:d.id,...d.data()}); }); }catch(e){}
-}
-
-function renderComo(){
-  // score
-  var total=S.resultados.length; var alts=S.resultados.filter(function(r){return r.temAlteracao;}).length;
-  var score=total?Math.round(100-(alts/total)*60):75;
-  document.getElementById('scoreNum').textContent=score;
-  var circ=2*Math.PI*36; var offset=circ-(score/100)*circ;
-  document.getElementById('scoreArc').setAttribute('stroke-dashoffset',offset.toFixed(1));
-  var titulo=score>=80?'Saúde Geral: Boa':'score>=60?\'Com Atenção\':\'Requer Atenção\'';
-  document.getElementById('heroTitle').textContent=score>=80?'Saúde Geral: Boa':score>=60?'Atenção Necessária':'Requer Atenção';
-  document.getElementById('heroDesc').textContent=!S.medicoId
-    ?'Vincule sua conta ao médico para ver seus resultados. Crie conta com o e-mail que seu médico cadastrou.'
-    :total+' resultados disponíveis. '+(alts?alts+' com alterações.':'Todos dentro da referência.');
-  // cards por área
-  var byArea={};
-  S.resultados.forEach(function(r){ if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r; });
-  var cols=document.getElementById('comoCols');
-  if(!Object.keys(byArea).length){ cols.innerHTML='<div class="card-pac" style="grid-column:1/-1;text-align:center;padding:30px;"><div style="font-size:28px;margin-bottom:8px;">🧪</div><p style="color:var(--t3);">Nenhum exame disponível ainda.<br>Seu médico vai adicionar quando estiver pronto.</p></div>'; return; }
-  cols.innerHTML=Object.values(byArea).map(function(r){
-    var params=Object.entries(r.valores||{}).slice(0,4);
-    return '<div class="area-card">'
-      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';">'
-      +'<div class="ac-title" style="color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div>'
-      +'<span style="font-size:10px;color:var(--t4);">'+fdt(r.data)+'</span></div>'
-      +'<div class="ac-body">'+params.map(function(e){
-        var st=status(e[1].valor,e[1].refMin,e[1].refMax);
-        return '<div class="ac-row"><span class="ac-nm">'+esc(e[0])+'</span><span><b>'+e[1].valor+'</b> <span style="font-size:9px;color:var(--t4);">'+esc(e[1].unidade)+'</span><span class="ac-st '+st.c+'">'+st.l+'</span></span></div>';
-      }).join('')+'</div></div>';
-  }).join('');
-  // alertas
-  var ab=document.getElementById('alertasBox');
-  var altsItens=[];
-  S.resultados.forEach(function(r){
-    Object.entries(r.valores||{}).forEach(function(e){
-      var st=status(e[1].valor,e[1].refMin,e[1].refMax);
-      if(st.c==='sR'||st.c==='sM') altsItens.push({nm:e[0],val:e[1].valor,unit:e[1].unidade,st:st,area:r.areaNome,dt:r.data});
-    });
-  });
-  if(!altsItens.length){ ab.innerHTML='<div class="al-head" style="padding:12px 15px;font-weight:700;font-size:13px;background:var(--bg3);border-bottom:1px solid var(--bdr);">✅ Tudo dentro da referência</div>'; }
-  else {
-    ab.innerHTML='<div style="padding:12px 15px;font-weight:700;font-size:13px;background:var(--bg3);border-bottom:1px solid var(--bdr);">🔔 Alertas ('+altsItens.length+')</div>'
-      +altsItens.slice(0,6).map(function(a){ return '<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 15px;border-bottom:1px solid var(--bg3);">'
-        +'<div style="width:8px;height:8px;border-radius:50%;background:'+(a.st.c==='sR'?'var(--R)':'var(--A)')+';flex-shrink:0;margin-top:5px;"></div>'
-        +'<div style="font-size:12.5px;color:var(--t2);"><b>'+esc(a.nm)+'</b>: '+a.val+' '+esc(a.unit)+' — '+a.st.l+' · '+esc(a.area)+' · '+fdt(a.dt)+'</div></div>'; }).join('');
-  }
-}
-
-function renderMeusExames(){
-  var el=document.getElementById('meusAreas');
-  var byArea={};
-  S.resultados.forEach(function(r){ if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r; });
-  if(!Object.keys(byArea).length){ el.innerHTML='<div class="empty" style="grid-column:1/-1;"><div class="ei">🧪</div><p>Nenhum exame.</p></div>'; return; }
-  el.innerHTML=Object.values(byArea).map(function(r){
-    var params=Object.entries(r.valores||{});
-    return '<div class="area-card">'
-      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';">'
-      +'<div class="ac-title" style="color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div>'
-      +'<span style="font-size:10px;color:var(--t4);">'+fdt(r.data)+'</span></div>'
-      +'<div class="ac-body">'+params.map(function(e){
-        var st=status(e[1].valor,e[1].refMin,e[1].refMax);
-        return '<div class="ac-row"><span class="ac-nm">'+esc(e[0])+'</span>'
-          +'<span><b class="ac-val">'+e[1].valor+'</b> <span style="font-size:9px;color:var(--t4);">'+esc(e[1].unidade)+'</span>'
-          +'<span class="ac-st '+st.c+'">'+st.l+'</span></span></div>';
-      }).join('')+'</div></div>';
-  }).join('');
-  // tabela histórica
-  var tb=document.getElementById('meTabContent');
-  tb.innerHTML='<div style="background:#fff;border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);">'
-    +S.resultados.slice(0,20).map(function(r){
-      return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bg3);">'
-        +'<div style="width:32px;height:32px;border-radius:8px;background:'+r.areaCor+'18;border:1.5px solid '+r.areaCor+';display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">'+esc(r.areaIco||'📋')+'</div>'
-        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+esc(r.areaNome)+'</div>'
-        +'<div style="font-size:11px;color:var(--t3);">'+fdt(r.data)+(r.lab?' · '+esc(r.lab):'')+'</div></div>'
-        +'<span class="ptag '+(r.temAlteracao?'sM':'sE')+'">'+(r.temAlteracao?'⚠':'✓')+'</span>'
-        +'</div>';
-    }).join('')+'</div>';
-}
-
-function renderMeusLaudos(){
-  var el=document.getElementById('meusLaudos');
-  if(!S.laudos.length){ el.innerHTML='<div class="empty"><div class="ei">📁</div><p>Nenhum laudo disponível.</p></div>'; return; }
-  el.innerHTML='<div class="up-list">'+S.laudos.map(function(l){
-    var ico=l.tipo&&l.tipo.includes('pdf')?'📄':l.tipo&&l.tipo.includes('image')?'🖼️':'📎';
-    return '<div class="up-item">'
-      +'<span style="font-size:22px;">'+ico+'</span>'
-      +'<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.nome)+'</div>'
-      +'<div style="font-size:10.5px;color:var(--t3);">'+Math.round(l.tamanho/1024)+' KB</div></div>'
-      +'<button class="btn btn-o btn-sm" onclick="window.open(\''+esc(l.url)+'\',\'_blank\')">👁 Abrir</button>'
-      +'</div>';
-  }).join('')+'</div>';
-}
-
-// Sintomas — paciente escreve em sua própria pasta
-async function salvarSintoma(){
-  var txt=document.getElementById('sintTxt').value.trim();
-  var dt=document.getElementById('sintData').value;
-  var it=document.getElementById('sintInt').value;
-  if(!txt){ toast('Escreva algo.','err'); return; }
-  load('...');
-  var fb=window._fb;
-  try {
-    await fb.addDoc(fb.collection(fb.db,'users/'+S.user.uid+'/sintomas'),{
-      texto:txt, data:dt, intensidade:it,
-      medicoId:S.medicoId||null, criadoEm:fb.serverTimestamp()
-    });
-    document.getElementById('sintTxt').value='';
-    await loadMeusSintomas(); renderSintHist();
-    toast('Registrado!');
-  } catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-function renderSintHist(){
-  var el=document.getElementById('sintHist');
-  if(!S.sint.length){ el.innerHTML='<div class="empty"><div class="ei">💬</div><p>Nenhum registro ainda.</p></div>'; return; }
-  var intCor={leve:'background:var(--G2);color:var(--G);border:1px solid var(--G)',moderado:'background:var(--A2);color:var(--A);border:1px solid var(--A)',intenso:'background:var(--R2);color:var(--R);border:1px solid var(--R)'};
-  el.innerHTML='<div style="background:#fff;border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;">'+S.sint.map(function(s){
-    return '<div class="sint-item">'
-      +'<div style="width:34px;height:34px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">💬</div>'
-      +'<div style="flex:1;"><div class="sint-txt">'+esc(s.texto||'')+'</div>'
-      +'<div style="display:flex;gap:6px;align-items:center;margin-top:4px;">'
-      +'<span class="sint-int" style="'+intCor[s.intensidade||'leve']+'">'+esc(s.intensidade||'leve')+'</span>'
-      +'<span class="sint-date">'+fdt(s.data)+'</span>'
-      +'<button class="btn btn-del" style="padding:2px 7px;font-size:10px;" onclick="delSint(\''+s.id+'\')">🗑</button>'
-      +'</div></div></div>';
-  }).join('')+'</div>';
-}
-
-async function delSint(id){
-  load('...');
-  try { await window._fb.deleteDoc(window._fb.doc(window._fb.db,'users/'+S.user.uid+'/sintomas',id)); await loadMeusSintomas(); renderSintHist(); toast('Excluído.'); }
-  catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// Agendamentos — paciente confirma/cancela
-function renderMinhaAgenda(){
-  var el=document.getElementById('minhaAgenda');
-  if(!S.agendamentos.length){ el.innerHTML='<div class="empty"><div class="ei">📅</div><p>Nenhuma consulta agendada.</p></div>'; return; }
-  var stCor={pendente:'sM',confirmado:'sE',cancelado:'sR'};
-  el.innerHTML=S.agendamentos.map(function(a){
-    var d=new Date((a.data||'')+'T12:00:00');
-    return '<div class="ag-item">'
-      +'<div class="ag-date"><div class="ag-day">'+d.getDate()+'</div><div class="ag-mon">'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</div></div>'
-      +'<div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">'+esc(a.tipo||'Consulta')+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);">'+(a.hora?fmtHora(a.hora)+' · ':'')+esc(a.local||'')+(a.medicoNome?' · '+esc(a.medicoNome):'')+'</div>'
-      +(a.obs?'<div style="font-size:11px;color:var(--t4);margin-top:2px;">'+esc(a.obs)+'</div>':'')+'</div>'
-      +'<div class="ag-status">'
-      +'<span class="ptag '+stCor[a.status||'pendente']+'">'+esc(a.status||'pendente')+'</span>'
-      +(a.status==='pendente'?'<button class="btn btn-gr btn-sm" onclick="confirmarAg(\''+a.id+'\',\''+a.medicoNome+'\')">Confirmar</button>':'')
-      +'</div></div>';
-  }).join('');
-}
-
-async function confirmarAg(id, medicoId){
-  // O paciente só pode ler agendamentos, não escrever na pasta do médico
-  // por isso usamos vinculoIndex para descobrir medicoId, e as regras permitem
-  // que o paciente LEIA mas não escreva. Para confirmar, o paciente escreve
-  // em sua própria pasta: users/{pacUid}/confirmacoesAg/{id}
-  load('...');
-  var fb=window._fb;
-  try {
-    await fb.setDoc(fb.doc(fb.db,'users/'+S.user.uid+'/confirmacoesAg',id),{
-      agendamentoId:id, status:'confirmado', confirmadoEm:fb.serverTimestamp()
-    });
-    // Atualizar localmente
-    S.agendamentos=S.agendamentos.map(function(a){ return a.id===id?{...a,status:'confirmado'}:a; });
-    renderMinhaAgenda();
-    toast('Consulta confirmada!');
-  } catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-// ════════════════════════
-//  MODAIS
-// ════════════════════════
-
-// ════════════════════════════════
-//  ADMIN — ESTADO E DADOS
-// ════════════════════════════════
-var ADM = {
-  medicos: [],       // [{uid, nome, esp, clinica, crm, totalPacientes, totalExames, totalAlt}]
-  todosPacientes: [], // todos os pacientes de todos os médicos
-  clinica: {}
-};
-
-// ── Detectar admin no initApp ──
-// Já está no initApp — adicionamos o branch para tipo==='admin' abaixo
-
-// Sobrescreve initApp para suportar admin
-var _origInitApp = initApp;
-async function initApp(){
-  load('Carregando...');
-  var fb=window._fb;
-  try {
-    var snap=await fb.getDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'));
-    if(snap.exists()){
-      S.perfil=snap.data();
-      S.tipo=S.perfil.tipo||'medico';
-    } else {
-      S.perfil={nome:S.user.email,tipo:'medico',especialidade:'Médico',clinica:'NOC'};
-      S.tipo='medico';
-      await fb.setDoc(fb.doc(fb.db,'users/'+S.user.uid+'/perfil','dados'),S.perfil);
-    }
-    showApp();
-    setupUI();
-    if(S.tipo==='admin'){
-      document.getElementById('admDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-      await admCarregarTudo();
-      go('adm-dash');
-    } else if(S.tipo==='medico'){
-      await Promise.all([loadPacientes(), loadAreas()]);
-      renderPainel();
-      go('painel');
-    } else {
-      await initPaciente();
-      go('como');
-    }
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-// ── Sobrescreve setupUI para admin ──
-var _origSetupUI = setupUI;
-function setupUI(){
-  var p=S.perfil;
-  document.getElementById('sbAv').textContent=(p.nome||'?')[0].toUpperCase();
-  document.getElementById('sbNm').textContent=p.nome||S.user.email;
-  var badge=document.getElementById('sbBadge');
-  if(S.tipo==='admin'){
-    document.getElementById('sbSp').textContent='Administrador · NOC';
-    badge.textContent='ADMIN'; badge.className='sb-badge badge-adm';
-  } else if(S.tipo==='medico'){
-    document.getElementById('sbSp').textContent=(p.especialidade||'')+(p.clinica?' · '+p.clinica:'');
-    badge.textContent='MÉDICO'; badge.className='sb-badge badge-med';
-  } else {
-    document.getElementById('sbSp').textContent='Paciente';
-    badge.textContent='PACIENTE'; badge.className='sb-badge badge-pac';
-  }
-  document.getElementById('topDate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
-  buildNav();
-}
-
-// ── Sobrescreve buildNav para admin ──
-var _origBuildNav = buildNav;
-function buildNav(){
-  var nav=document.getElementById('sbNav');
-  if(S.tipo==='admin'){
-    nav.innerHTML=
-      ni('adm-dash','<path d="M1 1h6v6H1zm8 0h6v6H9zM1 9h6v6H1zm8 4h2v-2H9v-2H7v6h2z"/>','Dashboard')+
-      ni('adm-medicos','<circle cx="8" cy="4" r="3"/><path d="M1 14c0-3.866 3.134-7 7-7s7 3.134 7 7H1z"/><path d="M11 6l2 2M13 6l-2 2" stroke="white" stroke-width="1.2" fill="none"/>','Médicos')+
-      ni('adm-pacientes','<circle cx="5" cy="4" r="2.5"/><circle cx="11" cy="4" r="2.5"/><path d="M0 13c0-3 2.2-5 5-5M9 8c2.8 0 7 2 7 5H9" fill="currentColor"/>','Todos Pacientes')+
-      ni('adm-clinica','<rect x="2" y="6" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 6V4a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="8" cy="11" r="1.5"/>','Clínica');
-  } else if(S.tipo==='medico'){
-    nav.innerHTML=
-      ni('painel','<path d="M1 1h6v6H1zm8 0h6v6H9zM1 9h6v6H1zm8 4h2v-2H9v-2H7v6h2z"/>','Painel')+
-      ni('pacientes','<circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6H2z"/>','Pacientes')+
-      ni('config','<circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.4" fill="none"/>','Configurações');
-  } else {
-    nav.innerHTML=
-      ni('como','<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>','Como estou?')+
-      ni('meus-exames','<path d="M2 2h12v2H2zM2 6h12v2H2zM2 10h8v2H2z"/>','Meus Exames')+
-      ni('meus-laudos','<rect x="3" y="1" width="10" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 5h4M6 8h4M6 11h2" stroke="currentColor" stroke-width="1.2" fill="none"/>','Laudos')+
-      ni('sintomas','<path d="M8 1a7 7 0 100 14A7 7 0 008 1zM8 5v3l2 1" stroke="currentColor" stroke-width="1.4" fill="none"/>','Sintomas')+
-      ni('minha-agenda','<rect x="1" y="3" width="14" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 1v4M11 1v4M1 7h14" stroke="currentColor" stroke-width="1.2" fill="none"/>','Agenda');
-  }
-}
-
-// ── Sobrescreve go para adicionar rotas admin ──
-var _origGo = go;
-var admTitles = {'adm-dash':'Dashboard','adm-medicos':'Médicos','adm-pacientes':'Todos os Pacientes','adm-clinica':'Configuração da Clínica'};
-function go(id){
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
-  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
-  var pg=document.getElementById('pg-'+id);
-  if(pg) pg.classList.add('on');
-  var niEl=document.getElementById('ni-'+id);
-  if(niEl) niEl.classList.add('on');
-  var t=titles[id]||admTitles[id]||id;
-  document.getElementById('topTitle').textContent=t;
-  var ta=document.getElementById('topActs');
-  if(id==='pacientes') ta.innerHTML='<button class="btn btn-gr" onclick="openMo('novo-pac')">+ Novo Paciente</button>';
-  else if(id==='config') ta.innerHTML='<button class="btn btn-gr" onclick="openMo('nova-area')">+ Nova Área</button>';
-  else if(id==='pront'&&S.curPac) ta.innerHTML='<button class="btn btn-o btn-sm" onclick="go('pacientes')">← Pacientes</button><button class="btn btn-gr btn-sm" onclick="openMo('novo-res')">+ Exame</button>';
-  else if(id==='adm-medicos') ta.innerHTML='<button class="btn btn-gr" onclick="openMo('adm-novo-med')">+ Novo Médico</button>';
-  else if(id==='adm-pacientes') ta.innerHTML='<span style="font-size:12px;color:var(--t3);">Visão somente leitura</span>';
-  else ta.innerHTML='';
-  if(id==='pacientes') filterPacs();
-  if(id==='meus-exames') renderMeusExames();
-  if(id==='meus-laudos') renderMeusLaudos();
-  if(id==='minha-agenda') renderMinhaAgenda();
-  if(id==='sintomas'){ document.getElementById('sintData').value=new Date().toISOString().split('T')[0]; renderSintHist(); }
-  if(id==='adm-medicos') admRenderMedicos(ADM.medicos);
-  if(id==='adm-pacientes') admRenderPacientes(ADM.todosPacientes);
-  if(id==='adm-clinica') admCarregarClinica();
-}
-
-// ════════════════════════
-//  ADMIN — CARREGAR DADOS
-// ════════════════════════
-var admChartPacInst=null, admChartEspInst=null;
-
-async function admCarregarTudo(){
-  load('Carregando dados da clínica...');
-  var fb=window._fb;
-  ADM.medicos=[]; ADM.todosPacientes=[];
-  try {
-    // Busca todos os usuários do tipo médico em adminIndex
-    // Estratégia: admin tem acesso à coleção adminIndex que lista UIDs de médicos
-    var indexSnap=await fb.getDocs(fb.collection(fb.db,'adminIndex'));
-    var medIds=[];
-    indexSnap.forEach(function(d){ if(d.data().tipo==='medico') medIds.push({uid:d.id,...d.data()}); });
-
-    var totalPac=0, totalExm=0, totalAlt=0;
-    for(var m of medIds){
-      var perfSnap=await fb.getDoc(fb.doc(fb.db,'users/'+m.uid+'/perfil','dados'));
-      var perf=perfSnap.exists()?perfSnap.data():{nome:m.email||m.uid,especialidade:'—'};
-      // Pacientes deste médico
-      var pacSnap=await fb.getDocs(fb.collection(fb.db,'users/'+m.uid+'/pacientes'));
-      var pacs=[]; pacSnap.forEach(function(d){ pacs.push({id:d.id,medicoId:m.uid,medicoNome:perf.nome,...d.data()}); });
-      // Resultados
-      var resSnap=await fb.getDocs(fb.collection(fb.db,'users/'+m.uid+'/resultados'));
-      var nRes=0; resSnap.forEach(function(){nRes++;});
-      var nAlt=pacs.filter(function(p){return p.temAlteracao;}).length;
-      ADM.medicos.push({uid:m.uid,...perf,totalPacientes:pacs.length,totalExames:nRes,totalAlt:nAlt});
-      ADM.todosPacientes=ADM.todosPacientes.concat(pacs);
-      totalPac+=pacs.length; totalExm+=nRes; totalAlt+=nAlt;
-    }
-    // KPIs
-    document.getElementById('admKpiMed').textContent=ADM.medicos.length;
-    document.getElementById('admKpiPac').textContent=totalPac;
-    document.getElementById('admKpiExm').textContent=totalExm;
-    document.getElementById('admKpiAlt').textContent=totalAlt;
-    // Filtro por médico no select
-    var sel=document.getElementById('admFiltroMed');
-    sel.innerHTML='<option value="">Todos os médicos</option>'
-      +ADM.medicos.map(function(m){ return '<option value="'+m.uid+'">'+esc(m.nome||m.uid)+'</option>'; }).join('');
-    admRenderCharts();
-    admRenderAlertas();
-  } catch(e){ toast('Erro admin: '+e.message,'err'); console.error(e); }
-  unload();
-}
-
-function admRenderCharts(){
-  // Pacientes por médico
-  if(admChartPacInst) admChartPacInst.destroy();
-  var ctx1=document.getElementById('admChartPac');
-  if(ctx1&&ADM.medicos.length){
-    var cores=['#1a7a40','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-    admChartPacInst=new Chart(ctx1,{type:'bar',data:{
-      labels:ADM.medicos.map(function(m){return m.nome||'?';}),
-      datasets:[{label:'Pacientes',data:ADM.medicos.map(function(m){return m.totalPacientes;}),
-        backgroundColor:ADM.medicos.map(function(_,i){return cores[i%cores.length]+'cc';}),
-        borderColor:ADM.medicos.map(function(_,i){return cores[i%cores.length];}),
-        borderWidth:1.5,borderRadius:5}]
-    },options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true,grid:{color:'#f0ede8'},ticks:{stepSize:1}},x:{grid:{display:false}}}}});
-  }
-  // Especialidades (pie)
-  if(admChartEspInst) admChartEspInst.destroy();
-  var ctx2=document.getElementById('admChartEsp');
-  if(ctx2&&ADM.todosPacientes.length){
-    var espCount={endo:0,derm:0,ambas:0};
-    ADM.todosPacientes.forEach(function(p){ espCount[p.especialidade||'endo']=(espCount[p.especialidade||'endo']||0)+1; });
-    admChartEspInst=new Chart(ctx2,{type:'doughnut',data:{
-      labels:['Endocrinologia','Dermatologia','Endo+Derm'],
-      datasets:[{data:[espCount.endo,espCount.derm,espCount.ambas],
-        backgroundColor:['#fce5a880','#c0e8e880','#ddd0f880'],
-        borderColor:['#9a5800','#007070','#4e1ea0'],borderWidth:2}]
-    },options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:10,font:{size:11}}}}}});
-  }
-}
-
-function admRenderAlertas(){
-  var el=document.getElementById('admAlertas');
-  var alts=ADM.todosPacientes.filter(function(p){return p.temAlteracao;});
-  if(!alts.length){ el.innerHTML='<div class="empty"><div class="ei">✅</div><p>Nenhum paciente com alterações.</p></div>'; return; }
-  var bgs=['#111820','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-  el.innerHTML=alts.slice(0,8).map(function(p){
-    var ini=(p.nome||'?')[0].toUpperCase();
-    var bg=bgs[(p.nome||'').charCodeAt(0)%6];
-    return '<div class="adm-row">'
-      +'<div class="adm-av" style="background:'+bg+';">'+ini+'</div>'
-      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+esc(p.nome)+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);">Dr(a). '+esc(p.medicoNome||'—')+'</div></div>'
-      +'<span class="ptag sM">⚠ Alterado</span>'
-      +'</div>';
-  }).join('');
-}
-
-function admRenderMedicos(list){
-  var el=document.getElementById('admMedList');
-  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">👨‍⚕️</div><p>Nenhum médico cadastrado.</p></div>'; return; }
-  var espNm={endo:'Endocrinologia',derm:'Dermatologia',ambas:'Endo+Derm'};
-  var bgs=['#111820','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-  el.innerHTML='<div class="adm-med-grid">'+list.map(function(m,i){
-    var ini=(m.nome||'?')[0].toUpperCase();
-    var bg=bgs[i%6];
-    return '<div class="adm-med-card">'
-      +'<div class="adm-med-card-head">'
-      +'<div class="adm-av" style="background:'+bg+';">'+ini+'</div>'
-      +'<div><div style="font-size:13.5px;font-weight:700;">'+esc(m.nome||m.uid)+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);">'+esc(m.email||'')+'</div></div>'
-      +'</div>'
-      +'<div class="adm-med-stat">'
-      +'<span>'+esc(espNm[m.especialidade]||m.especialidade||'—')+'</span>'
-      +'<span>'+esc(m.clinica||'—')+'</span>'
-      +(m.crm?'<span>CRM: '+esc(m.crm)+'</span>':'')
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;">'
-      +'<div style="text-align:center;background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:7px;">'
-      +'<div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;line-height:1;">'+m.totalPacientes+'</div>'
-      +'<div style="font-size:9.5px;color:var(--t4);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Pacientes</div></div>'
-      +'<div style="text-align:center;background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:7px;">'
-      +'<div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;line-height:1;">'+m.totalExames+'</div>'
-      +'<div style="font-size:9.5px;color:var(--t4);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Exames</div></div>'
-      +'<div style="text-align:center;background:'+(m.totalAlt?'var(--A3)':'var(--G2)')+';border:1px solid '+(m.totalAlt?'var(--A)':'var(--G)')+';border-radius:8px;padding:7px;">'
-      +'<div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;line-height:1;color:'+(m.totalAlt?'var(--A)':'var(--G)')+';">'+m.totalAlt+'</div>'
-      +'<div style="font-size:9.5px;color:'+(m.totalAlt?'var(--A)':'var(--G)')+';font-weight:700;text-transform:uppercase;letter-spacing:1px;">Alertas</div></div>'
-      +'</div>'
-      +'<button class="btn btn-del" style="width:100%;margin-top:10px;" onclick="admExcluirMedico(''+m.uid+'',''+esc(m.nome||m.uid)+'')">🗑 Remover médico</button>'
-      +'</div>';
-  }).join('')+'</div>';
-}
-
-function admFiltrarMed(){
-  var q=(document.getElementById('admSearchMed').value||'').toLowerCase();
-  var f=ADM.medicos.filter(function(m){return (m.nome||'').toLowerCase().includes(q)||(m.email||'').toLowerCase().includes(q);});
-  admRenderMedicos(f);
-}
-
-function admRenderPacientes(list){
-  var el=document.getElementById('admPacList');
-  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">👥</div><p>Nenhum paciente.</p></div>'; return; }
-  var bgs=['#111820','#154fa0','#9a5800','#4e1ea0','#007070','#980000'];
-  el.innerHTML='<div style="background:#fff;border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);">'
-    +'<div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr;gap:10px;padding:9px 15px;background:var(--bg3);border-bottom:2px solid var(--bdr2);">'
-    +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t4);font-weight:700;">Paciente</span>'
-    +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t4);font-weight:700;">Médico</span>'
-    +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t4);font-weight:700;">Especialidade</span>'
-    +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t4);font-weight:700;">Exames</span>'
-    +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t4);font-weight:700;">Status</span>'
-    +'</div>'
-    +list.map(function(p){
-      var ini=(p.nome||'?')[0].toUpperCase();
-      var bg=bgs[(p.nome||'').charCodeAt(0)%6];
-      var en={endo:'Endocrinologia',derm:'Dermatologia',ambas:'Endo+Derm'};
-      return '<div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr;gap:10px;padding:11px 15px;border-bottom:1px solid var(--bg3);align-items:center;">'
-        +'<div style="display:flex;align-items:center;gap:9px;">'
-        +'<div style="width:30px;height:30px;border-radius:50%;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">'+ini+'</div>'
-        +'<div><div style="font-size:13px;font-weight:700;">'+esc(p.nome)+'</div>'
-        +'<div style="font-size:10.5px;color:var(--t3);">'+idade(p.dataNasc)+'</div></div></div>'
-        +'<div style="font-size:12px;color:var(--t2);">'+esc(p.medicoNome||'—')+'</div>'
-        +'<div><span class="ptag" style="font-size:10px;background:var(--A3);color:var(--A);border:1px solid var(--A2);">'+esc(en[p.especialidade||'endo']||'—')+'</span></div>'
-        +'<div style="font-size:12px;color:var(--t3);">'+(p.totalExames||0)+'</div>'
-        +'<div><span class="ptag '+(p.temAlteracao?'sM':'sE')+'">'+(p.temAlteracao?'⚠':'✓')+'</span></div>'
-        +'</div>';
-    }).join('')+'</div>';
-}
-
-function admFiltrarPac(){
-  var q=(document.getElementById('admSearchPac').value||'').toLowerCase();
-  var medId=document.getElementById('admFiltroMed').value;
-  var f=ADM.todosPacientes.filter(function(p){
-    var nm=(p.nome||'').toLowerCase().includes(q);
-    var med=!medId||p.medicoId===medId;
-    return nm&&med;
-  });
-  admRenderPacientes(f);
-}
-
-async function admCriarMedico(){
-  var nm=document.getElementById('am-nome').value.trim();
-  var em=document.getElementById('am-email').value.trim();
-  var ps=document.getElementById('am-pass').value;
-  if(!nm||!em||!ps){ toast('Preencha todos os campos.','err'); return; }
-  if(ps.length<6){ toast('Senha mínimo 6 caracteres.','err'); return; }
-  load('Criando conta do médico...');
-  var fb=window._fb;
-  try {
-    // Cria conta Firebase Auth
-    var cred=await fb.createUserWithEmailAndPassword(fb.auth,em,ps);
-    var uid=cred.user.uid;
-    var perfil={
-      nome:nm, tipo:'medico', email:em,
-      especialidade:document.getElementById('am-esp').value,
-      clinica:document.getElementById('am-clinica').value.trim(),
-      crm:document.getElementById('am-crm').value.trim(),
-      criadoPorAdmin:S.user.uid, criadoEm:fb.serverTimestamp()
-    };
-    await fb.setDoc(fb.doc(fb.db,'users/'+uid+'/perfil','dados'),perfil);
-    // Registrar no adminIndex para o admin poder listar
-    await fb.setDoc(fb.doc(fb.db,'adminIndex',uid),{tipo:'medico',email:em,nome:nm,criadoEm:fb.serverTimestamp()});
-    closeMo('adm-novo-med');
-    // Relog — o createUserWithEmailAndPassword faz login com o novo user
-    // precisamos re-logar com o admin. Forçar reload.
-    toast('Médico '+nm+' criado! Fazendo logout para re-entrar como admin...');
-    setTimeout(function(){ window._fb.signOut(window._fb.auth); },1500);
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-async function admExcluirMedico(uid,nome){
-  if(!confirm('Remover médico "'+nome+'" do sistema?\nOs dados dos pacientes serão mantidos.')) return;
-  load('Removendo...');
-  var fb=window._fb;
-  try {
-    // Remove do adminIndex (não exclui Auth — seria necessário Firebase Admin SDK)
-    await fb.deleteDoc(fb.doc(fb.db,'adminIndex',uid));
-    // Marca perfil como inativo
-    await fb.setDoc(fb.doc(fb.db,'users/'+uid+'/perfil','dados'),{ativo:false},{merge:true});
-    await admCarregarTudo();
-    admRenderMedicos(ADM.medicos);
-    toast('Médico removido.');
-  } catch(e){ toast('Erro: '+e.message,'err'); }
-  unload();
-}
-
-async function admCarregarClinica(){
-  var fb=window._fb;
-  try {
-    var snap=await fb.getDoc(fb.doc(fb.db,'adminIndex','_clinica'));
-    if(snap.exists()){
-      var d=snap.data();
-      document.getElementById('cl-nome').value=d.nome||'';
-      document.getElementById('cl-end').value=d.endereco||'';
-      document.getElementById('cl-tel').value=d.telefone||'';
-      document.getElementById('cl-email').value=d.email||'';
-      document.getElementById('cl-site').value=d.site||'';
-    }
-  } catch(e){}
-}
-
-async function salvarClinica(){
-  load('Salvando...');
-  var fb=window._fb;
-  try {
-    await fb.setDoc(fb.doc(fb.db,'adminIndex','_clinica'),{
-      nome:document.getElementById('cl-nome').value.trim(),
-      endereco:document.getElementById('cl-end').value.trim(),
-      telefone:document.getElementById('cl-tel').value.trim(),
-      email:document.getElementById('cl-email').value.trim(),
-      site:document.getElementById('cl-site').value.trim(),
-      atualizadoEm:fb.serverTimestamp()
-    });
-    toast('Clínica salva!');
-  } catch(e){ toast(e.message,'err'); }
-  unload();
-}
-
-function openMo(id){
-  var m=document.getElementById('mo-'+id);
-  if(m) m.classList.add('open');
-  if(id==='novo-res'){ document.getElementById('re-dt').value=new Date().toISOString().split('T')[0]; renderAreaSel(); }
-  if(id==='nova-area'){ pCount=0; document.getElementById('na-params').innerHTML=''; addParam(); addParam(); }
-}
-function closeMo(id){ var m=document.getElementById('mo-'+id); if(m) m.classList.remove('open'); }
-document.querySelectorAll('.mo').forEach(function(m){ m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('open'); }); });
 </script>
 </body>
 </html>
