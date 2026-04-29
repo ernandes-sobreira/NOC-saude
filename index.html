@@ -325,6 +325,27 @@ body{font-family:sans-serif;background:#111820;min-height:100vh;}
           <div style="font-size:11px;color:#aaa;margin-top:3px;">PDF · JPG · PNG · máx 10MB</div>
           <input type="file" id="fileInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelect(this.files)">
         </div>
+        <!-- LEITURA IA -->
+        <div style="background:linear-gradient(135deg,#1a2e1e,#2a5c34);border-radius:10px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:28px;">🤖</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;">Extrair exames do PDF com IA</div>
+            <div style="font-size:11.5px;color:rgba(255,255,255,.65);">Faça upload do laudo PDF e a IA extrai os valores automaticamente</div>
+          </div>
+          <div>
+            <input type="file" id="pdfIAInp" style="display:none" accept=".pdf,.jpg,.jpeg,.png" onchange="lerPDFcomIA(this.files[0])">
+            <button onclick="document.getElementById('pdfIAInp').click()" style="padding:9px 14px;border-radius:7px;background:#6de090;color:#111820;font-size:12.5px;font-weight:700;border:none;cursor:pointer;font-family:sans-serif;">📎 Enviar PDF</button>
+          </div>
+        </div>
+        <!-- Resultado da IA -->
+        <div id="iaResult" style="display:none;background:#fff;border:1.5px solid #2e8a48;border-radius:10px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:700;color:#1a5230;">✅ IA encontrou estes valores:</div>
+            <button onclick="salvarValoresIA()" style="padding:7px 14px;border-radius:7px;background:#1a7a40;color:#fff;font-size:12.5px;font-weight:700;border:none;cursor:pointer;font-family:sans-serif;">💾 Salvar tudo</button>
+          </div>
+          <div id="iaValores"></div>
+          <div style="font-size:11px;color:#888;margin-top:10px;">⚠️ Confira os valores antes de salvar. A IA pode errar em laudos com formatação incomum.</div>
+        </div>
         <div id="laudoList"></div>
       </div>
       <div id="pt-sint" style="display:none;">
@@ -996,17 +1017,59 @@ async function salvarRes() {
 }
 
 function renderResAreas() {
-  var el = document.getElementById('resAreas'); if(!el) return;
+  var el = document.getElementById('resAreas'); if (!el) return;
+  if (!RESULTADOS.length) {
+    el.innerHTML = '<div class="card" style="grid-column:1/-1;text-align:center;"><p style="color:#aaa;font-size:13px;">Nenhum resultado. Clique em <b>+ Exame</b> ou use o <b>leitor de PDF com IA</b> na aba Laudos.</p></div>';
+    return;
+  }
+  // Agrupar por área — mostrar TODOS os resultados de cada área
   var byArea = {};
-  RESULTADOS.forEach(function(r){if(!byArea[r.areaId]||r.data>byArea[r.areaId].data) byArea[r.areaId]=r;});
-  if(!Object.keys(byArea).length){el.innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;"><p style="color:#aaa;font-size:13px;">Nenhum resultado. Clique em <b>+ Exame</b>.</p></div>';return;}
-  el.innerHTML = Object.values(byArea).map(function(r){
-    var params = Object.entries(r.valores||{}).slice(0,6);
-    return '<div class="ac">'
-      +'<div class="ac-head" style="border-left:4px solid '+r.areaCor+';"><div style="font-size:13px;font-weight:700;color:'+r.areaCor+';">'+esc(r.areaIco)+' '+esc(r.areaNome)+'</div><span style="font-size:10px;color:#aaa;">'+fdt(r.data)+'</span></div>'
-      +'<div class="ac-body">'
-      +(params.length?params.map(function(e){var st=statusVal(e[1].valor,e[1].refMin,e[1].refMax);return '<div class="ac-row"><span style="color:#555;font-weight:500;">'+esc(e[0])+'</span><span><b>'+e[1].valor+'</b> <span style="font-size:10px;color:#aaa;">'+esc(e[1].unidade)+'</span> <span class="tag '+st.c+'" style="font-size:9.5px;padding:2px 6px;">'+st.l+'</span></span></div>';}).join(''):'<p style="color:#aaa;font-size:12px;">Sem valores.</p>')
-      +'</div></div>';
+  RESULTADOS.forEach(function(r) {
+    var key = r.areaNome || r.areaId;
+    if (!byArea[key]) byArea[key] = { areaNome: r.areaNome, areaIco: r.areaIco, areaCor: r.areaCor, resultados: [] };
+    byArea[key].resultados.push(r);
+  });
+
+  el.innerHTML = Object.values(byArea).map(function(grupo) {
+    var cor = grupo.areaCor || '#154fa0';
+    return '<div class="ac" style="grid-column:1/-1;">'
+      + '<div class="ac-head" style="border-left:4px solid ' + cor + ';">'
+      + '<div style="font-size:13px;font-weight:700;color:' + cor + ';">' + esc(grupo.areaIco) + ' ' + esc(grupo.areaNome) + '</div>'
+      + '<span style="font-size:10px;color:#aaa;">' + grupo.resultados.length + ' coleta(s)</span>'
+      + '</div>'
+      // Tabela com todas as datas
+      + '<div style="overflow-x:auto;">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">'
+      + '<thead><tr style="background:#f7f5f2;">'
+      + '<th style="padding:7px 12px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;white-space:nowrap;">Parâmetro</th>'
+      + grupo.resultados.map(function(r) {
+          return '<th style="padding:7px 12px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;white-space:nowrap;">'
+            + fdt(r.data) + (r.lab ? '<br><span style="font-weight:400;">' + esc(r.lab) + '</span>' : '')
+            + '</th>';
+        }).join('')
+      + '</tr></thead><tbody>'
+      // Coletar todos os parâmetros únicos
+      + (function() {
+          var params = {};
+          grupo.resultados.forEach(function(r) {
+            Object.keys(r.valores || {}).forEach(function(k) { params[k] = r.valores[k]; });
+          });
+          return Object.keys(params).map(function(param) {
+            return '<tr style="border-bottom:1px solid #f0ede8;">'
+              + '<td style="padding:7px 12px;font-weight:600;color:#333;white-space:nowrap;">' + esc(param) + '</td>'
+              + grupo.resultados.map(function(r) {
+                  var info = r.valores && r.valores[param];
+                  if (!info) return '<td style="padding:7px 12px;text-align:right;color:#ddd;">—</td>';
+                  var st = statusVal(info.valor, info.refMin, info.refMax);
+                  return '<td style="padding:7px 12px;text-align:right;white-space:nowrap;">'
+                    + '<b>' + info.valor + '</b> <span style="font-size:10px;color:#aaa;">' + esc(info.unidade) + '</span>'
+                    + ' <span class="tag ' + st.c + '" style="font-size:9px;padding:1px 6px;">' + st.l + '</span>'
+                    + '</td>';
+                }).join('')
+              + '</tr>';
+          }).join('');
+        })()
+      + '</tbody></table></div></div>';
   }).join('');
 }
 
@@ -1034,7 +1097,175 @@ async function excluirRes(id) {
   unload();
 }
 
-// ═══════════════════ LAUDOS ═══════════════════
+// ═══════════════════ LEITURA PDF COM IA ═══════════════════
+var _iaResultados = []; // valores extraídos pela IA
+
+async function lerPDFcomIA(file) {
+  if (!file) return;
+  load();
+  document.getElementById('iaResult').style.display = 'none';
+  try {
+    // Converter arquivo para base64
+    var base64 = await new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function(e) { resolve(e.target.result.split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    var isPDF = file.type === 'application/pdf';
+    var mediaType = isPDF ? 'application/pdf' : file.type;
+
+    // Chamar Claude API
+    var prompt = `Você é um assistente médico. Analise este laudo laboratorial e extraia TODOS os exames com seus valores.
+
+Retorne APENAS um JSON válido neste formato exato, sem texto antes ou depois:
+{
+  "laboratorio": "nome do lab ou vazio",
+  "data": "data no formato YYYY-MM-DD ou vazio",
+  "exames": [
+    {"nome": "Nome do exame", "valor": 123.4, "unidade": "mg/dL", "refMin": 0, "refMax": 200},
+    ...
+  ]
+}
+
+Regras:
+- valor deve ser número (sem texto)
+- Se não tiver referência no laudo, use refMin=0 e refMax=999
+- Inclua TODOS os exames encontrados
+- data no formato YYYY-MM-DD`;
+
+    var body = {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: isPDF ? "document" : "image",
+            source: { type: "base64", media_type: mediaType, data: base64 }
+          },
+          { type: "text", text: prompt }
+        ]
+      }]
+    };
+
+    var resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    var data = await resp.json();
+    var txt = data.content && data.content[0] ? data.content[0].text : '';
+
+    // Extrair JSON da resposta
+    var jsonMatch = txt.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('IA não retornou JSON válido');
+    var resultado = JSON.parse(jsonMatch[0]);
+
+    // Exibir resultado para conferência
+    _iaResultados = resultado;
+    exibirResultadoIA(resultado, file);
+
+  } catch(e) {
+    alert('Erro ao ler PDF: ' + e.message + '\n\nTente uma imagem JPG do laudo.');
+  }
+  unload();
+}
+
+function exibirResultadoIA(resultado, file) {
+  var el = document.getElementById('iaValores');
+  var exames = resultado.exames || [];
+
+  if (!exames.length) {
+    alert('A IA não encontrou exames neste arquivo. Tente uma foto mais nítida.');
+    return;
+  }
+
+  // Preencher data e lab automaticamente
+  if (resultado.data) document.getElementById('re-dt').value = resultado.data;
+  if (resultado.laboratorio) document.getElementById('re-lab').value = resultado.laboratorio;
+
+  el.innerHTML = '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">'
+    + (resultado.laboratorio ? '🏥 ' + esc(resultado.laboratorio) + ' · ' : '')
+    + (resultado.data ? '📅 ' + fdt(resultado.data) : '')
+    + '</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    + '<tr style="background:#f7f5f2;"><th style="padding:7px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Exame</th><th style="padding:7px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Valor</th><th style="padding:7px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Unidade</th><th style="padding:7px 10px;text-align:right;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Referência</th><th style="padding:7px 10px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;">Status</th></tr>'
+    + exames.map(function(e) {
+        var st = statusVal(e.valor, e.refMin, e.refMax);
+        return '<tr style="border-bottom:1px solid #f0ede8;">'
+          + '<td style="padding:7px 10px;font-weight:600;">' + esc(e.nome) + '</td>'
+          + '<td style="padding:7px 10px;text-align:right;font-weight:700;">' + e.valor + '</td>'
+          + '<td style="padding:7px 10px;text-align:right;color:#888;">' + esc(e.unidade) + '</td>'
+          + '<td style="padding:7px 10px;text-align:right;color:#888;">' + e.refMin + '–' + e.refMax + '</td>'
+          + '<td style="padding:7px 10px;text-align:center;"><span class="tag ' + st.c + '" style="font-size:9.5px;">' + st.l + '</span></td>'
+          + '</tr>';
+      }).join('')
+    + '</table>';
+
+  document.getElementById('iaResult').style.display = 'block';
+
+  // Fazer upload do arquivo também
+  if (FS) uploadArquivo(file);
+}
+
+async function salvarValoresIA() {
+  var resultado = _iaResultados;
+  if (!resultado || !resultado.exames || !resultado.exames.length) {
+    alert('Sem valores para salvar.');
+    return;
+  }
+  var dt = document.getElementById('re-dt').value || resultado.data || new Date().toISOString().split('T')[0];
+  var lab = document.getElementById('re-lab').value || resultado.laboratorio || '';
+
+  // Agrupar exames por área compatível
+  var vals = {};
+  var temAlt = false;
+  resultado.exames.forEach(function(e) {
+    vals[e.nome] = { valor: e.valor, unidade: e.unidade, refMin: e.refMin, refMax: e.refMax };
+    var st = statusVal(e.valor, e.refMin, e.refMax);
+    if (st.c === 'tag-ru' || st.c === 'tag-alt') temAlt = true;
+  });
+
+  load();
+  try {
+    await FD.collection('users/' + EU.uid + '/resultados').add({
+      pacienteId: CUR_PAC_ID,
+      data: dt,
+      areaId: 'ia-import',
+      areaNome: 'Importado do Laudo',
+      areaIco: '🤖',
+      areaCor: '#1a7a40',
+      lab: lab,
+      obs: 'Extraído automaticamente por IA',
+      valores: vals,
+      temAlteracao: temAlt,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await FD.doc('users/' + EU.uid + '/pacientes/' + CUR_PAC_ID).update({
+      ultimaConsulta: dt,
+      temAlteracao: temAlt,
+      totalExames: firebase.firestore.FieldValue.increment(1)
+    });
+
+    document.getElementById('iaResult').style.display = 'none';
+    _iaResultados = [];
+
+    // Recarregar resultados
+    var rSnap = await FD.collection('users/' + EU.uid + '/resultados').where('pacienteId', '==', CUR_PAC_ID).get();
+    RESULTADOS = [];
+    rSnap.forEach(function(d) { RESULTADOS.push({_id: d.id, ...d.data()}); });
+    RESULTADOS.sort(function(a, b) { return (b.data || '').localeCompare(a.data || ''); });
+    renderResAreas();
+    renderExTbl();
+    alert('✅ ' + resultado.exames.length + ' exames salvos com sucesso!');
+  } catch(e) { alert('Erro ao salvar: ' + e.message); }
+  unload();
+}
+
+
 function onDrop(e) { e.preventDefault(); onFileSelect(e.dataTransfer.files); }
 async function onFileSelect(files) {
   if(!FS){alert('Storage não disponível.');return;}
