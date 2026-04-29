@@ -7,17 +7,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs,
-  addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, limit }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
+<!-- Firebase SDKs via CDN compat — funciona em arquivo local e GitHub Pages -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyCSTBNmzHJE-vIw6jEjlOVE_9femj5n3k8",
   authDomain: "sopa-fd8b8.firebaseapp.com",
@@ -27,16 +22,77 @@ const firebaseConfig = {
   appId: "1:962393498465:web:fc2023af290ce9b6a31b20"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-const stor = getStorage(app);
+firebase.initializeApp(firebaseConfig);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
+const _stor  = firebase.storage();
 
-window._fb = { auth, db, stor, collection, doc, setDoc, getDoc, getDocs,
-  addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp, limit,
-  ref, uploadBytes, getDownloadURL, deleteObject,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged };
+// Adapta API compat para o mesmo formato usado no código
+window._fb = {
+  auth: _auth,
+  db: _db,
+  stor: _stor,
+  // Auth
+  signInWithEmailAndPassword: (auth, email, pass) => _auth.signInWithEmailAndPassword(email, pass),
+  createUserWithEmailAndPassword: (auth, email, pass) => _auth.createUserWithEmailAndPassword(email, pass),
+  signOut: (auth) => _auth.signOut(),
+  onAuthStateChanged: (auth, cb) => _auth.onAuthStateChanged(cb),
+  // Firestore
+  collection: (db, path) => _db.collection(path),
+  doc: (db, ...args) => {
+    // doc(db, 'col/id') ou doc(db, 'col', 'id')
+    if(args.length === 1) {
+      const parts = args[0].split('/');
+      let ref = _db;
+      parts.forEach((p,i) => { ref = i%2===0 ? ref.collection(p) : ref.doc(p); });
+      return ref;
+    }
+    // doc(db, 'col/sub/col', 'id') — path com slashes + id separado
+    const pathParts = args[0].split('/');
+    let ref = _db;
+    pathParts.forEach((p,i) => { ref = i%2===0 ? ref.collection(p) : ref.doc(p); });
+    if(args[1]) ref = ref.doc ? ref.doc(args[1]) : ref;
+    // se ainda precisar de mais partes
+    for(let i=2;i<args.length;i++) ref = i%2===0 ? ref.collection(args[i]) : ref.doc(args[i]);
+    return ref;
+  },
+  setDoc: (ref, data, opts) => opts && opts.merge ? ref.set(data, {merge:true}) : ref.set(data),
+  getDoc: (ref) => ref.get(),
+  getDocs: (q) => q.get(),
+  addDoc: (ref, data) => ref.add(data),
+  updateDoc: (ref, data) => ref.update(data),
+  deleteDoc: (ref) => ref.delete(),
+  query: (ref, ...constraints) => {
+    let q = ref;
+    constraints.forEach(c => { if(c && c._apply) q = c._apply(q); });
+    return q;
+  },
+  where: (field, op, val) => ({ _apply: (q) => q.where(field, op, val) }),
+  orderBy: (field, dir) => ({ _apply: (q) => q.orderBy(field, dir||'asc') }),
+  limit: (n) => ({ _apply: (q) => q.limit(n) }),
+  serverTimestamp: () => firebase.firestore.FieldValue.serverTimestamp(),
+  // Storage
+  ref: (stor, path) => _stor.ref(path),
+  uploadBytes: (ref, file) => ref.put(file),
+  getDownloadURL: (ref) => ref.getDownloadURL(),
+  deleteObject: (ref) => ref.delete(),
+};
+
+// Adapta getDoc/getDocs para retornar objeto com .exists() e .data()
+const _origGetDoc = window._fb.getDoc;
+window._fb.getDoc = async function(ref) {
+  const snap = await ref.get();
+  return { exists: () => snap.exists, data: () => snap.data(), id: snap.id };
+};
+window._fb.getDocs = async function(q) {
+  const snap = await q.get();
+  return { forEach: (cb) => snap.forEach(d => cb({ id: d.id, data: () => d.data(), exists: () => d.exists })) };
+};
+window._fb.addDoc = async function(ref, data) {
+  const docRef = await ref.add(data);
+  return { id: docRef.id };
+};
+
 window._fbReady = true;
 window.dispatchEvent(new Event('fbready'));
 </script>
