@@ -8,6 +8,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1923;min-height:100vh;}
@@ -305,6 +309,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div id="tabelaExames"></div>
       </div>
       <div id="pt-laudos" style="display:none">
+        <div style="background:linear-gradient(135deg,#0f1923,#1a3020);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+          <div style="font-size:28px">🤖</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">Extrair exames do PDF automaticamente</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5)">O sistema lê o laudo e identifica os valores. Você confere antes de salvar.</div>
+          </div>
+          <div>
+            <input type="file" id="pdfInput" style="display:none" accept=".pdf" onchange="lerPDF(this.files[0])">
+            <button onclick="document.getElementById('pdfInput').click()" style="padding:9px 15px;border-radius:8px;background:#6de090;color:#111820;font-size:13px;font-weight:700;border:none;cursor:pointer">📎 Enviar PDF</button>
+          </div>
+        </div>
+        <div id="pdfPreview" style="display:none;background:#fff;border:1.5px solid #2e8a48;border-radius:10px;padding:16px;margin-bottom:12px"></div>
         <div id="listLaudos"></div>
       </div>
       <div id="pt-agenda" style="display:none">
@@ -551,9 +567,9 @@ function irPara(id){
   var ni=document.getElementById('ni-'+id); if(ni) ni.classList.add('ativo');
   document.getElementById('topTitulo').textContent=TITULOS[id]||id;
   var ta=document.getElementById('topAcoes');
-  if(id==='pacientes') ta.innerHTML='<button class="bta bta-verde" onclick="abrirModal(\'novo-pac\')">+ Novo Paciente</button>';
+  if(id==='pacientes') ta.innerHTML='<button class="bta bta-verde" onclick="abrirModal(\'novo-pac\')">+ Novo Paciente</button>'; // topbar only
   else if(id==='medicos') ta.innerHTML='<button class="bta bta-verde" onclick="abrirModal(\'novo-medico\')">+ Novo Médico</button>';
-  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-borda" onclick="irPara(\'pacientes\')">← Voltar</button> <button class="bta bta-verde" onclick="abrirModal(\'novo-resultado\')">+ Exame</button> <button class="bta bta-borda" onclick="abrirModal(\'novo-ag\')">📅 Agendar</button>';
+  else if(id==='pront'&&CUR_PAC) ta.innerHTML='<button class="bta bta-borda" onclick="irPara(\'pacientes\')">← Voltar</button> <button class="bta bta-verde" onclick="abrirModal(\'novo-resultado\')">+ Exame</button> <button class="bta bta-borda" onclick="abrirModal(\'novo-ag\')">📅 Agendar</button> <button class="bta" style="background:#4e1ea0;color:#fff" onclick="abrirVerComoPaciente()">👁 Paciente</button>';
   else ta.innerHTML='';
   if(id==='pacientes') renderPacs(PACS);
   if(id==='medicos') renderMedicos(MEDICOS_ADM);
@@ -817,13 +833,21 @@ function renderResumo(){
           +'<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor2+'20;border-radius:3px"></div>'
           +'<div style="position:absolute;left:'+pct+'%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:'+cor2+';border:2px solid #fff"></div></div>'
           +'<div style="font-size:9.5px;color:#bbb">Normal: '+p.info.refMin+'–'+p.info.refMax+' '+escH(p.info.unidade||'')+'</div>'
-          +(p.historico.length>1?'<div style="margin-top:8px;display:flex;gap:7px">'
+          +(p.historico.length>=2?'<div style="height:58px;margin-top:8px"><canvas id="ch-'+p.nome.replace(/[^a-zA-Z0-9]/g,'')+'"></canvas></div>':'')
+          +(p.historico.length>1?'<div style="margin-top:6px;display:flex;gap:7px">'
             +p.historico.slice(-4).map(function(h){var stH=statusValor(h.valor,p.info.refMin,p.info.refMax);var cH=stH.c==='tag-ok'?'#1a7a40':stH.c==='tag-alt'?'#c87800':'#cc2222';return '<div style="text-align:center"><div style="font-size:11px;font-weight:700;color:'+cH+'">'+h.valor+'</div><div style="font-size:9px;color:#aaa">'+dtBR(h.data).substring(0,5)+'</div></div>';}).join('')
             +'</div>':'')
           +'</div>';
       }).join('')+'</div></div>';
   }
   el.innerHTML=secao('🔴 Requer Atenção','#cc2222','#fff0f0',alt)+secao('⚠️ Atenção','#c87800','#fff7e0',aten)+secao('✅ Normal','#1a7a40','#e8f5ed',norm);
+  // Renderizar gráficos após HTML inserido
+  if(typeof Chart!=='undefined'){
+    params.forEach(function(p){
+      if(p.historico.length<2) return;
+      criarGrafico('ch-'+p.nome.replace(/[^a-zA-Z0-9]/g,''),p.historico,p.info.refMin,p.info.refMax);
+    });
+  }
 }
 
 function renderTabelaExames(){
@@ -836,7 +860,7 @@ function renderTabelaExames(){
         +'<td style="font-size:12px">'+dtBR(r.data)+'</td>'
         +'<td style="font-size:12px;color:#888">'+escH(r.lab||'—')+'</td>'
         +'<td><span class="tag '+(r.temAlteracao?'tag-alt':'tag-ok')+'">'+(r.temAlteracao?'⚠':'✓')+'</span></td>'
-        +'<td><button class="bta bta-vermelho" onclick="excluirResultado(\''+r._id+'\')">🗑</button></td></tr>';
+        +'<td style="display:flex;gap:5px"><button class="bta bta-borda" style="font-size:11px;padding:4px 8px" title="Editar" onclick="abrirEditarResultado(\''+r._id+'\')">✏️</button><button class="bta bta-vermelho" onclick="excluirResultado(\''+r._id+'\')">🗑</button></td></tr>';
     }).join('')+'</table>';
 }
 
@@ -955,8 +979,324 @@ function abrirModal(id){
 function fecharModal(id){ var m=document.getElementById('modal-'+id); if(m) m.classList.remove('aberto'); }
 document.querySelectorAll('.modal').forEach(function(m){ m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('aberto');}); });
 
-// ── Paciente ──
-function registrarSintoma(){ alert('Em breve.'); }
+// ── Laudos / PDF ──
+if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+var DICT_EXAMES=[
+  {nome:'Hemoglobina',sin:['hemoglobina'],un:'g/dL',mn:13,mx:18.6},{nome:'Hematócrito',sin:['hematocrito','hematócrito'],un:'%',mn:40,mx:56},
+  {nome:'Hemácias',sin:['hemacias','hemácias'],un:'milh./mm³',mn:4.5,mx:6.0},{nome:'Leucócitos',sin:['leucocitos','leucócitos'],un:'/mm³',mn:4500,mx:10000},
+  {nome:'Plaquetas',sin:['plaquetas','contagem de plaquetas'],un:'/mm³',mn:140000,mx:400000},
+  {nome:'Colesterol Total',sin:['colesterol total'],un:'mg/dL',mn:0,mx:190},
+  {nome:'HDL',sin:['colesterol h d l','colesterol hdl','hdl'],un:'mg/dL',mn:40,mx:999},
+  {nome:'LDL',sin:['colesterol l d l','colesterol ldl','ldl'],un:'mg/dL',mn:0,mx:115},
+  {nome:'VLDL',sin:['colesterol v l d l','colesterol vldl','vldl'],un:'mg/dL',mn:0,mx:30},
+  {nome:'Triglicerídeos',sin:['triglicerides','triglicérides','triglicerídeos'],un:'mg/dL',mn:0,mx:150},
+  {nome:'TGO (AST)',sin:['tgo','ast','transaminase oxalacetica','transaminase oxalacética'],un:'U/L',mn:0,mx:40},
+  {nome:'TGP (ALT)',sin:['tgp','alt','transaminase piruv'],un:'U/L',mn:0,mx:50},
+  {nome:'GGT',sin:['ggt','gama glutamil'],un:'U/L',mn:7,mx:61},
+  {nome:'Fosfatase Alcalina',sin:['fosfatase alcalina'],un:'U/L',mn:40,mx:130},
+  {nome:'Bilirrubina Total',sin:['bilirrubina total'],un:'mg/dL',mn:0,mx:1.2},
+  {nome:'TSH',sin:['tsh'],un:'mUI/L',mn:0.4,mx:4.0},{nome:'T4 Livre',sin:['t4 livre','t4livre'],un:'ng/dL',mn:0.8,mx:1.8},
+  {nome:'Testosterona Total',sin:['testosterona total'],un:'ng/dL',mn:165,mx:753},
+  {nome:'Testosterona Livre',sin:['testosterona livre','testosterona livre calculada'],un:'ng/dL',mn:3.03,mx:14.8},
+  {nome:'SHBG',sin:['shbg','globulina ligadora'],un:'nmol/L',mn:14.6,mx:94.6},
+  {nome:'LH',sin:['lh'],un:'mUI/mL',mn:1.5,mx:9.3},{nome:'FSH',sin:['fsh'],un:'mUI/mL',mn:1.4,mx:18.1},
+  {nome:'Glicose',sin:['glicose','glicemia'],un:'mg/dL',mn:70,mx:99},
+  {nome:'HbA1c',sin:['hba1c','hemoglobina glicada'],un:'%',mn:0,mx:5.7},
+  {nome:'Creatinina',sin:['creatinina'],un:'mg/dL',mn:0.7,mx:1.3},
+  {nome:'Vitamina D',sin:['vitamina d','25-oh'],un:'ng/mL',mn:30,mx:100},
+  {nome:'Vitamina B12',sin:['vitamina b12','b12'],un:'pg/mL',mn:200,mx:900},
+  {nome:'Ferritina',sin:['ferritina'],un:'ng/mL',mn:30,mx:400},
+  {nome:'PSA Total',sin:['psa total','psa'],un:'ng/mL',mn:0,mx:4.0},
+];
+
+function parsearLaudo(texto){
+  var tl=texto.toLowerCase(), dataColeta='', lab='';
+  // Data
+  var allD=[],re=/(\\d{2})\\/(\\d{2})\\/(\\d{4})/g,m;
+  while((m=re.exec(texto))!==null){ if(parseInt(m[3])>=2020) allD.push(m); }
+  var mc=texto.match(/[Cc]oleta[^\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+  if(!mc) mc=texto.match(/[Ee]ntrada[^\n]{0,30}(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+  if(mc) dataColeta=mc[3]+'-'+mc[2]+'-'+mc[1];
+  else if(allD.length) dataColeta=allD[0][3]+'-'+allD[0][2]+'-'+allD[0][1];
+  // Lab
+  var labs=['são matheus','fleury','delboni','einstein','hermes pardini','sabin'];
+  for(var li=0;li<labs.length;li++){ if(tl.indexOf(labs[li])!==-1){lab=labs[li].replace(/\b\w/g,function(c){return c.toUpperCase();});break;} }
+  // Exames
+  var exames=[];
+  DICT_EXAMES.forEach(function(def){
+    for(var si=0;si<def.sin.length;si++){
+      var idx=tl.indexOf(def.sin[si]); if(idx===-1) continue;
+      var ctx=texto.substring(idx,idx+200);
+      var valor=null;
+      var pats=[/[Rr]esultado[:\s.]+(\d[\d.,]+)/,/[:\s]+(\d[\d.,]+)\s*(?:mg|g|u\/l|ng|pg|nmol|mUI|%)/i,/\.{3,}\s*(\d[\d.,]+)/,/\s{2,}(\d[\d.,]+)\s/];
+      for(var pi=0;pi<pats.length;pi++){
+        var pm=ctx.match(pats[pi]);
+        if(pm){var raw=pm[1].replace(/\./g,'').replace(',','.');var v=parseFloat(raw);if(!isNaN(v)&&v>0&&v<10000000){valor=v;break;}}
+      }
+      if(valor===null) continue;
+      var mn=def.mn,mx=def.mx;
+      var refM=ctx.match(/(\d[\d.,]*)\s*[-–a]\s*(\d[\d.,]*)/i);
+      if(refM){var r1=parseFloat(refM[1].replace(',','.')),r2=parseFloat(refM[2].replace(',','.'));if(!isNaN(r1)&&!isNaN(r2)&&r2>r1&&r2<1000000){mn=r1;mx=r2;}}
+      if(!exames.some(function(e){return e.nome===def.nome;}))
+        exames.push({nome:def.nome,valor:valor,unidade:def.un,refMin:mn,refMax:mx});
+      break;
+    }
+  });
+  return {lab:lab,data:dataColeta,exames:exames};
+}
+
+var _pdfResultado=null;
+async function lerPDF(file){
+  if(!file) return;
+  carregar();
+  try{
+    var texto='';
+    if(file.type==='application/pdf'&&typeof pdfjsLib!=='undefined'){
+      var ab=await file.arrayBuffer();
+      var pdf=await pdfjsLib.getDocument({data:ab}).promise;
+      for(var p=1;p<=pdf.numPages;p++){
+        var page=await pdf.getPage(p);
+        var content=await page.getTextContent();
+        texto+=content.items.map(function(i){return i.str;}).join(' ')+'\n';
+      }
+    }
+    if(!texto.trim()){alert('PDF sem texto extraível. Adicione os valores manualmente.');descarregar();return;}
+    var resultado=parsearLaudo(texto);
+    if(!resultado.exames.length){alert('Nenhum exame reconhecido. Tente adicionar manualmente.');descarregar();return;}
+    _pdfResultado=resultado;
+    mostrarTabelaPDF(resultado);
+  } catch(e){alert('Erro: '+e.message);}
+  descarregar();
+}
+
+function mostrarTabelaPDF(r){
+  var el=document.getElementById('pdfPreview'); if(!el) return;
+  el.style.display='block';
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +'<div style="font-size:13px;font-weight:700;color:#1a5230">✅ '+r.exames.length+' exames encontrados'+(r.lab?' — '+escH(r.lab):'')+(r.data?' — '+dtBR(r.data):'')+'</div>'
+    +'<button class="bta bta-verde" onclick="salvarPDF()">💾 Salvar tudo</button></div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:10px">Confira e edite antes de salvar. Clique ✕ para remover um item.</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f7f5f2">'
+    +'<th style="padding:7px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa">Exame</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:9px;color:#aaa">Valor</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:9px;color:#aaa">Unid.</th>'
+    +'<th style="padding:7px 10px;text-align:center;font-size:9px;color:#aaa">Status</th>'
+    +'<th style="padding:7px 10px;text-align:center;font-size:9px;color:#aaa">Del.</th>'
+    +'</tr></thead><tbody id="tbodyPDF">'
+    +r.exames.map(function(e,i){
+      var st=statusValor(e.valor,e.refMin,e.refMax);
+      return '<tr id="pdfrow-'+i+'" style="border-bottom:1px solid #f0ede8">'
+        +'<td style="padding:6px 10px;font-weight:600">'+escH(e.nome)+'</td>'
+        +'<td style="padding:6px 10px;text-align:right"><input type="number" step="0.01" value="'+e.valor+'" id="pdfv-'+i+'" style="width:75px;border:1px solid #ddd;border-radius:5px;padding:3px 7px;font-size:13px;font-weight:700;text-align:right;background:#fffef0"></td>'
+        +'<td style="padding:6px 10px;text-align:right;font-size:11px;color:#888">'+escH(e.unidade)+'</td>'
+        +'<td style="padding:6px 10px;text-align:center"><span class="tag '+st.c+'">'+st.l+'</span></td>'
+        +'<td style="padding:6px 10px;text-align:center"><button onclick="document.getElementById(\'pdfrow-'+i+'\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222">✕</button></td>'
+        +'</tr>';
+    }).join('')+'</tbody></table>';
+}
+
+async function salvarPDF(){
+  var r=_pdfResultado; if(!r) return;
+  var dt=r.data||new Date().toISOString().split('T')[0], lab=r.lab||'Laboratório';
+  var vals={},temAlt=false;
+  document.querySelectorAll('#tbodyPDF tr').forEach(function(row,i){
+    if(row.style.display==='none') return;
+    var nomeTd=row.querySelector('td:first-child'); if(!nomeTd) return;
+    var nome=nomeTd.textContent.trim();
+    var vinp=document.getElementById('pdfv-'+i); if(!vinp) return;
+    var valor=parseFloat(vinp.value); if(isNaN(valor)) return;
+    var def=DICT_EXAMES.find(function(d){return d.nome===nome;})||{mn:0,mx:999,un:''};
+    vals[nome]={valor:valor,unidade:def.un||'',refMin:def.mn||0,refMax:def.mx||999};
+    var st=statusValor(valor,def.mn||0,def.mx||999);
+    if(st.c==='tag-ru'||st.c==='tag-alt') temAlt=true;
+  });
+  if(!Object.keys(vals).length){alert('Nenhum valor.');return;}
+  carregar();
+  try{
+    await col('users/'+EU.uid+'/resultados').add({
+      pacienteId:CUR_PAC_ID,data:dt,areaId:'pdf',areaNome:'Laudo PDF · '+lab,
+      areaIco:'📄',areaCor:'#154fa0',lab:lab,valores:vals,temAlteracao:temAlt,
+      criadoEm:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await doc('users/'+EU.uid+'/pacientes/'+CUR_PAC_ID).update({ultimaConsulta:dt,temAlteracao:temAlt,totalExames:firebase.firestore.FieldValue.increment(1)});
+    document.getElementById('pdfPreview').style.display='none';
+    _pdfResultado=null;
+    var rSnap=await col('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
+    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    renderResumo(); renderTabelaExames();
+    alert('✅ '+Object.keys(vals).length+' exames salvos!');
+  } catch(e){alert('Erro: '+e.message);}
+  descarregar();
+}
+
+// ── Editar Resultado ──
+function abrirEditarResultado(id){
+  var r=RESULTADOS.find(function(x){return x._id===id;}); if(!r) return;
+  var mo=document.getElementById('modal-editar-res');
+  if(!mo){
+    mo=document.createElement('div'); mo.className='modal'; mo.id='modal-editar-res';
+    mo.innerHTML='<div class="modal-caixa"><div class="modal-cabecalho">'
+      +'<span class="modal-titulo" id="editResTit">✏️ Editar Resultado</span>'
+      +'<button class="modal-fechar" onclick="fecharModal(\'editar-res\')">✕</button></div>'
+      +'<div class="modal-corpo"><div class="grade-2">'
+      +'<div class="campo"><label>Data</label><input id="eRes-dt" type="date"></div>'
+      +'<div class="campo"><label>Laboratório</label><input id="eRes-lab"></div>'
+      +'</div><div id="eRes-vals"></div></div>'
+      +'<div class="modal-rodape"><button class="bta bta-borda" onclick="fecharModal(\'editar-res\')">Cancelar</button>'
+      +'<button class="bta bta-verde" onclick="gravarEdicaoRes()">💾 Salvar</button></div></div>';
+    mo.addEventListener('click',function(e){if(e.target===mo)mo.classList.remove('aberto');});
+    document.body.appendChild(mo);
+  }
+  document.getElementById('editResTit').textContent='✏️ '+escH(r.areaNome||'Resultado');
+  document.getElementById('eRes-dt').value=r.data||'';
+  document.getElementById('eRes-lab').value=r.lab||'';
+  mo.dataset.rid=id;
+  var vals=r.valores||{};
+  document.getElementById('eRes-vals').innerHTML='<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;font-weight:700;margin-bottom:8px">VALORES</div>'
+    +'<table style="width:100%;border-collapse:collapse" id="tblEditVals"><thead><tr style="background:#f7f5f2">'
+    +'<th style="padding:6px 9px;text-align:left;font-size:9px;color:#aaa">Exame</th>'
+    +'<th style="padding:6px 9px;text-align:right;font-size:9px;color:#aaa">Valor</th>'
+    +'<th style="padding:6px 9px;text-align:right;font-size:9px;color:#aaa">Unid.</th>'
+    +'<th style="padding:6px 9px;text-align:center;font-size:9px;color:#aaa">Del.</th>'
+    +'</tr></thead><tbody id="tbodyEditVals">'
+    +Object.keys(vals).map(function(nome,i){
+      var v=vals[nome];
+      return '<tr id="ev-row-'+i+'" style="border-bottom:1px solid #f0ede8">'
+        +'<td style="padding:6px 9px"><input value="'+escH(nome)+'" style="width:100%;border:none;background:transparent;font-size:12.5px;font-weight:600;outline:none" onfocus="this.style.background=\'#f0f8ff\'" onblur="this.style.background=\'transparent\'"></td>'
+        +'<td style="padding:6px 9px;text-align:right"><input type="number" step="0.01" value="'+v.valor+'" id="evv-'+i+'" style="width:72px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0"></td>'
+        +'<td style="padding:6px 9px;text-align:right"><input value="'+escH(v.unidade||'')+'" style="width:60px;border:none;background:transparent;font-size:11px;color:#888;text-align:right;outline:none" onfocus="this.style.border=\'1px solid #ddd\'" onblur="this.style.border=\'none\'"></td>'
+        +'<td style="padding:6px 9px;text-align:center"><button onclick="document.getElementById(\'ev-row-'+i+'\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222">✕</button></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table>'
+    +'<button onclick="adicionarLinhaEdicao()" style="margin-top:8px;padding:6px 12px;border-radius:6px;background:#f7f5f2;border:1.5px solid #ddd;font-size:12px;font-weight:600;cursor:pointer;width:100%">+ Adicionar exame</button>';
+  mo.classList.add('aberto');
+}
+
+function adicionarLinhaEdicao(){
+  var tb=document.getElementById('tbodyEditVals'); if(!tb) return;
+  var i=tb.children.length;
+  var tr=document.createElement('tr'); tr.id='ev-row-'+i; tr.style.borderBottom='1px solid #f0ede8';
+  tr.innerHTML='<td style="padding:6px 9px"><input value="Novo Exame" style="width:100%;border:1px solid #2e8a48;background:#f0f8ff;border-radius:4px;font-size:12.5px;font-weight:600;padding:2px 5px"></td>'
+    +'<td style="padding:6px 9px;text-align:right"><input type="number" step="0.01" value="0" id="evv-'+i+'" style="width:72px;border:1px solid #ddd;border-radius:5px;padding:3px 6px;font-size:13px;font-weight:700;text-align:right;background:#fffef0"></td>'
+    +'<td style="padding:6px 9px"><input value="" placeholder="unid." style="width:60px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:2px 4px;text-align:right"></td>'
+    +'<td style="padding:6px 9px;text-align:center"><button onclick="this.closest(\'tr\').style.display=\'none\'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cc2222">✕</button></td>';
+  tb.appendChild(tr);
+}
+
+async function gravarEdicaoRes(){
+  var mo=document.getElementById('modal-editar-res'); if(!mo) return;
+  var id=mo.dataset.rid, dt=gv('eRes-dt'), lab=gv('eRes-lab').trim();
+  var vals={},temAlt=false;
+  document.querySelectorAll('#tbodyEditVals tr').forEach(function(row,i){
+    if(row.style.display==='none') return;
+    var ins=row.querySelectorAll('input');
+    if(ins.length<2) return;
+    var nome=(ins[0].value||'').trim(), valor=parseFloat(ins[1].value), unit=ins[2]?(ins[2].value||''):'';
+    if(!nome||isNaN(valor)) return;
+    var def=DICT_EXAMES.find(function(d){return d.nome===nome;})||{mn:0,mx:999,un:unit};
+    vals[nome]={valor:valor,unidade:unit||def.un,refMin:def.mn,refMax:def.mx};
+    var st=statusValor(valor,def.mn,def.mx);
+    if(st.c==='tag-ru'||st.c==='tag-alt') temAlt=true;
+  });
+  if(!Object.keys(vals).length){alert('Sem valores.');return;}
+  carregar();
+  try{
+    await doc('users/'+EU.uid+'/resultados/'+id).update({data:dt,lab:lab,valores:vals,temAlteracao:temAlt});
+    mo.classList.remove('aberto');
+    var rSnap=await col('users/'+EU.uid+'/resultados').where('pacienteId','==',CUR_PAC_ID).get();
+    RESULTADOS=[]; rSnap.forEach(function(d){RESULTADOS.push(Object.assign({_id:d.id},d.data()));});
+    RESULTADOS.sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    renderResumo(); renderTabelaExames();
+    alert('✅ Resultado atualizado!');
+  } catch(e){alert('Erro: '+e.message);}
+  descarregar();
+}
+
+// ── Gráficos ──
+var _charts={};
+function criarGrafico(canvasId,historico,refMin,refMax){
+  var canvas=document.getElementById(canvasId); if(!canvas) return;
+  var ex=Chart.getChart(canvas); if(ex) ex.destroy();
+  var ult=historico[historico.length-1].valor;
+  var st=statusValor(ult,refMin,refMax);
+  var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+  _charts[canvasId]=new Chart(canvas,{type:'line',
+    data:{labels:historico.map(function(h){return dtBR(h.data).substring(0,5);}),
+      datasets:[{data:historico.map(function(h){return h.valor;}),borderColor:cor,backgroundColor:cor+'22',borderWidth:2,pointRadius:4,pointBackgroundColor:cor,tension:0.3,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#aaa'}},
+        y:{grid:{color:'#f0ede8'},ticks:{font:{size:9},color:'#aaa'}}}}});
+}
+
+// ── Ver como Paciente ──
+function verComoPaciente(){
+  if(!CUR_PAC||!RESULTADOS.length){alert('Sem dados de exames.');return;}
+  var mo=document.getElementById('modal-ver-pac');
+  if(!mo){
+    mo=document.createElement('div'); mo.className='modal'; mo.id='modal-ver-pac';
+    mo.innerHTML='<div class="modal-caixa" style="max-width:680px"><div class="modal-cabecalho">'
+      +'<span class="modal-titulo">👁 Visão do Paciente — <span id="vpNomeSpan"></span></span>'
+      +'<button class="modal-fechar" onclick="fecharModal(\'ver-pac\')">✕</button></div>'
+      +'<div class="modal-corpo" style="max-height:75vh;overflow-y:auto" id="vpCorpo"></div></div>';
+    mo.addEventListener('click',function(e){if(e.target===mo)mo.classList.remove('aberto');});
+    document.body.appendChild(mo);
+  }
+  document.getElementById('vpNomeSpan').textContent=(CUR_PAC.nome||'').split(' ')[0];
+  // Unificar exames por nome
+  var mapa={};
+  RESULTADOS.forEach(function(r){
+    Object.keys(r.valores||{}).forEach(function(nome){
+      if(!mapa[nome]) mapa[nome]={nome:nome,info:r.valores[nome],hist:[]};
+      mapa[nome].hist.push({data:r.data,valor:r.valores[nome].valor});
+    });
+  });
+  Object.values(mapa).forEach(function(p){p.hist.sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});});
+  var params=Object.values(mapa);
+  var ok=0,at=0,ru=0;
+  params.forEach(function(p){var st=statusValor(p.hist[p.hist.length-1].valor,p.info.refMin,p.info.refMax);if(st.c==='tag-ok')ok++;else if(st.c==='tag-alt')at++;else ru++;});
+  var pct=params.length?Math.round(ok/params.length*100):0;
+  var bg=pct>=90?'linear-gradient(135deg,#0d4a24,#1a8a40)':pct>=70?'linear-gradient(135deg,#3a2800,#b07000)':'linear-gradient(135deg,#3a0000,#880000)';
+  var DESCR={'Hemoglobina':{ok:'Seu sangue está ótimo! 🩸',alt:'Hemoglobina levemente alterada.',ru:'Hemoglobina alterada. Fale com seu médico.'},'Colesterol Total':{ok:'Colesterol controlado! 🥗',alt:'Colesterol um pouco elevado.',ru:'Colesterol alto. Fale com seu médico.'},'HDL':{ok:'Colesterol bom (HDL) ótimo! 💚',alt:'HDL poderia ser mais alto.',ru:'HDL baixo. Exercícios ajudam!'},'LDL':{ok:'Colesterol LDL sob controle! 👍',alt:'LDL um pouco acima.',ru:'LDL elevado. Fale com seu médico.'},'Triglicerídeos':{ok:'Triglicerídeos normais! 🎉',alt:'Elevados. Reduza açúcar.',ru:'Muito altos. Fale com seu médico.'},'Glicose':{ok:'Açúcar no sangue normal! 🍎',alt:'Glicemia um pouco alta.',ru:'Glicemia alterada. Urgente.'},'TSH':{ok:'Tireoide perfeita! 🦋',alt:'TSH levemente alterado.',ru:'TSH alterado. Fale com seu médico.'},'TGO (AST)':{ok:'Fígado saudável! 🟤',alt:'Leve alteração no fígado.',ru:'Fígado alterado.'},'TGP (ALT)':{ok:'Fígado ok! 🟤',alt:'Leve alteração hepática.',ru:'Fígado alterado.'},'Vitamina D':{ok:'Vitamina D ótima! ☀️',alt:'Vitamina D baixa. Mais sol!',ru:'Vitamina D muito baixa.'},'Testosterona Total':{ok:'Testosterona excelente! 💪',alt:'Testosterona levemente fora.',ru:'Testosterona alterada.'}};
+  var html='<div style="background:'+bg+';border-radius:14px;padding:18px;margin-bottom:16px;color:#fff">'
+    +'<div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:4px">Olá, '+escH((CUR_PAC.nome||'').split(' ')[0])+'! '+(pct>=90?'🏆':pct>=70?'💪':'⚠️')+'</div>'
+    +'<div style="font-size:12.5px;color:rgba(255,255,255,.8);margin-bottom:12px">'+(pct>=90?'Seus exames estão excelentes!':pct>=70?'Você está indo bem! Alguns pontos merecem atenção.':'Vários exames precisam de atenção. Fale com seu médico.')+'</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.6)">Saúde geral</div>'
+    +'<div style="flex:1;height:8px;background:rgba(0,0,0,.3);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6de090,#fff);border-radius:4px"></div></div>'
+    +'<div style="font-size:16px;font-weight:800">'+pct+'%</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:8px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:800">'+ok+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.6)">✅ Normais</div></div>'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:8px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:800">'+at+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.6)">⚠️ Atenção</div></div>'
+    +'<div style="background:rgba(255,255,255,.12);border-radius:8px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:800">'+ru+'</div><div style="font-size:9.5px;color:rgba(255,255,255,.6)">🔴 Alterados</div></div>'
+    +'</div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">'
+    +params.map(function(p){
+      var ult=p.hist[p.hist.length-1],st=statusValor(ult.valor,p.info.refMin,p.info.refMax);
+      var cor=st.c==='tag-ok'?'#1a7a40':st.c==='tag-alt'?'#c87800':'#cc2222';
+      var bg2=st.c==='tag-ok'?'#f0faf4':st.c==='tag-alt'?'#fffbf0':'#fff8f8';
+      var bd=st.c==='tag-ok'?'#c8ead4':st.c==='tag-alt'?'#fce5a8':'#fecece';
+      var dm=DESCR[p.nome]||{};
+      var desc=st.c==='tag-ok'?(dm.ok||'Valor normal! ✅'):st.c==='tag-alt'?(dm.alt||'Levemente fora do ideal.'):(dm.ru||'Alterado. Fale com seu médico.');
+      var range=p.info.refMax-p.info.refMin;
+      var pct2=range>0?Math.min(93,Math.max(7,((ult.valor-p.info.refMin)/range*80)+10)):50;
+      return '<div style="background:'+bg2+';border-radius:10px;padding:13px;border:1.5px solid '+bd+'">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;font-weight:700">'+escH(p.nome)+'</span><span>'+(st.c==='tag-ok'?'✅':st.c==='tag-alt'?'⚠️':'🔴')+'</span></div>'
+        +'<div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:'+cor+';line-height:1">'+ult.valor+'<span style="font-size:10px;font-family:sans-serif;color:#aaa;font-weight:400"> '+escH(p.info.unidade||'')+'</span></div>'
+        +'<div style="height:5px;background:#e0dcd6;border-radius:3px;margin:7px 0;position:relative">'
+        +'<div style="position:absolute;left:10%;width:80%;height:100%;background:'+cor+'25;border-radius:3px"></div>'
+        +'<div style="position:absolute;left:'+pct2+'%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:'+cor+';border:2px solid #fff"></div></div>'
+        +'<div style="font-size:11.5px;color:#444;line-height:1.5">'+desc+'</div>'
+        +(p.hist.length>1?'<div style="margin-top:7px;padding-top:7px;border-top:1px solid '+bd+';display:flex;gap:7px">'
+          +p.hist.slice(-3).map(function(h){var sH=statusValor(h.valor,p.info.refMin,p.info.refMax);var cH=sH.c==='tag-ok'?'#1a7a40':sH.c==='tag-alt'?'#c87800':'#cc2222';return '<div style="text-align:center"><div style="font-size:11px;font-weight:700;color:'+cH+'">'+h.valor+'</div><div style="font-size:9px;color:#aaa">'+dtBR(h.data).substring(0,5)+'</div></div>';}).join('')+'</div>':'')
+        +'</div>';
+    }).join('')+'</div>';
+  document.getElementById('vpCorpo').innerHTML=html;
+  mo.classList.add('aberto');
+}
+
 </script>
 </body>
 </html>
