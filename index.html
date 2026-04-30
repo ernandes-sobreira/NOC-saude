@@ -175,7 +175,7 @@ tr:hover td{background:var(--primary-light)}
 .pdf-table td input{border:1px solid var(--gray-200);border-radius:6px;padding:4px 8px;width:100%;font-size:.82rem}
 .pdf-table th{font-size:.78rem}
 /* CHART MINI */
-.mini-chart-wrap{height:50px;width:100%;max-width:260px;margin-top:6px;display:block}
+.mini-chart-wrap{height:110px;width:100%;max-width:320px;margin-top:8px;display:block}
 </style>
 </head>
 <body>
@@ -1251,11 +1251,18 @@ function renderResumoCards(resultados, container) {
       histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + (hist4[hi].data||'') + ': ' + hist4[hi].valor + ' ' + (hist4[hi].unidade||'') + '</span>';
     }
     var chartId = 'chart-' + kn.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
-    var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" width="260" height="50" class="mini-chart-wrap"></canvas>' : '';
-    // BUG 5: hide Ref when 0–0
-    var mn0 = parseFloat(latest.refMin);
-    var mx0 = parseFloat(latest.refMax);
-    var refLabel = (mn0 === 0 && mx0 === 0) ? 'Ref: —' : 'Ref: ' + latest.refMin + '–' + latest.refMax + ' ' + (latest.unidade||'');
+    var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" width="320" height="110" class="mini-chart-wrap"></canvas>' : '';
+    // PROB 1+5: show ref only when values are defined and not both zero
+    var mn0 = latest.refMin;
+    var mx0 = latest.refMax;
+    var refLabel;
+    if (mn0 === undefined || mn0 === null || mx0 === undefined || mx0 === null) {
+      refLabel = 'Ref: —';
+    } else if (parseFloat(mn0) === 0 && parseFloat(mx0) === 0) {
+      refLabel = 'Ref: —';
+    } else {
+      refLabel = 'Ref: ' + mn0 + '–' + mx0 + ' ' + (latest.unidade||'');
+    }
     var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
       '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
       '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
@@ -1288,34 +1295,93 @@ function renderResumoCards(resultados, container) {
     var dvals = [];
     var sorted2 = hist2.slice().sort(function(a,b){ return (a.data||'') > (b.data||'') ? 1 : -1; });
     for (var si = 0; si < sorted2.length; si++) {
-      labels2.push(sorted2[si].data||'');
-      dvals.push(parseFloat(sorted2[si].valor)||0);
+      // format date as dd/mm
+      var rawD = sorted2[si].data || '';
+      var dtLabel = rawD;
+      if (rawD.length === 10) {
+        dtLabel = rawD.substr(8,2) + '/' + rawD.substr(5,2);
+      }
+      labels2.push(dtLabel);
+      dvals.push(parseFloat(sorted2[si].valor) || 0);
     }
     var s2 = getStatus(hist2[0].valor, hist2[0].refMin, hist2[0].refMax, 'numero');
-    var minVal = Math.min.apply(null, dvals);
-    var maxVal = Math.max.apply(null, dvals);
-    var pad = (maxVal - minVal) * 0.2 || 1;
+    var corStatus = statusColor(s2);
+    var ref2Min = parseFloat(hist2[0].refMin);
+    var ref2Max = parseFloat(hist2[0].refMax);
+    var unit2 = hist2[0].unidade || '';
+    var hasRef = !(isNaN(ref2Min) || isNaN(ref2Max) || (ref2Min === 0 && ref2Max === 0));
+    var sugMin = hasRef && ref2Min > 0 ? ref2Min * 0.7 : Math.min.apply(null, dvals) * 0.8;
+    var sugMax = hasRef ? ref2Max * 1.3 : Math.max.apply(null, dvals) * 1.2;
+    var datasets2 = [
+      {
+        label: allParams[kn2].displayNome,
+        data: dvals,
+        borderColor: corStatus,
+        backgroundColor: corStatus + '22',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointBackgroundColor: corStatus,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        tension: 0.3,
+        fill: true
+      }
+    ];
+    if (hasRef && ref2Max > 0) {
+      var refMaxData = [];
+      for (var rmi = 0; rmi < dvals.length; rmi++) refMaxData.push(ref2Max);
+      datasets2.push({
+        label: 'Ref. máx',
+        data: refMaxData,
+        borderColor: '#cc222244',
+        borderWidth: 1.5,
+        borderDash: [4,4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0
+      });
+    }
+    if (hasRef && ref2Min > 0) {
+      var refMinData = [];
+      for (var rmni = 0; rmni < dvals.length; rmni++) refMinData.push(ref2Min);
+      datasets2.push({
+        label: 'Ref. mín',
+        data: refMinData,
+        borderColor: '#1a7a4044',
+        borderWidth: 1.5,
+        borderDash: [4,4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0
+      });
+    }
     chartInstances[cid] = new Chart(cel, {
       type: 'line',
-      data: {
-        labels: labels2,
-        datasets: [{
-          data: dvals,
-          borderColor: statusColor(s2),
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: statusColor(s2),
-          tension: 0.3
-        }]
-      },
+      data: { labels: labels2, datasets: datasets2 },
       options: {
         responsive: false,
         animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (function(u) {
+                return function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' ' + u; };
+              })(unit2)
+            }
+          }
+        },
         scales: {
-          x: { display: false },
-          y: { display: false, min: minVal - pad, max: maxVal + pad }
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 9 }, color: '#888', maxRotation: 0 }
+          },
+          y: {
+            grid: { color: '#f0ede8' },
+            ticks: { font: { size: 9 }, color: '#888', maxTicksLimit: 4 },
+            suggestedMin: sugMin,
+            suggestedMax: sugMax
+          }
         }
       }
     });
@@ -1436,7 +1502,10 @@ function salvarResultado(resultadoId) {
       if (v !== '') {
         var s = getStatus(v, p.refMin, p.refMax, tc);
         if (s !== 'normal') temAlt = true;
-        valores[p.nome] = {valor: v, unidade: p.unidade||'', refMin: p.refMin||0, refMax: p.refMax||0, tipoCampo: tc};
+        // PROB 1: store refMin/refMax exactly — do not use ||0 which loses distinction between 0 and undefined
+        var rMin = (p.refMin !== undefined && p.refMin !== null) ? p.refMin : 0;
+        var rMax = (p.refMax !== undefined && p.refMax !== null) ? p.refMax : 0;
+        valores[p.nome] = {valor: v, unidade: p.unidade||'', refMin: rMin, refMax: rMax, tipoCampo: tc};
       }
     } else {
       if (el.value) camposTexto[p.nome] = el.value;
@@ -1616,6 +1685,14 @@ function processarPDF() {
   };
   reader.readAsArrayBuffer(file);
 }
+// PROB 3: helper — whole word boundary check (no letter/digit before or after)
+function ehPalavraInteira(texto, inicio, tamanho) {
+  var antes = inicio > 0 ? texto[inicio - 1] : ' ';
+  var depois = (inicio + tamanho) < texto.length ? texto[inicio + tamanho] : ' ';
+  var reLetra = new RegExp('[a-zA-Z0-9\u00C0-\u017E]');
+  return !reLetra.test(antes) && !reLetra.test(depois);
+}
+
 function extractFromText(text) {
   var st = document.getElementById('pdf-status');
   var lab = 'Desconhecido';
@@ -1634,18 +1711,37 @@ function extractFromText(text) {
   var textUp = text.toUpperCase();
   for (var di = 0; di < dictKeys.length; di++) {
     var key = dictKeys[di];
-    var pos = textUp.indexOf(key);
-    if (pos < 0) continue;
-    // extract number after key
-    var after = text.substr(pos + key.length, 60);
-    var numReg = new RegExp('([0-9]+[.,][0-9]+|[0-9]+)');
-    var nm = numReg.exec(after);
-    if (nm) {
-      var val = nm[1].replace(',','.');
-      rows.push({nome: EXAM_DICT[key], valor: val, unidade: '', remover: false});
+    var searchFrom = 0;
+    var found = false;
+    while (!found) {
+      var pos = textUp.indexOf(key, searchFrom);
+      if (pos < 0) break;
+      searchFrom = pos + 1;
+      // PROB 3: require whole word — no letter/digit adjacent
+      if (!ehPalavraInteira(textUp, pos, key.length)) continue;
+      // extract context after key (60 chars)
+      var ctx = text.substr(pos + key.length, 80);
+      var ctxLow = ctx.toLowerCase();
+      // PROB 4: skip "plaquetas" if context has "médio" or "volume"
+      if ((key === 'PLAQUETAS') &&
+          (ctxLow.indexOf('médio') !== -1 || ctxLow.indexOf('medio') !== -1 || ctxLow.indexOf('volume') !== -1)) {
+        continue;
+      }
+      var numReg = new RegExp('([0-9]+[.,][0-9]+|[0-9]+)');
+      var nm = numReg.exec(ctx);
+      if (nm) {
+        var val = parseFloat(nm[1].replace(',','.'));
+        // PROB 5: TGO, TGP, GGT must be > 1 (avoid zero from differential table)
+        var nomeExame = EXAM_DICT[key];
+        if ((nomeExame === 'TGO (AST)' || nomeExame === 'TGP (ALT)' || nomeExame === 'GGT') && val <= 1) {
+          continue;
+        }
+        rows.push({nome: nomeExame, valor: String(val), unidade: '', remover: false});
+        found = true;
+      }
     }
   }
-  // Deduplicate by nome
+  // Deduplicate by nome (keep first found)
   var seen = {};
   var unique = [];
   for (var ri = 0; ri < rows.length; ri++) {
