@@ -175,7 +175,7 @@ tr:hover td{background:var(--primary-light)}
 .pdf-table td input{border:1px solid var(--gray-200);border-radius:6px;padding:4px 8px;width:100%;font-size:.82rem}
 .pdf-table th{font-size:.78rem}
 /* CHART MINI */
-.mini-chart-wrap{height:110px;width:100%;max-width:320px;margin-top:8px;display:block}
+.mini-chart-wrap{height:120px;width:100%;display:block;position:relative}
 </style>
 </head>
 <body>
@@ -1196,6 +1196,14 @@ function loadProntuarioResumo() {
     renderResumoCards(resultados, el);
   });
 }
+function normalizarNomeExame(nome) {
+  if (!nome) return '';
+  return nome.trim().toLowerCase()
+    .replace(new RegExp('\\s+','g'), ' ')
+    .replace(new RegExp('[()]','g'), '')
+    .trim();
+}
+
 function renderResumoCards(resultados, container) {
   var altCards = '';
   var warnCards = '';
@@ -1207,9 +1215,8 @@ function renderResumoCards(resultados, container) {
     var keys = Object.keys(vals);
     for (var j = 0; j < keys.length; j++) {
       var k = keys[j];
-      // BUG 4: use exact name as key (already exact since keys come from the object itself)
-      // Normalize to lowercase for grouping to avoid "LH" vs "lh" duplicates
-      var kNorm = k.toLowerCase().trim();
+      // PROB 3: use exact normalized name as key — no includes/indexOf
+      var kNorm = normalizarNomeExame(k);
       if (!allParams[kNorm]) allParams[kNorm] = {displayNome: k, entries: []};
       allParams[kNorm].entries.push(Object.assign({}, vals[k], {data: r.data, areaNome: r.areaNome, areaIco: r.areaIco, _nomeOriginal: k}));
     }
@@ -1251,18 +1258,16 @@ function renderResumoCards(resultados, container) {
       histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + (hist4[hi].data||'') + ': ' + hist4[hi].valor + ' ' + (hist4[hi].unidade||'') + '</span>';
     }
     var chartId = 'chart-' + kn.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
-    var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" width="320" height="110" class="mini-chart-wrap"></canvas>' : '';
-    // PROB 1+5: show ref only when values are defined and not both zero
-    var mn0 = latest.refMin;
-    var mx0 = latest.refMax;
-    var refLabel;
-    if (mn0 === undefined || mn0 === null || mx0 === undefined || mx0 === null) {
-      refLabel = 'Ref: —';
-    } else if (parseFloat(mn0) === 0 && parseFloat(mx0) === 0) {
-      refLabel = 'Ref: —';
-    } else {
-      refLabel = 'Ref: ' + mn0 + '–' + mx0 + ' ' + (latest.unidade||'');
-    }
+    var miniChart = hist.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="' + chartId + '"></canvas></div>' : '';
+    // PROB 1: explicit temRef check — not falsy, not 0+0
+    var rMin = latest.refMin;
+    var rMax = latest.refMax;
+    var temRef = (rMin !== undefined && rMin !== null &&
+                  rMax !== undefined && rMax !== null &&
+                  !(parseFloat(rMin) === 0 && parseFloat(rMax) === 0));
+    var refLabel = temRef
+      ? 'Ref: ' + rMin + '–' + rMax + ' ' + (latest.unidade||'')
+      : 'Ref: —';
     var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
       '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
       '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
@@ -1295,92 +1300,96 @@ function renderResumoCards(resultados, container) {
     var dvals = [];
     var sorted2 = hist2.slice().sort(function(a,b){ return (a.data||'') > (b.data||'') ? 1 : -1; });
     for (var si = 0; si < sorted2.length; si++) {
-      // format date as dd/mm
       var rawD = sorted2[si].data || '';
-      var dtLabel = rawD;
-      if (rawD.length === 10) {
-        dtLabel = rawD.substr(8,2) + '/' + rawD.substr(5,2);
-      }
+      var dtLabel = rawD.length === 10 ? rawD.substr(8,2) + '/' + rawD.substr(5,2) : rawD;
       labels2.push(dtLabel);
       dvals.push(parseFloat(sorted2[si].valor) || 0);
     }
     var s2 = getStatus(hist2[0].valor, hist2[0].refMin, hist2[0].refMax, 'numero');
-    var corStatus = statusColor(s2);
-    var ref2Min = parseFloat(hist2[0].refMin);
-    var ref2Max = parseFloat(hist2[0].refMax);
+    // PROB 2: corLinha by status — not CSS variable (Chart.js needs hex)
+    var corLinha = s2 === 'danger' ? '#cc2222' : (s2 === 'warn' ? '#c87800' : '#1a7a40');
     var unit2 = hist2[0].unidade || '';
-    var hasRef = !(isNaN(ref2Min) || isNaN(ref2Max) || (ref2Min === 0 && ref2Max === 0));
-    var sugMin = hasRef && ref2Min > 0 ? ref2Min * 0.7 : Math.min.apply(null, dvals) * 0.8;
-    var sugMax = hasRef ? ref2Max * 1.3 : Math.max.apply(null, dvals) * 1.2;
+    var ref2Min = hist2[0].refMin;
+    var ref2Max = hist2[0].refMax;
+    var temRef2 = (ref2Min !== undefined && ref2Min !== null &&
+                   ref2Max !== undefined && ref2Max !== null &&
+                   !(parseFloat(ref2Min) === 0 && parseFloat(ref2Max) === 0));
+    var ref2MinF = temRef2 ? parseFloat(ref2Min) : 0;
+    var ref2MaxF = temRef2 ? parseFloat(ref2Max) : 0;
+    // build ref line arrays without for...of
+    var refMaxArr = [];
+    var refMinArr = [];
+    for (var rri = 0; rri < dvals.length; rri++) {
+      refMaxArr.push(temRef2 ? ref2MaxF : null);
+      refMinArr.push((temRef2 && ref2MinF > 0) ? ref2MinF : null);
+    }
     var datasets2 = [
       {
-        label: allParams[kn2].displayNome,
         data: dvals,
-        borderColor: corStatus,
-        backgroundColor: corStatus + '22',
+        borderColor: corLinha,
+        backgroundColor: corLinha + '18',
         borderWidth: 2.5,
         pointRadius: 5,
-        pointBackgroundColor: corStatus,
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        tension: 0.3,
-        fill: true
+        pointBackgroundColor: '#fff',
+        pointBorderColor: corLinha,
+        pointBorderWidth: 2.5,
+        tension: 0.35,
+        fill: true,
+        order: 1
+      },
+      {
+        data: refMaxArr,
+        borderColor: '#cc222266',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderDash: [5,4],
+        pointRadius: 0,
+        fill: false,
+        order: 2
+      },
+      {
+        data: refMinArr,
+        borderColor: '#1a7a4066',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderDash: [5,4],
+        pointRadius: 0,
+        fill: false,
+        order: 3
       }
     ];
-    if (hasRef && ref2Max > 0) {
-      var refMaxData = [];
-      for (var rmi = 0; rmi < dvals.length; rmi++) refMaxData.push(ref2Max);
-      datasets2.push({
-        label: 'Ref. máx',
-        data: refMaxData,
-        borderColor: '#cc222244',
-        borderWidth: 1.5,
-        borderDash: [4,4],
-        pointRadius: 0,
-        fill: false,
-        tension: 0
-      });
-    }
-    if (hasRef && ref2Min > 0) {
-      var refMinData = [];
-      for (var rmni = 0; rmni < dvals.length; rmni++) refMinData.push(ref2Min);
-      datasets2.push({
-        label: 'Ref. mín',
-        data: refMinData,
-        borderColor: '#1a7a4044',
-        borderWidth: 1.5,
-        borderDash: [4,4],
-        pointRadius: 0,
-        fill: false,
-        tension: 0
-      });
-    }
     chartInstances[cid] = new Chart(cel, {
       type: 'line',
       data: { labels: labels2, datasets: datasets2 },
       options: {
-        responsive: false,
+        responsive: true,
+        maintainAspectRatio: false,
         animation: false,
         plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (function(u) {
-                return function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' ' + u; };
-              })(unit2)
+              label: (function(u, rmin, rmax) {
+                return function(ctx) {
+                  if (ctx.datasetIndex === 0) return ctx.parsed.y + ' ' + u;
+                  if (ctx.datasetIndex === 1) return 'Máx: ' + rmax;
+                  if (ctx.datasetIndex === 2) return 'Mín: ' + rmin;
+                  return '';
+                };
+              })(unit2, ref2MinF, ref2MaxF)
             }
           }
         },
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { size: 9 }, color: '#888', maxRotation: 0 }
+            ticks: { font: { size: 9 }, color: '#999', maxRotation: 0 }
           },
           y: {
-            grid: { color: '#f0ede8' },
-            ticks: { font: { size: 9 }, color: '#888', maxTicksLimit: 4 },
-            suggestedMin: sugMin,
-            suggestedMax: sugMax
+            grid: { color: '#f0ede8', lineWidth: 1 },
+            ticks: { font: { size: 9 }, color: '#999', maxTicksLimit: 4 },
+            suggestedMin: (temRef2 && ref2MinF > 0) ? ref2MinF * 0.8 : undefined,
+            suggestedMax: temRef2 ? ref2MaxF * 1.2 : undefined
           }
         }
       }
@@ -1731,9 +1740,9 @@ function extractFromText(text) {
       var nm = numReg.exec(ctx);
       if (nm) {
         var val = parseFloat(nm[1].replace(',','.'));
-        // PROB 5: TGO, TGP, GGT must be > 1 (avoid zero from differential table)
+        // PROB 3/v2: TGO, TGP, GGT must be > 5 (zeros and 1s from differential table)
         var nomeExame = EXAM_DICT[key];
-        if ((nomeExame === 'TGO (AST)' || nomeExame === 'TGP (ALT)' || nomeExame === 'GGT') && val <= 1) {
+        if ((nomeExame === 'TGO (AST)' || nomeExame === 'TGP (ALT)' || nomeExame === 'GGT') && val <= 5) {
           continue;
         }
         rows.push({nome: nomeExame, valor: String(val), unidade: '', remover: false});
@@ -1741,12 +1750,13 @@ function extractFromText(text) {
       }
     }
   }
-  // Deduplicate by nome (keep first found)
+  // Deduplicate by normalized name (keep first found) — consistent with renderResumoCards
   var seen = {};
   var unique = [];
   for (var ri = 0; ri < rows.length; ri++) {
-    if (!seen[rows[ri].nome]) {
-      seen[rows[ri].nome] = true;
+    var seenKey = normalizarNomeExame(rows[ri].nome);
+    if (!seen[seenKey]) {
+      seen[seenKey] = true;
       unique.push(rows[ri]);
     }
   }
