@@ -477,7 +477,13 @@ function _finishAdminLogin(user) {
   currentUser = user;
   currentRole = 'admin';
   currentPerfil = { nome: 'Administrador', tipo: 'admin', email: user.email };
+  // Ensure admin profile exists in Firestore
+  db.collection('users').doc(user.uid).collection('perfil').doc('dados').set({
+    nome: 'Administrador', tipo: 'admin', email: user.email, clinica: 'NOC Clínica'
+  }, { merge: true }).catch(function(){});
   clearLoginError();
+  var btnEl = document.querySelector('#form-admin .btn-primary');
+  if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
   showApp();
 }
 function lerEspecialidadesSelecionadas(containerId) {
@@ -531,6 +537,8 @@ var suppressAuthStateChange = false;
 // ============================================================
 auth.onAuthStateChanged(function(user) {
   if (suppressAuthStateChange) return;
+  // If admin already set up via _finishAdminLogin, don't override
+  if (currentRole === 'admin' && user) return;
   if (user) {
     currentUser = user;
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
@@ -550,7 +558,6 @@ auth.onAuthStateChanged(function(user) {
         showApp();
       });
   } else {
-    // Only redirect to login if not in a controlled admin-create flow
     if (currentRole !== 'admin') {
       currentUser = null; currentRole = null; currentPerfil = null;
       document.getElementById('app-shell').classList.add('hidden');
