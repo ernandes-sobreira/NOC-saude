@@ -1516,10 +1516,18 @@ function loadProntuarioResumo() {
     renderResumoCards(resultados, el);
   });
 }
+// Formata valor numérico para exibição: 211000 → "211.000", 5.48 → "5.48"
+function formatarValorDisplay(v) {
+  var n = normalizarValorNumerico(v);
+  if (isNaN(n)) return String(v);
+  if (n >= 1000 && n === Math.floor(n)) {
+    return n.toLocaleString('pt-BR');
+  }
+  return String(v);
+}
 function normalizarNomeExame(nome) {
   if (!nome) return '';
   // Manter parênteses — "TGO (AST)" deve permanecer "tgo (ast)" para agrupar corretamente
-  // sem colidir com outros exames. A remoção de parênteses causava falha no lookup REF_LAB.
   return nome.trim().toLowerCase()
     .replace(new RegExp('\\s+','g'), ' ')
     .trim();
@@ -1572,7 +1580,13 @@ function renderResumoCards(resultados, container) {
     var nm = allParams[kn].displayNome;
     var hist = allParams[kn].entries;
     hist.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
-    var latest = hist[0];
+    // FIX: find the actual latest non-zero entry
+    var latest = null;
+    for (var li = 0; li < hist.length; li++) {
+      var lv = normalizarValorNumerico(hist[li].valor);
+      if (!isNaN(lv) && lv !== 0) { latest = hist[li]; break; }
+    }
+    if (!latest) latest = hist[0]; // fallback se todos forem zero
     var tc = latest.tipoCampo || 'numero';
     if (tc !== 'numero') continue;
     // v3: use obterRef for fallback to REF_LAB dictionary
@@ -1608,11 +1622,23 @@ function renderResumoCards(resultados, container) {
     var histHtml = '';
     for (var hi = 0; hi < hist4.length; hi++) {
       var hEntry = hist4[hi];
+      // FIX: skip entries with valor "0" or "" — TGO salvo zerado polui o histórico
+      var hValNum = normalizarValorNumerico(hEntry.valor);
+      if (isNaN(hValNum) || hValNum === 0) continue;
+      // FIX: skip entries where unidade is very different (ex: "8.5 /mm³" misturado em Plaquetas)
+      // Detecta quando a unidade muda radicalmente: ex plaquetas esperam /mm³ mas entrada tem valor < 100
+      // Heurística: se refMaxV > 1000 e hValNum < 100, provavelmente é outro exame
+      if (temRefV && refMaxV > 1000 && hValNum < 100) continue;
       var hRef = obterRef(hEntry, nm, pacCtx.sexo, pacCtx.dataNasc);
       var hRefMin = hRef ? parseFloat(hRef.min) : 0;
       var hRefMax = hRef ? parseFloat(hRef.max) : 0;
       var hs = hRef ? getStatus(hEntry.valor, hRefMin, hRefMax, 'numero') : 'normal';
-      histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + (hEntry.data||'') + ': ' + hEntry.valor + ' ' + (hEntry.unidade||'') + '</span>';
+      // FIX: format date dd/mm/aa in history list too
+      var hDataRaw = hEntry.data || '';
+      var hDataFmt = hDataRaw.length === 10
+        ? hDataRaw.substr(8,2) + '/' + hDataRaw.substr(5,2) + '/' + hDataRaw.substr(2,2)
+        : hDataRaw;
+      histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + hDataFmt + ': ' + hEntry.valor + ' ' + (hEntry.unidade||'') + '</span>';
     }
     var chartId = 'chart-' + kn.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
     var miniChart = hist.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="' + chartId + '"></canvas></div>' : '';
@@ -1621,7 +1647,7 @@ function renderResumoCards(resultados, container) {
     var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
       '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
       '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
-      '<div class="exam-value" style="color:' + statusColor(s) + '">' + latest.valor + ' <span style="font-size:1rem;font-weight:400;color:var(--gray)">' + (latest.unidade||'') + '</span></div>' +
+      '<div class="exam-value" style="color:' + statusColor(s) + '">' + formatarValorDisplay(latest.valor) + ' <span style="font-size:1rem;font-weight:400;color:var(--gray)">' + (latest.unidade||'') + '</span></div>' +
       '<div class="exam-bar"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>' +
       '<div class="exam-bar-marker" style="left:' + pos + '%;background:' + statusColor(s) + '"></div></div>' +
       '<div style="font-size:.72rem;color:var(--gray)">' + refLabel + '</div>' +
@@ -1650,23 +1676,39 @@ function renderResumoCards(resultados, container) {
     var labels2 = [];
     var dvals = [];
     var sorted2 = hist2.slice().sort(function(a,b){ return (a.data||'') > (b.data||'') ? 1 : -1; });
-    for (var si = 0; si < sorted2.length; si++) {
-      var rawD = sorted2[si].data || '';
-      // BUG 2: include year so dates across different years are distinguishable — dd/mm/aa
-      var dtLabel = rawD;
-      if (rawD.length === 10) {
-        dtLabel = rawD.substr(8,2) + '/' + rawD.substr(5,2) + '/' + rawD.substr(2,2);
-      }
-      labels2.push(dtLabel);
-      // BUG 3: normalize "211.000" (br milhar) → 211000
-      dvals.push(normalizarValorNumerico(sorted2[si].valor) || 0);
-    }
-    var s2 = getStatus(hist2[0].valor, hist2[0].refMin, hist2[0].refMax, 'numero');
+    // Get ref first to know expected range for contamination filter
     var pacCtx2 = getRefPacAtual();
     var refObj2 = obterRef(hist2[0], allParams[kn2].displayNome, pacCtx2.sexo, pacCtx2.dataNasc);
+    var ref2MaxForFilter = refObj2 ? parseFloat(refObj2.max) : 0;
+    for (var si = 0; si < sorted2.length; si++) {
+      var siVal = normalizarValorNumerico(sorted2[si].valor);
+      // FIX: skip zero entries (TGO=0 falso) and cross-contaminated small values in large-range exams
+      if (isNaN(siVal) || siVal === 0) continue;
+      if (ref2MaxForFilter > 1000 && siVal < 100) continue;
+      var rawD = sorted2[si].data || '';
+      var dtLabel = rawD.length === 10
+        ? rawD.substr(8,2) + '/' + rawD.substr(5,2) + '/' + rawD.substr(2,2)
+        : rawD;
+      labels2.push(dtLabel);
+      dvals.push(siVal);
+    }
+    if (dvals.length < 2) continue;
+    // Use latest non-zero entry for status
+    var latestChartEntry = null;
+    for (var lci = hist2.length - 1; lci >= 0; lci--) {
+      var lcv = normalizarValorNumerico(hist2[lci].valor);
+      if (!isNaN(lcv) && lcv !== 0) { latestChartEntry = hist2[lci]; break; }
+    }
+    if (!latestChartEntry) latestChartEntry = hist2[0];
+    // Recalc with sorted desc to find most recent
+    var hist2desc = hist2.slice().sort(function(a,b){ return (b.data||'') > (a.data||'') ? 1:-1; });
+    for (var lcd = 0; lcd < hist2desc.length; lcd++) {
+      var lcdv = normalizarValorNumerico(hist2desc[lcd].valor);
+      if (!isNaN(lcdv) && lcdv !== 0) { latestChartEntry = hist2desc[lcd]; break; }
+    }
+    var s2 = 'normal';
     if (refObj2) {
-      // getStatus already uses normalizarValorNumerico internally
-      s2 = getStatus(hist2[0].valor, refObj2.min, refObj2.max, 'numero');
+      s2 = getStatus(latestChartEntry.valor, refObj2.min, refObj2.max, 'numero');
     }
     // PROB 2: corLinha by status — hex values
     var corLinha = s2 === 'danger' ? '#cc2222' : (s2 === 'warn' ? '#c87800' : '#1a7a40');
