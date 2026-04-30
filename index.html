@@ -278,11 +278,25 @@ tr:hover td{background:var(--primary-light)}
     </div>
     <!-- ADMIN LOGIN -->
     <div id="form-admin" class="hidden">
+      <div class="mb-2" style="background:var(--primary-light);border-radius:8px;padding:10px;font-size:.82rem;color:var(--text-soft)">
+        🔐 Acesso restrito. Use o e-mail e senha do administrador da NOC Clínica.
+      </div>
       <div class="mb-2">
-        <label>Código de Administrador</label>
-        <input type="password" id="admin-code" placeholder="NOC@admin2025">
+        <label>E-mail do Admin</label>
+        <input type="email" id="admin-email" placeholder="admin@nocclinica.com.br">
+      </div>
+      <div class="mb-2">
+        <label>Senha</label>
+        <input type="password" id="admin-senha" placeholder="••••••••">
+      </div>
+      <div class="mb-2">
+        <label>Código de acesso</label>
+        <input type="password" id="admin-code" placeholder="Código NOC">
       </div>
       <button class="btn btn-primary w-100" onclick="doAdminLogin()">Entrar como Admin</button>
+      <div style="font-size:.75rem;color:var(--gray);text-align:center;margin-top:8px">
+        Primeiro acesso? O sistema criará a conta automaticamente.
+      </div>
     </div>
     <div id="login-error" class="hidden mt-2" style="color:var(--danger);font-size:.85rem;text-align:center"></div>
   </div>
@@ -432,14 +446,39 @@ function doPacienteLogin() {
 }
 function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
-  if (code === 'NOC@admin2025') {
-    currentUser = { uid: 'admin', email: 'admin@novaclin' };
-    currentRole = 'admin';
-    currentPerfil = { nome: 'Administrador', tipo: 'admin' };
-    showApp();
-  } else {
-    showLoginError('Código inválido.');
-  }
+  var email = (document.getElementById('admin-email').value || '').trim();
+  var senha = document.getElementById('admin-senha').value;
+  if (code !== 'NOC@admin2025') { showLoginError('Código de acesso inválido.'); return; }
+  if (!email || !senha) { showLoginError('Preencha e-mail e senha do admin.'); return; }
+  if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
+  showLoginError('');
+  var btnEl = document.querySelector('#form-admin .btn-primary');
+  if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
+  // Try sign in first; if user doesn't exist, create it
+  auth.signInWithEmailAndPassword(email, senha)
+    .then(function(cred) {
+      return _finishAdminLogin(cred.user);
+    })
+    .catch(function(e) {
+      if (e.message && (e.message.indexOf('user-not-found') >= 0 || e.message.indexOf('invalid-credential') >= 0 || e.message.indexOf('no user') >= 0 || e.message.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0)) {
+        // First time — create admin account
+        return auth.createUserWithEmailAndPassword(email, senha)
+          .then(function(cred) {
+            return db.collection('users').doc(cred.user.uid).collection('perfil').doc('dados').set({
+              nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica'
+            }).then(function() { return _finishAdminLogin(cred.user); });
+          });
+      }
+      if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
+      showLoginError(traduzirErroFirebase(e.message));
+    });
+}
+function _finishAdminLogin(user) {
+  currentUser = user;
+  currentRole = 'admin';
+  currentPerfil = { nome: 'Administrador', tipo: 'admin', email: user.email };
+  clearLoginError();
+  showApp();
 }
 function lerEspecialidadesSelecionadas(containerId) {
   var checks = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
@@ -474,12 +513,6 @@ function doRegister() {
     .catch(function(e) { showLoginError(traduzirErroFirebase(e.message)); });
 }
 function doLogout() {
-  if (currentRole === 'admin') {
-    currentUser = null; currentRole = null; currentPerfil = null;
-    document.getElementById('app-shell').classList.add('hidden');
-    document.getElementById('login-screen').classList.remove('hidden');
-    return;
-  }
   auth.signOut();
 }
 function showLoginError(msg) {
@@ -517,6 +550,7 @@ auth.onAuthStateChanged(function(user) {
         showApp();
       });
   } else {
+    // Only redirect to login if not in a controlled admin-create flow
     if (currentRole !== 'admin') {
       currentUser = null; currentRole = null; currentPerfil = null;
       document.getElementById('app-shell').classList.add('hidden');
@@ -1633,15 +1667,15 @@ function renderAdminMedicos() {
     '<div><label>CRM</label><input id="nm-crm" placeholder="MT 8817"></div>' +
     '</div>' +
     '<div class="mt-2"><label>Especialidades <span style="font-weight:400;color:var(--gray);font-size:.85rem">(marque uma ou mais)</span></label>' +
-    '<div id="nm-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Endocrinologia" style="width:16px;height:16px;flex-shrink:0"> <span>Endocrinologia</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Dermatologia Clínica" style="width:16px;height:16px;flex-shrink:0"> <span>Dermatologia Clínica</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Procedimentos Estéticos" style="width:16px;height:16px;flex-shrink:0"> <span>Procedimentos Estéticos</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Cardiologia" style="width:16px;height:16px;flex-shrink:0"> <span>Cardiologia</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Clínica Geral" style="width:16px;height:16px;flex-shrink:0"> <span>Clínica Geral</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Nutrição" style="width:16px;height:16px;flex-shrink:0"> <span>Nutrição</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Ginecologia" style="width:16px;height:16px;flex-shrink:0"> <span>Ginecologia</span></label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Urologia" style="width:16px;height:16px;flex-shrink:0"> <span>Urologia</span></label>' +
+    '<div id="nm-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Endocrinologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Endocrinologia</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Dermatologia Clínica" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Dermatologia Clínica</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Procedimentos Estéticos" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Procedimentos Estéticos</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Cardiologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Cardiologia</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Clínica Geral" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Clínica Geral</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Nutrição" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Nutrição</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Ginecologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Ginecologia</label>' +
+    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" value="Urologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Urologia</label>' +
     '</div></div>' +
     '<div class="form-grid mt-2">' +
     '<div><label>Clínica</label><input id="nm-clinica" value="NOC Clínica"></div>' +
