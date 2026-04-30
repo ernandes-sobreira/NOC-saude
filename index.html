@@ -240,15 +240,17 @@ tr:hover td{background:var(--primary-light)}
           <input type="text" id="reg-crm" placeholder="MT 8817">
         </div>
         <div class="mb-2">
-          <label>Especialidade</label>
-          <select id="reg-especialidade">
-            <option value="Endocrinologia">Endocrinologia</option>
-            <option value="Dermatologia Clínica">Dermatologia Clínica</option>
-            <option value="Procedimentos Estéticos">Procedimentos Estéticos e Anti-Aging</option>
-            <option value="Cardiologia">Cardiologia</option>
-            <option value="Clínica Geral">Clínica Geral</option>
-            <option value="Outra">Outra Especialidade</option>
-          </select>
+          <label>Especialidades (pode marcar mais de uma)</label>
+          <div id="esp-checkboxes" style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;background:#fff">
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Endocrinologia"> Endocrinologia</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Dermatologia Clínica"> Dermatologia Clínica</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Procedimentos Estéticos"> Procedimentos Estéticos e Anti-Aging</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Cardiologia"> Cardiologia</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Clínica Geral"> Clínica Geral</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Nutrição"> Nutrição</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Ginecologia"> Ginecologia</label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Urologia"> Urologia</label>
+          </div>
         </div>
         <div class="mb-2">
           <label>Clínica / Hospital</label>
@@ -426,11 +428,20 @@ function doAdminLogin() {
     showLoginError('Código inválido.');
   }
 }
+function lerEspecialidadesSelecionadas(containerId) {
+  var checks = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
+  var esps = [];
+  for (var i = 0; i < checks.length; i++) {
+    if (checks[i].checked) esps.push(checks[i].value);
+  }
+  return esps;
+}
 function doRegister() {
   var nome = document.getElementById('reg-nome').value.trim();
   var email = document.getElementById('reg-email').value.trim();
   var crm = document.getElementById('reg-crm') ? document.getElementById('reg-crm').value.trim() : '';
-  var esp = document.getElementById('reg-especialidade').value;
+  var esps = lerEspecialidadesSelecionadas('esp-checkboxes');
+  if (!esps.length) esps = ['Clínica Geral'];
   var clinica = document.getElementById('reg-clinica').value.trim();
   var senha = document.getElementById('reg-senha').value;
   if (!nome || !email || !senha) { showLoginError('Preencha todos os campos.'); return; }
@@ -438,13 +449,13 @@ function doRegister() {
   auth.createUserWithEmailAndPassword(email, senha)
     .then(function(cred) {
       var uid = cred.user.uid;
-      var perfil = { nome: nome, tipo: 'medico', email: email, crm: crm, especialidade: esp, clinica: clinica };
+      var perfil = { nome: nome, tipo: 'medico', email: email, crm: crm, especialidade: esps[0], especialidades: esps, clinica: clinica };
       return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
         .then(function() {
           return db.collection('adminIndex').doc(uid).set({ tipo: 'medico', email: email, nome: nome });
         })
         .then(function() {
-          return seedAreasMedico(uid, esp);
+          return seedAreasMedico(uid, esps);
         });
     })
     .catch(function(e) { showLoginError('Erro: ' + e.message); });
@@ -512,7 +523,21 @@ function showApp() {
 function buildSidebar() {
   var info = document.getElementById('sidebar-user-info');
   var nome = currentPerfil ? currentPerfil.nome : '';
-  var role = currentRole === 'admin' ? 'Administrador' : (currentRole === 'medico' ? (currentPerfil.especialidade || 'Médico') : 'Paciente');
+  var role;
+  if (currentRole === 'admin') {
+    role = 'Administrador';
+  } else if (currentRole === 'medico') {
+    var espsArr = currentPerfil.especialidades || [currentPerfil.especialidade || 'Médico'];
+    var espLabels = [];
+    for (var ei = 0; ei < espsArr.length; ei++) {
+      if (espsArr[ei] === 'Procedimentos Estéticos') espLabels.push('Estética');
+      else if (espsArr[ei] === 'Dermatologia Clínica') espLabels.push('Dermatologia');
+      else espLabels.push(espsArr[ei]);
+    }
+    role = espLabels.join(' · ');
+  } else {
+    role = 'Paciente';
+  }
   info.textContent = nome + ' · ' + role;
   var nav = document.getElementById('sidebar-nav');
   nav.innerHTML = '';
@@ -671,107 +696,310 @@ var AREAS_ENDO = [
   ]}
 ];
 var AREAS_DERM = [
-  {nome:'Perfil Acne e Andrógenos',ico:'✨',cor:'#FDF4FF',params:[
-    {nome:'Testosterona Total',unidade:'ng/dL',refMin:15,refMax:80,tipoCampo:'numero'},
-    {nome:'Testosterona Livre',unidade:'pg/mL',refMin:0.5,refMax:8.5,tipoCampo:'numero'},
-    {nome:'DHEA-S',unidade:'µg/dL',refMin:35,refMax:430,tipoCampo:'numero'},
-    {nome:'17-OH Progesterona',unidade:'ng/mL',refMin:0.1,refMax:2.1,tipoCampo:'numero'},
-    {nome:'Androstenediona',unidade:'ng/mL',refMin:0.3,refMax:3.3,tipoCampo:'numero'},
-    {nome:'IGF-1',unidade:'ng/mL',refMin:100,refMax:300,tipoCampo:'numero'},
-    {nome:'SHBG',unidade:'nmol/L',refMin:18,refMax:114,tipoCampo:'numero'}
-  ]},
-  {nome:'Autoimune e Pele',ico:'🛡️',cor:'#EFF6FF',params:[
-    {nome:'FAN',unidade:'titulo',refMin:0,refMax:160,tipoCampo:'numero'},
-    {nome:'Anti-DNA Nativo',unidade:'UI/mL',refMin:0,refMax:10,tipoCampo:'numero'},
-    {nome:'Complemento C3',unidade:'mg/dL',refMin:90,refMax:180,tipoCampo:'numero'},
-    {nome:'Complemento C4',unidade:'mg/dL',refMin:16,refMax:47,tipoCampo:'numero'},
-    {nome:'CH50',unidade:'U/mL',refMin:60,refMax:144,tipoCampo:'numero'},
-    {nome:'Anti-Ro (SS-A)',unidade:'AU/mL',refMin:0,refMax:7,tipoCampo:'numero'},
-    {nome:'Anti-La (SS-B)',unidade:'AU/mL',refMin:0,refMax:7,tipoCampo:'numero'},
-    {nome:'Anti-Sm',unidade:'AU/mL',refMin:0,refMax:7,tipoCampo:'numero'}
-  ]},
-  {nome:'Alergias e Atopia',ico:'🌿',cor:'#F0FDF4',params:[
-    {nome:'IgE Total',unidade:'kU/L',refMin:0,refMax:100,tipoCampo:'numero'},
-    {nome:'Eosinófilos',unidade:'%',refMin:0,refMax:5,tipoCampo:'numero'},
-    {nome:'Triptase',unidade:'µg/L',refMin:0,refMax:11.4,tipoCampo:'numero'}
-  ]},
-  {nome:'Queda Capilar (Alopecia)',ico:'💆',cor:'#FEF9C3',params:[
-    {nome:'Ferritina',unidade:'ng/mL',refMin:40,refMax:200,tipoCampo:'numero'},
-    {nome:'Zinco',unidade:'µg/dL',refMin:70,refMax:120,tipoCampo:'numero'},
-    {nome:'TSH',unidade:'mUI/L',refMin:0.4,refMax:4,tipoCampo:'numero'},
-    {nome:'T4 Livre',unidade:'ng/dL',refMin:0.8,refMax:1.8,tipoCampo:'numero'},
-    {nome:'SHBG',unidade:'nmol/L',refMin:18,refMax:114,tipoCampo:'numero'},
-    {nome:'DHT',unidade:'pg/mL',refMin:112,refMax:955,tipoCampo:'numero'},
-    {nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100,tipoCampo:'numero'},
-    {nome:'Hemoglobina',unidade:'g/dL',refMin:12,refMax:16,tipoCampo:'numero'}
-  ]},
-  {nome:'Psoríase e Inflamação',ico:'🔥',cor:'#FFF7ED',params:[
-    {nome:'PCR',unidade:'mg/L',refMin:0,refMax:5,tipoCampo:'numero'},
-    {nome:'VHS',unidade:'mm/h',refMin:0,refMax:20,tipoCampo:'numero'},
-    {nome:'Ácido Úrico',unidade:'mg/dL',refMin:2.4,refMax:7,tipoCampo:'numero'},
-    {nome:'Glicemia',unidade:'mg/dL',refMin:70,refMax:99,tipoCampo:'numero'}
-  ]}
+  {'nome':'Acne — Perfil Androgêico','ico':'✨','cor':'#FDF4FF','params':[
+      {'nome':'Testosterona Total','unidade':'ng/dL','refMin':15,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Testosterona Livre','unidade':'pg/mL','refMin':0.5,'refMax':8.5,'tipoCampo':'numero'},
+      {'nome':'DHEA-S','unidade':'µg/dL','refMin':35,'refMax':430,'tipoCampo':'numero'},
+      {'nome':'17-OH Progesterona','unidade':'ng/mL','refMin':0.1,'refMax':2.1,'tipoCampo':'numero'},
+      {'nome':'Androstenediona','unidade':'ng/mL','refMin':0.3,'refMax':3.3,'tipoCampo':'numero'},
+      {'nome':'IGF-1','unidade':'ng/mL','refMin':100,'refMax':300,'tipoCampo':'numero'},
+      {'nome':'SHBG','unidade':'nmol/L','refMin':18,'refMax':114,'tipoCampo':'numero'},
+      {'nome':'LH','unidade':'mUI/mL','refMin':1.9,'refMax':12.5,'tipoCampo':'numero'},
+      {'nome':'FSH','unidade':'mUI/mL','refMin':2.5,'refMax':10.2,'tipoCampo':'numero'},
+      {'nome':'Prolactina','unidade':'ng/mL','refMin':3,'refMax':30,'tipoCampo':'numero'},
+      {'nome':'Cortisol','unidade':'µg/dL','refMin':5,'refMax':25,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Melasma e Hiperpigmentação','ico':'🌙','cor':'#FFFBEB','params':[
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+      {'nome':'Estradiol','unidade':'pg/mL','refMin':30,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'Progesterona','unidade':'ng/mL','refMin':1.7,'refMax':27,'tipoCampo':'numero'},
+      {'nome':'Cortisol','unidade':'µg/dL','refMin':5,'refMax':25,'tipoCampo':'numero'},
+      {'nome':'ACTH','unidade':'pg/mL','refMin':7,'refMax':63,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':200,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Ácido Fólico','unidade':'ng/mL','refMin':4,'refMax':20,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Alopecia e Queda Capilar','ico':'💇','cor':'#FFF7ED','params':[
+      {'nome':'Ferritina','unidade':'ng/mL','refMin':50,'refMax':200,'tipoCampo':'numero'},
+      {'nome':'Ferro Sérico','unidade':'µg/dL','refMin':50,'refMax':170,'tipoCampo':'numero'},
+      {'nome':'Hemoglobina','unidade':'g/dL','refMin':12,'refMax':16,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+      {'nome':'Testosterona Total','unidade':'ng/dL','refMin':15,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'DHEA-S','unidade':'µg/dL','refMin':35,'refMax':430,'tipoCampo':'numero'},
+      {'nome':'DHT','unidade':'pg/mL','refMin':5,'refMax':46,'tipoCampo':'numero'},
+      {'nome':'SHBG','unidade':'nmol/L','refMin':18,'refMax':114,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':200,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Prolactina','unidade':'ng/mL','refMin':3,'refMax':30,'tipoCampo':'numero'},
+      {'nome':'Estradiol','unidade':'pg/mL','refMin':30,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'Hemograma (completo)','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Doenças Autoimunes da Pele','ico':'🛡️','cor':'#EFF6FF','params':[
+      {'nome':'FAN (ANA)','unidade':'título','refMin':0,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Anti-DNA Nativo','unidade':'UI/mL','refMin':0,'refMax':10,'tipoCampo':'numero'},
+      {'nome':'Anti-Ro (SS-A)','unidade':'AU/mL','refMin':0,'refMax':7,'tipoCampo':'numero'},
+      {'nome':'Anti-La (SS-B)','unidade':'AU/mL','refMin':0,'refMax':7,'tipoCampo':'numero'},
+      {'nome':'Anti-Sm','unidade':'AU/mL','refMin':0,'refMax':7,'tipoCampo':'numero'},
+      {'nome':'Complemento C3','unidade':'mg/dL','refMin':90,'refMax':180,'tipoCampo':'numero'},
+      {'nome':'Complemento C4','unidade':'mg/dL','refMin':16,'refMax':47,'tipoCampo':'numero'},
+      {'nome':'CH50','unidade':'U/mL','refMin':60,'refMax':144,'tipoCampo':'numero'},
+      {'nome':'PCR','unidade':'mg/L','refMin':0,'refMax':5,'tipoCampo':'numero'},
+      {'nome':'VHS','unidade':'mm/h','refMin':0,'refMax':20,'tipoCampo':'numero'},
+      {'nome':'Hemograma','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+      {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.1,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Alergias, Atopia e Urtiária','ico':'🌿','cor':'#F0FDF4','params':[
+      {'nome':'IgE Total','unidade':'kU/L','refMin':0,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Eosinófilos','unidade':'/mm³','refMin':50,'refMax':500,'tipoCampo':'numero'},
+      {'nome':'Eosinófilos %','unidade':'%','refMin':1,'refMax':6,'tipoCampo':'numero'},
+      {'nome':'Triptase','unidade':'µg/L','refMin':0,'refMax':11.4,'tipoCampo':'numero'},
+      {'nome':'Hemograma','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Psoríase e Inflamação','ico':'🔬','cor':'#FFF1F2','params':[
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'VHS','unidade':'mm/h','refMin':0,'refMax':20,'tipoCampo':'numero'},
+      {'nome':'Ácido Úrico','unidade':'mg/dL','refMin':2.4,'refMax':6.0,'tipoCampo':'numero'},
+      {'nome':'Colesterol Total','unidade':'mg/dL','refMin':0,'refMax':190,'tipoCampo':'numero'},
+      {'nome':'HDL','unidade':'mg/dL','refMin':50,'refMax':999,'tipoCampo':'numero'},
+      {'nome':'LDL','unidade':'mg/dL','refMin':0,'refMax':130,'tipoCampo':'numero'},
+      {'nome':'Triglicerídeos','unidade':'mg/dL','refMin':0,'refMax':150,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'Hemograma','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'TGO (AST)','unidade':'U/L','refMin':10,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'TGP (ALT)','unidade':'U/L','refMin':7,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.1,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Vitiligo','ico':'🤍','cor':'#F8FAFC','params':[
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+      {'nome':'Anti-TPO','unidade':'UI/mL','refMin':0,'refMax':34,'tipoCampo':'numero'},
+      {'nome':'Anti-Tireoglobulina','unidade':'UI/mL','refMin':0,'refMax':115,'tipoCampo':'numero'},
+      {'nome':'FAN (ANA)','unidade':'título','refMin':0,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':200,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'Hemograma','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Rosácea','ico':'🌸','cor':'#FFF0F3','params':[
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'Helicobacter pylori (IgG)','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'IgE Total','unidade':'kU/L','refMin':0,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Dermatite Atópica','ico':'🧴','cor':'#FFF7ED','params':[
+      {'nome':'IgE Total','unidade':'kU/L','refMin':0,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Eosinófilos','unidade':'/mm³','refMin':50,'refMax':500,'tipoCampo':'numero'},
+      {'nome':'Triptase','unidade':'µg/L','refMin':0,'refMax':11.4,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'Hemograma','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Fotodermatologia e Fotoproteção','ico':'☀️','cor':'#FEFCE8','params':[
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'FAN (ANA)','unidade':'título','refMin':0,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Anti-Ro (SS-A)','unidade':'AU/mL','refMin':0,'refMax':7,'tipoCampo':'numero'},
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'Beta-Caroteno','unidade':'µg/dL','refMin':10,'refMax':85,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Triagem Geral Dermatológica','ico':'📋','cor':'#F1F5F9','params':[
+      {'nome':'Hemograma completo','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':200,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Ferritina','unidade':'ng/mL','refMin':50,'refMax':200,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'TGO (AST)','unidade':'U/L','refMin':10,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'TGP (ALT)','unidade':'U/L','refMin':7,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.1,'tipoCampo':'numero'},
+      {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'}
+    ]}
 ];
 var AREAS_ESTETICA = [
-  {nome:'Avaliação Pré-Procedimento',ico:'📋',cor:'#EFF6FF',params:[
-    {nome:'Hemoglobina',unidade:'g/dL',refMin:12,refMax:17,tipoCampo:'numero'},
-    {nome:'Plaquetas',unidade:'K/µL',refMin:150,refMax:400,tipoCampo:'numero'},
-    {nome:'TP (INR)',unidade:'INR',refMin:0.8,refMax:1.2,tipoCampo:'numero'},
-    {nome:'TTPA',unidade:'s',refMin:25,refMax:35,tipoCampo:'numero'},
-    {nome:'Glicemia',unidade:'mg/dL',refMin:70,refMax:99,tipoCampo:'numero'},
-    {nome:'Ureia',unidade:'mg/dL',refMin:10,refMax:50,tipoCampo:'numero'},
-    {nome:'Creatinina',unidade:'mg/dL',refMin:0.6,refMax:1.2,tipoCampo:'numero'}
-  ]},
-  {nome:'Avaliação Anti-Aging',ico:'⏳',cor:'#F5F3FF',params:[
-    {nome:'IGF-1',unidade:'ng/mL',refMin:100,refMax:300,tipoCampo:'numero'},
-    {nome:'Testosterona Total',unidade:'ng/dL',refMin:15,refMax:80,tipoCampo:'numero'},
-    {nome:'DHEA-S',unidade:'µg/dL',refMin:35,refMax:430,tipoCampo:'numero'},
-    {nome:'Cortisol',unidade:'µg/dL',refMin:6,refMax:23,tipoCampo:'numero'},
-    {nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100,tipoCampo:'numero'},
-    {nome:'Homocisteína',unidade:'µmol/L',refMin:0,refMax:15,tipoCampo:'numero'},
-    {nome:'PCR Ultrassensível',unidade:'mg/L',refMin:0,refMax:3,tipoCampo:'numero'}
-  ]},
-  {nome:'Toxina Botulínica (Botox)',ico:'💉',cor:'#F0FDF4',tipo:'procedimento',params:[
-    {nome:'Produto utilizado',unidade:'',refMin:0,refMax:0,tipoCampo:'texto'},
-    {nome:'Lote',unidade:'',refMin:0,refMax:0,tipoCampo:'texto'},
-    {nome:'Dose total (U)',unidade:'U',refMin:0,refMax:999,tipoCampo:'numero'},
-    {nome:'Pontos de aplicação',unidade:'',refMin:0,refMax:0,tipoCampo:'textarea'},
-    {nome:'Próxima sessão recomendada',unidade:'',refMin:0,refMax:0,tipoCampo:'data'}
-  ]},
-  {nome:'Preenchimento e Bioestimuladores',ico:'✨',cor:'#FDF4FF',tipo:'procedimento',params:[
-    {nome:'Produto',unidade:'',refMin:0,refMax:0,tipoCampo:'texto'},
-    {nome:'Volume (mL)',unidade:'mL',refMin:0,refMax:50,tipoCampo:'numero'},
-    {nome:'Região tratada',unidade:'',refMin:0,refMax:0,tipoCampo:'texto'},
-    {nome:'Técnica',unidade:'',refMin:0,refMax:0,tipoCampo:'textarea'},
-    {nome:'Intercorrências',unidade:'',refMin:0,refMax:0,tipoCampo:'textarea'},
-    {nome:'Retorno',unidade:'',refMin:0,refMax:0,tipoCampo:'data'}
-  ]},
-  {nome:'Bioestimulação e Colágeno',ico:'🌟',cor:'#FFF7ED',params:[
-    {nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100,tipoCampo:'numero'},
-    {nome:'IGF-1',unidade:'ng/mL',refMin:100,refMax:300,tipoCampo:'numero'},
-    {nome:'Zinco',unidade:'µg/dL',refMin:70,refMax:120,tipoCampo:'numero'},
-    {nome:'Cobre',unidade:'µg/dL',refMin:70,refMax:140,tipoCampo:'numero'}
-  ]},
-  {nome:'Peeling e Pigmentação',ico:'🌸',cor:'#FFF1F2',params:[
-    {nome:'Vitamina D',unidade:'ng/mL',refMin:30,refMax:100,tipoCampo:'numero'},
-    {nome:'TSH',unidade:'mUI/L',refMin:0.4,refMax:4,tipoCampo:'numero'},
-    {nome:'T4 Livre',unidade:'ng/dL',refMin:0.8,refMax:1.8,tipoCampo:'numero'},
-    {nome:'DHEA-S',unidade:'µg/dL',refMin:35,refMax:430,tipoCampo:'numero'},
-    {nome:'Cortisol',unidade:'µg/dL',refMin:6,refMax:23,tipoCampo:'numero'},
-    {nome:'Glicemia',unidade:'mg/dL',refMin:70,refMax:99,tipoCampo:'numero'}
-  ]}
+  {'nome':'Avaliação Pré-Procedimento','ico':'📋','cor':'#EFF6FF','params':[
+      {'nome':'Hemoglobina','unidade':'g/dL','refMin':12,'refMax':17,'tipoCampo':'numero'},
+      {'nome':'Hematócrito','unidade':'%','refMin':36,'refMax':54,'tipoCampo':'numero'},
+      {'nome':'Plaquetas','unidade':'K/µL','refMin':150,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'TP (INR)','unidade':'INR','refMin':0.8,'refMax':1.2,'tipoCampo':'numero'},
+      {'nome':'TTPA','unidade':'s','refMin':25,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'Fibrinogênio','unidade':'mg/dL','refMin':200,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+      {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.1,'tipoCampo':'numero'},
+      {'nome':'TGO (AST)','unidade':'U/L','refMin':10,'refMax':35,'tipoCampo':'numero'},
+      {'nome':'TGP (ALT)','unidade':'U/L','refMin':7,'refMax':35,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Anti-Aging e Longevidade','ico':'⌛','cor':'#F5F3FF','params':[
+      {'nome':'IGF-1','unidade':'ng/mL','refMin':100,'refMax':300,'tipoCampo':'numero'},
+      {'nome':'Testosterona Total','unidade':'ng/dL','refMin':15,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Testosterona Livre','unidade':'pg/mL','refMin':0.5,'refMax':8.5,'tipoCampo':'numero'},
+      {'nome':'DHEA-S','unidade':'µg/dL','refMin':35,'refMax':430,'tipoCampo':'numero'},
+      {'nome':'Estradiol','unidade':'pg/mL','refMin':30,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'Cortisol','unidade':'µg/dL','refMin':5,'refMax':25,'tipoCampo':'numero'},
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':40,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':400,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Homocisteína','unidade':'µmol/L','refMin':0,'refMax':10,'tipoCampo':'numero'},
+      {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'HbA1c','unidade':'%','refMin':4,'refMax':5.7,'tipoCampo':'numero'},
+      {'nome':'Insulina','unidade':'µUI/mL','refMin':2,'refMax':10,'tipoCampo':'numero'},
+      {'nome':'Colesterol Total','unidade':'mg/dL','refMin':0,'refMax':190,'tipoCampo':'numero'},
+      {'nome':'HDL','unidade':'mg/dL','refMin':50,'refMax':999,'tipoCampo':'numero'},
+      {'nome':'LDL','unidade':'mg/dL','refMin':0,'refMax':130,'tipoCampo':'numero'},
+      {'nome':'Triglicerídeos','unidade':'mg/dL','refMin':0,'refMax':150,'tipoCampo':'numero'},
+      {'nome':'Ferritina','unidade':'ng/mL','refMin':50,'refMax':200,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'Magnésio','unidade':'mg/dL','refMin':1.7,'refMax':2.4,'tipoCampo':'numero'},
+      {'nome':'Selênio','unidade':'µg/L','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'Vitamina C sérica','unidade':'mg/dL','refMin':0.4,'refMax':2.0,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Bioestimulação e Colágeno','ico':'💎','cor':'#FDF4FF','params':[
+      {'nome':'Vitamina C sérica','unidade':'mg/dL','refMin':0.4,'refMax':2.0,'tipoCampo':'numero'},
+      {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'Cobre','unidade':'µg/dL','refMin':80,'refMax':155,'tipoCampo':'numero'},
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':40,'refMax':80,'tipoCampo':'numero'},
+      {'nome':'IGF-1','unidade':'ng/mL','refMin':100,'refMax':300,'tipoCampo':'numero'},
+      {'nome':'Proteínas Totais','unidade':'g/dL','refMin':6,'refMax':8,'tipoCampo':'numero'},
+      {'nome':'Albumina','unidade':'g/dL','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'},
+      {'nome':'Selênio','unidade':'µg/L','refMin':60,'refMax':120,'tipoCampo':'numero'},
+      {'nome':'Silício orgânico','unidade':'µg/L','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Peeling e Pigmentação','ico':'🌟','cor':'#FFFBEB','params':[
+      {'nome':'Vitamina D','unidade':'ng/mL','refMin':30,'refMax':100,'tipoCampo':'numero'},
+      {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+      {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+      {'nome':'Estradiol','unidade':'pg/mL','refMin':30,'refMax':400,'tipoCampo':'numero'},
+      {'nome':'Progesterona','unidade':'ng/mL','refMin':1.7,'refMax':27,'tipoCampo':'numero'},
+      {'nome':'DHEA-S','unidade':'µg/dL','refMin':35,'refMax':430,'tipoCampo':'numero'},
+      {'nome':'Cortisol','unidade':'µg/dL','refMin':5,'refMax':25,'tipoCampo':'numero'},
+      {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+      {'nome':'Vitamina B12','unidade':'pg/mL','refMin':200,'refMax':950,'tipoCampo':'numero'},
+      {'nome':'Ácido Fólico','unidade':'ng/mL','refMin':4,'refMax':20,'tipoCampo':'numero'}
+    ]},
+  {'nome':'Toxina Botulínica (Botox)','ico':'💉','cor':'#F0FDF4','tipo':'procedimento','params':[
+      {'nome':'Produto utilizado','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Fabricante','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Lote','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Dose total (U)','unidade':'U','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Pontos de aplicação','unidade':'','refMin':0,'refMax':0,'tipoCampo':'textarea'},
+      {'nome':'Diluição utilizada (U/mL)','unidade':'U/mL','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Resultado avaliado (semanas)','unidade':'sem','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Próxima sessão recomendada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'},
+      {'nome':'Observações','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Preenchimento — Ácido Hialurônico','ico':'💧','cor':'#EFF6FF','tipo':'procedimento','params':[
+      {'nome':'Produto','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Fabricante','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Lote','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Volume aplicado (mL)','unidade':'mL','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Técnica utilizada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Cânula ou agulha','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências imediatas','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno agendado','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'},
+      {'nome':'Observações','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Bioestimuladores de Colágeno','ico':'✨','cor':'#FDF4FF','tipo':'procedimento','params':[
+      {'nome':'Produto','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Tipo (PLLA / CaHA / PCL)','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Lote','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Volume/dose aplicado','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Número de sessões realizadas','unidade':'','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Técnica','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Resultado em 30 dias','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Próxima sessão','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
+    ]},
+  {'nome':'Fios Tensores (PDO/PLLA/PCL)','ico':'🧵','cor':'#F5F3FF','tipo':'procedimento','params':[
+      {'nome':'Tipo de fio','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Fabricante','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Quantidade de fios','unidade':'','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Técnica','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'},
+      {'nome':'Observações','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'}
+    ]},
+  {'nome':'Laser, Luz e Energia','ico':'⚡','cor':'#FFF7ED','tipo':'procedimento','params':[
+      {'nome':'Equipamento','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Tipo (Fracionado / Ablativo / IPL / RF)','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Comprimento de onda (nm)','unidade':'nm','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Fluência (J/cm²)','unidade':'J/cm²','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Número de passes','unidade':'','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Indicação principal','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Cuidados pós-procedimento','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
+    ]},
+  {'nome':'Peeling Químico','ico':'🧪','cor':'#F0FDF4','tipo':'procedimento','params':[
+      {'nome':'Tipo de peeling','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Substância ativa','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Concentração (%)','unidade':'%','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Profundidade (superficial/médio/profundo)','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Tempo de exposição (min)','unidade':'min','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Frosting atingido','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Indicação','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
+    ]},
+  {'nome':'Microagulhamento (Microneedling)','ico':'🔵','cor':'#EFF6FF','tipo':'procedimento','params':[
+      {'nome':'Equipamento','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Profundidade (mm)','unidade':'mm','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Ativo combinado','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Número de passes','unidade':'','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Indicação','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
+    ]},
+  {'nome':'Skinbooster e Mesoterapia','ico':'💦','cor':'#F0F9FF','tipo':'procedimento','params':[
+      {'nome':'Produto','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Composição','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Volume (mL)','unidade':'mL','refMin':0,'refMax':0,'tipoCampo':'numero'},
+      {'nome':'Região tratada','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Técnica','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Intercorrências','unidade':'','refMin':0,'refMax':0,'tipoCampo':'texto'},
+      {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
+    ]}
 ];
-
-function seedAreasMedico(uid, esp) {
+function seedAreasMedico(uid, especialidades) {
+  if (!Array.isArray(especialidades)) especialidades = [especialidades];
   var areas = [];
-  if (esp === 'Endocrinologia') areas = AREAS_ENDO;
-  else if (esp === 'Dermatologia Clínica') areas = AREAS_DERM;
-  else if (esp === 'Procedimentos Estéticos') areas = AREAS_ESTETICA;
-  else areas = AREAS_ENDO.slice(0,5);
+  for (var i = 0; i < especialidades.length; i++) {
+    var esp = especialidades[i];
+    if (esp === 'Endocrinologia') areas = areas.concat(AREAS_ENDO);
+    else if (esp === 'Dermatologia Clínica') areas = areas.concat(AREAS_DERM);
+    else if (esp === 'Procedimentos Estéticos') areas = areas.concat(AREAS_ESTETICA);
+  }
+  if (!areas.length) areas = AREAS_ENDO.slice(0, 5);
+  var visto = {};
+  var unique = [];
+  for (var j = 0; j < areas.length; j++) {
+    if (!visto[areas[j].nome]) { visto[areas[j].nome] = true; unique.push(areas[j]); }
+  }
   var batch = db.batch();
-  for (var i = 0; i < areas.length; i++) {
+  for (var k = 0; k < unique.length; k++) {
     var ref = db.collection('users').doc(uid).collection('areas').doc();
-    batch.set(ref, areas[i]);
+    batch.set(ref, unique[k]);
   }
   return batch.commit();
 }
@@ -1311,24 +1539,25 @@ function adminRemoverMedico(uid) {
 }
 function renderAdminMedicos() {
   navTo_setActive('admin-medicos');
-  setMainContent('<div class="page-header"><h2>👨‍⚕️ Gestão de Médicos — NOC Clínica</h2></div><div class="card mb-2"><div class="section-title">Criar conta de médico</div><div class="form-grid"><div><label>Nome</label><input id="nm-nome" placeholder="Dr. Caio Araújo"></div><div><label>E-mail</label><input type="email" id="nm-email" placeholder="dr@clinica.com"></div><div><label>CRM</label><input id="nm-crm" placeholder="MT 8817"></div><div><label>Especialidade</label><select id="nm-esp"><option>Endocrinologia</option><option>Dermatologia Clínica</option><option>Procedimentos Estéticos</option><option>Cardiologia</option><option>Clínica Geral</option></select></div><div><label>Clínica</label><input id="nm-clinica" value="NOC Clínica"></div><div><label>Senha inicial</label><input type="password" id="nm-senha" placeholder="mínimo 6 chars"></div></div><div class="mt-2"><button class="btn btn-primary" onclick="adminCriarMedico()">Criar Conta</button></div></div><div class="card" id="admin-lista-medicos">Carregando...</div>');
+  setMainContent('<div class="page-header"><h2>👨‍⚕️ Gestão de Médicos — NOC Clínica</h2></div><div class="card mb-2"><div class="section-title">Criar conta de médico</div><div class="form-grid"><div><label>Nome</label><input id="nm-nome" placeholder="Dr. Caio Araújo"></div><div><label>E-mail</label><input type="email" id="nm-email" placeholder="dr@clinica.com"></div><div><label>CRM</label><input id="nm-crm" placeholder="MT 8817"></div><div style="grid-column:1/-1"><label>Especialidades</label><div id="nm-esp-checks" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px"><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Endocrinologia"> Endocrinologia</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Dermatologia Clínica"> Dermatologia Clínica</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Procedimentos Estéticos"> Procedimentos Estéticos</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Cardiologia"> Cardiologia</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Clínica Geral"> Clínica Geral</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Nutrição"> Nutrição</label><label style="font-weight:400;display:flex;align-items:center;gap:6px;min-width:180px"><input type="checkbox" value="Ginecologia"> Ginecologia</label></div></div><div><label>Clínica</label><input id="nm-clinica" value="NOC Clínica"></div><div><label>Senha inicial</label><input type="password" id="nm-senha" placeholder="mínimo 6 chars"></div></div><div class="mt-2"><button class="btn btn-primary" onclick="adminCriarMedico()">Criar Conta</button></div></div><div class="card" id="admin-lista-medicos">Carregando...</div>');
   adminLoadMedicos();
 }
 function adminCriarMedico() {
   var nome = document.getElementById('nm-nome').value.trim();
   var email = document.getElementById('nm-email').value.trim();
   var crm = document.getElementById('nm-crm') ? document.getElementById('nm-crm').value.trim() : '';
-  var esp = document.getElementById('nm-esp').value;
+  var esps = lerEspecialidadesSelecionadas('nm-esp-checks');
+  if (!esps.length) esps = ['Clínica Geral'];
   var clinica = document.getElementById('nm-clinica').value.trim();
   var senha = document.getElementById('nm-senha').value;
   if (!nome||!email||!senha) { toast('Preencha todos os campos','error'); return; }
   auth.createUserWithEmailAndPassword(email, senha)
     .then(function(cred) {
       var uid = cred.user.uid;
-      var perfil = {nome:nome,tipo:'medico',email:email,crm:crm,especialidade:esp,clinica:clinica};
+      var perfil = {nome:nome,tipo:'medico',email:email,crm:crm,especialidade:esps[0],especialidades:esps,clinica:clinica};
       return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
         .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome}); })
-        .then(function() { return seedAreasMedico(uid, esp); });
+        .then(function() { return seedAreasMedico(uid, esps); });
     })
     .then(function() { toast('Médico criado com sucesso','success'); adminLoadMedicos(); })
     .catch(function(e) { toast('Erro: '+e.message,'error'); });
