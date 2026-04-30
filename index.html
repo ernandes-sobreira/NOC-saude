@@ -175,7 +175,7 @@ tr:hover td{background:var(--primary-light)}
 .pdf-table td input{border:1px solid var(--gray-200);border-radius:6px;padding:4px 8px;width:100%;font-size:.82rem}
 .pdf-table th{font-size:.78rem}
 /* CHART MINI */
-.mini-chart-wrap{height:60px;margin-top:6px}
+.mini-chart-wrap{height:50px;width:100%;max-width:260px;margin-top:6px;display:block}
 </style>
 </head>
 <body>
@@ -1233,7 +1233,7 @@ function renderResumoCards(resultados, container) {
       histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + (hist4[hi].data||'') + ': ' + hist4[hi].valor + ' ' + (hist4[hi].unidade||'') + '</span>';
     }
     var chartId = 'chart-' + nm.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
-    var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" height="60" class="mini-chart-wrap"></canvas>' : '';
+    var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" width="260" height="50" class="mini-chart-wrap"></canvas>' : '';
     var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
       '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
       '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
@@ -1270,10 +1270,32 @@ function renderResumoCards(resultados, container) {
       dvals.push(parseFloat(sorted2[si].valor)||0);
     }
     var s2 = getStatus(hist2[0].valor, hist2[0].refMin, hist2[0].refMax, 'numero');
+    var minVal = Math.min.apply(null, dvals);
+    var maxVal = Math.max.apply(null, dvals);
+    var pad = (maxVal - minVal) * 0.2 || 1;
     chartInstances[cid] = new Chart(cel, {
-      type:'line',
-      data:{labels:labels2,datasets:[{data:dvals,borderColor:statusColor(s2),backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:.4}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}
+      type: 'line',
+      data: {
+        labels: labels2,
+        datasets: [{
+          data: dvals,
+          borderColor: statusColor(s2),
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: statusColor(s2),
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false },
+          y: { display: false, min: minVal - pad, max: maxVal + pad }
+        }
+      }
     });
   }
 }
