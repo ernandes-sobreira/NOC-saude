@@ -1616,7 +1616,10 @@ function renderAdminDash() {
               '<td style="font-size:.8rem">' + (p.email||'') + '</td>' +
               '<td style="font-size:.8rem;color:var(--primary)">' + (espsArr.join(', ')||'—') + '</td>' +
               '<td style="text-align:center">' + (pCounts[pi]||0) + '</td>' +
-              '<td><button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️</button></td>' +
+              '<td class="flex gap-1">' +
+              '<button class="btn btn-outline btn-sm" onclick="adminEditarMedico(\'' + p.uid + '\')">✏️</button>' +
+              '<button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️</button>' +
+              '</td>' +
               '</tr>';
           }
           var listEl = document.getElementById('admin-medicos-list');
@@ -1639,10 +1642,61 @@ function navTo_setActive(id) {
   if (el) el.classList.add('active');
 }
 function adminRemoverMedico(uid) {
-  if (!confirm('Remover este médico?')) return;
+  if (!confirm('Remover este médico? Isso não apaga os dados de pacientes já cadastrados.')) return;
   db.collection('adminIndex').doc(uid).delete()
-    .then(function() { toast('Médico removido','success'); renderAdminDash(); })
+    .then(function() { toast('Médico removido do índice','success'); renderAdminDash(); })
     .catch(function() { toast('Erro ao remover','error'); });
+}
+function adminEditarMedico(uid) {
+  db.collection('users').doc(uid).collection('perfil').doc('dados').get().then(function(doc) {
+    if (!doc.exists) { toast('Perfil não encontrado','error'); return; }
+    var p = doc.data();
+    var esps = p.especialidades || (p.especialidade ? [p.especialidade] : []);
+    var espOptions = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
+    var checksHtml = '';
+    for (var i = 0; i < espOptions.length; i++) {
+      var checked = esps.indexOf(espOptions[i]) >= 0 ? 'checked' : '';
+      checksHtml += '<label style="font-weight:400;display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.85rem;cursor:pointer">' +
+        '<input type="checkbox" value="' + espOptions[i] + '" ' + checked + ' style="width:16px;height:16px;flex-shrink:0"> ' + espOptions[i] + '</label>';
+    }
+    openModal(
+      '<div class="modal"><div class="modal-header"><h3>✏️ Editar Médico</h3>' +
+      '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+      '<div class="modal-body">' +
+      '<div class="form-grid">' +
+      '<div><label>Nome</label><input id="em-nome" value="' + (p.nome||'') + '"></div>' +
+      '<div><label>CRM</label><input id="em-crm" value="' + (p.crm||'') + '"></div>' +
+      '<div><label>Clínica</label><input id="em-clinica" value="' + (p.clinica||'NOC Clínica') + '"></div>' +
+      '</div>' +
+      '<div class="mt-2"><label>Especialidades</label>' +
+      '<div id="em-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:4px">' +
+      checksHtml + '</div></div>' +
+      '</div>' +
+      '<div class="modal-footer">' +
+      '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn btn-primary" onclick="adminSalvarEdicaoMedico(\'' + uid + '\')">Salvar</button>' +
+      '</div></div>'
+    );
+  }).catch(function() { toast('Erro ao carregar perfil','error'); });
+}
+function adminSalvarEdicaoMedico(uid) {
+  var nome = (document.getElementById('em-nome').value||'').trim();
+  var crm = (document.getElementById('em-crm').value||'').trim();
+  var clinica = (document.getElementById('em-clinica').value||'').trim();
+  var checks = document.querySelectorAll('#em-esp-checks input:checked');
+  var esps = [];
+  for (var i = 0; i < checks.length; i++) esps.push(checks[i].value);
+  if (!nome) { toast('Nome obrigatório','error'); return; }
+  if (!esps.length) esps = ['Clínica Geral'];
+  db.collection('users').doc(uid).collection('perfil').doc('dados').update({
+    nome: nome, crm: crm, clinica: clinica,
+    especialidade: esps[0], especialidades: esps
+  }).then(function() {
+    db.collection('adminIndex').doc(uid).update({ nome: nome }).catch(function(){});
+    toast('Médico atualizado! ✅','success');
+    closeModal();
+    renderAdminDash();
+  }).catch(function() { toast('Erro ao salvar','error'); });
 }
 function renderAdminMedicos() {
   navTo_setActive('admin-medicos');
@@ -1702,14 +1756,17 @@ function adminLoadMedicos() {
         var p = perfis[ri];
         var espsArr = p.especialidades || (p.especialidade ? [p.especialidade] : []);
         rows += '<tr>' +
-          '<td><div style="font-weight:600">' + (p.nome||'\u2014') + '</div>' +
-          '<div style="font-size:.75rem;color:var(--gray)">' + (p.email||'') + (p.crm ? ' \u00b7 CRM ' + p.crm : '') + '</div></td>' +
-          '<td style="font-size:.8rem;color:var(--primary)">' + (espsArr.join(', ')||'\u2014') + '</td>' +
-          '<td><button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️ Remover</button></td>' +
+          '<td><div style="font-weight:600">' + (p.nome||'—') + '</div>' +
+          '<div style="font-size:.75rem;color:var(--gray)">' + (p.email||'') + (p.crm ? ' · CRM ' + p.crm : '') + '</div></td>' +
+          '<td style="font-size:.8rem;color:var(--primary)">' + (espsArr.join(', ')||'—') + '</td>' +
+          '<td class="flex gap-1">' +
+          '<button class="btn btn-outline btn-sm" onclick="adminEditarMedico(\'' + p.uid + '\')">✏️</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️</button>' +
+          '</td>' +
           '</tr>';
       }
       if (listEl) listEl.innerHTML = rows
-        ? '<div class="section-title">M\u00e9dicos cadastrados (' + perfis.length + ')</div><div class="table-wrap"><table><thead><tr><th>M\u00e9dico</th><th>Especialidades</th><th>A\u00e7\u00e3o</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        ? '<div class="section-title">Médicos cadastrados (' + perfis.length + ')</div><div class="table-wrap"><table><thead><tr><th>Médico</th><th>Especialidades</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
         : '<p style="color:var(--gray)">Nenhum perfil encontrado.</p>';
     });
   }).catch(function(e) {
@@ -1719,15 +1776,17 @@ function adminLoadMedicos() {
 function renderAdminPacientes() {
   navTo_setActive('admin-pacientes');
   setMainContent(
-    '<div class="page-header"><h2>\ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 Todos os Pacientes</h2></div>' +
+    '<div class="page-header"><h2>🧑‍🤝‍🧑 Todos os Pacientes</h2></div>' +
+    '<div id="admin-pacs-search" class="card mb-2"><div class="search-bar"><input id="admin-pac-busca" placeholder="Buscar paciente por nome..." oninput="adminFiltrarPacientes()" style="width:100%"></div></div>' +
     '<div class="card"><div id="admin-pacs-list"><p style="color:var(--gray)">Carregando...</p></div></div>'
   );
+  window._adminPacsRows = [];
   db.collection('adminIndex').where('tipo','==','medico').get().then(function(snap) {
     var uids = [];
     snap.forEach(function(d) { uids.push(d.id); });
     if (!uids.length) {
       var el = document.getElementById('admin-pacs-list');
-      if (el) el.innerHTML = '<p style="color:var(--gray)">Nenhum m\u00e9dico cadastrado.</p>';
+      if (el) el.innerHTML = '<p style="color:var(--gray)">Nenhum médico cadastrado.</p>';
       return;
     }
     var promises = [];
@@ -1736,44 +1795,109 @@ function renderAdminPacientes() {
         promises.push(
           Promise.all([
             db.collection('users').doc(uid).collection('perfil').doc('dados').get()
-              .then(function(pd) { return pd.exists ? (pd.data().nome||'\u2014') : '\u2014'; })
-              .catch(function() { return '\u2014'; }),
+              .then(function(pd) { return pd.exists ? (pd.data().nome||'—') : '—'; })
+              .catch(function() { return '—'; }),
             db.collection('users').doc(uid).collection('pacientes').get()
               .catch(function() { return {docs:[]}; })
           ]).then(function(results) {
             var medNome = results[0];
             var ps = results[1];
-            var rows = '';
+            var items = [];
             ps.forEach(function(p) {
               var d = p.data();
-              var badge = d.temAlteracao
-                ? '<span class="badge badge-danger">\u26a0\ufe0f</span>'
-                : '<span class="badge badge-success">\u2705</span>';
-              rows += '<tr>' +
-                '<td><div style="font-weight:600">' + (d.nome||'\u2014') + '</div>' +
-                '<div style="font-size:.75rem;color:var(--gray)">' + (d.cidade||'') + '</div></td>' +
-                '<td style="font-size:.8rem;color:var(--gray)">' + medNome + '</td>' +
-                '<td style="font-size:.8rem">' + (d.especialidade||'') + '</td>' +
-                '<td>' + badge + '</td>' +
-                '</tr>';
+              items.push({medUid: uid, pacId: p.id, medNome: medNome, data: d});
             });
-            return rows;
+            return items;
           })
         );
       })(uids[i]);
     }
     Promise.all(promises).then(function(results) {
-      var allRows = '';
-      for (var ri = 0; ri < results.length; ri++) allRows += results[ri];
-      var el = document.getElementById('admin-pacs-list');
-      if (el) el.innerHTML = allRows
-        ? '<div class="table-wrap"><table><thead><tr><th>Paciente</th><th>M\u00e9dico</th><th>Especialidade</th><th>Status</th></tr></thead><tbody>' + allRows + '</tbody></table></div>'
-        : '<p style="color:var(--gray)">Nenhum paciente cadastrado ainda.</p>';
+      var allItems = [];
+      for (var ri = 0; ri < results.length; ri++) {
+        for (var ii = 0; ii < results[ri].length; ii++) allItems.push(results[ri][ii]);
+      }
+      window._adminPacsRows = allItems;
+      adminRenderPacsTable(allItems);
     });
   }).catch(function(e) {
     var el = document.getElementById('admin-pacs-list');
     if (el) el.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e && e.message ? e.message : '') + '</p>';
   });
+}
+function adminRenderPacsTable(items) {
+  var el = document.getElementById('admin-pacs-list');
+  if (!el) return;
+  if (!items.length) { el.innerHTML = '<p style="color:var(--gray)">Nenhum paciente encontrado.</p>'; return; }
+  var rows = '';
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var d = item.data;
+    var badge = d.temAlteracao ? '<span class="badge badge-danger">⚠️</span>' : '<span class="badge badge-success">✅</span>';
+    rows += '<tr>' +
+      '<td><div style="font-weight:600">' + (d.nome||'—') + '</div>' +
+      '<div style="font-size:.75rem;color:var(--gray)">' + (d.cidade||'') + (d.dataNasc ? ' · ' + d.dataNasc : '') + '</div></td>' +
+      '<td style="font-size:.8rem;color:var(--gray)">' + item.medNome + '</td>' +
+      '<td style="font-size:.8rem">' + (d.especialidade||'') + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td class="flex gap-1">' +
+      '<button class="btn btn-outline btn-sm" onclick="adminVerProntuario(\'' + item.medUid + '\',\'' + item.pacId + '\')">📋</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="adminRemoverPaciente(\'' + item.medUid + '\',\'' + item.pacId + '\',\'' + (d.nome||'').replace(/'/g,'') + '\')">🗑️</button>' +
+      '</td>' +
+      '</tr>';
+  }
+  el.innerHTML = '<p style="font-size:.82rem;color:var(--gray);margin-bottom:8px">' + items.length + ' paciente(s)</p>' +
+    '<div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Médico</th><th>Especialidade</th><th>Status</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+function adminFiltrarPacientes() {
+  var q = (document.getElementById('admin-pac-busca').value||'').toLowerCase();
+  if (!window._adminPacsRows) return;
+  if (!q) { adminRenderPacsTable(window._adminPacsRows); return; }
+  var filtered = [];
+  for (var i = 0; i < window._adminPacsRows.length; i++) {
+    var item = window._adminPacsRows[i];
+    if ((item.data.nome||'').toLowerCase().indexOf(q) >= 0 || item.medNome.toLowerCase().indexOf(q) >= 0) {
+      filtered.push(item);
+    }
+  }
+  adminRenderPacsTable(filtered);
+}
+function adminVerProntuario(medUid, pacId) {
+  // Store context and navigate to prontuário as admin-view
+  window._adminViewMedUid = medUid;
+  window._adminViewPacId = pacId;
+  db.collection('users').doc(medUid).collection('pacientes').doc(pacId).get().then(function(doc) {
+    if (!doc.exists) { toast('Paciente não encontrado','error'); return; }
+    // Temporarily set context to view prontuário
+    var savedUser = currentUser;
+    var savedRole = currentRole;
+    var savedPerfil = currentPerfil;
+    currentUser = Object.assign({}, currentUser, {uid: medUid});
+    prontuarioPacId = pacId;
+    prontuarioPac = Object.assign({}, doc.data(), {id: pacId});
+    listaPacientes = [prontuarioPac];
+    renderProntuario();
+    // Add back button to return to admin view
+    var backArea = document.querySelector('.page-header');
+    if (backArea) {
+      var adminBackBtn = document.createElement('button');
+      adminBackBtn.className = 'btn btn-gray btn-sm';
+      adminBackBtn.textContent = '← Admin';
+      adminBackBtn.onclick = function() {
+        currentUser = savedUser;
+        currentRole = savedRole;
+        currentPerfil = savedPerfil;
+        renderAdminPacientes();
+      };
+      backArea.insertBefore(adminBackBtn, backArea.firstChild);
+    }
+  });
+}
+function adminRemoverPaciente(medUid, pacId, nome) {
+  if (!confirm('Remover paciente "' + nome + '"? Esta ação não pode ser desfeita.')) return;
+  db.collection('users').doc(medUid).collection('pacientes').doc(pacId).delete()
+    .then(function() { toast('Paciente removido','success'); renderAdminPacientes(); })
+    .catch(function() { toast('Erro ao remover','error'); });
 }
 
 function renderMedicoDash() {
