@@ -451,40 +451,59 @@ function doAdminLogin() {
   if (code !== 'NOC@admin2025') { showLoginError('Código de acesso inválido.'); return; }
   if (!email || !senha) { showLoginError('Preencha e-mail e senha do admin.'); return; }
   if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
-  showLoginError('');
-  var btnEl = document.querySelector('#form-admin .btn-primary');
-  if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
-  // Try sign in first; if user doesn't exist, create it
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(function(cred) {
-      return _finishAdminLogin(cred.user);
-    })
-    .catch(function(e) {
-      if (e.message && (e.message.indexOf('user-not-found') >= 0 || e.message.indexOf('invalid-credential') >= 0 || e.message.indexOf('no user') >= 0 || e.message.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0)) {
-        // First time — create admin account
-        return auth.createUserWithEmailAndPassword(email, senha)
-          .then(function(cred) {
-            return db.collection('users').doc(cred.user.uid).collection('perfil').doc('dados').set({
-              nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica'
-            }).then(function() { return _finishAdminLogin(cred.user); });
-          });
-      }
-      if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
-      showLoginError(traduzirErroFirebase(e.message));
-    });
-}
-function _finishAdminLogin(user) {
-  currentUser = user;
-  currentRole = 'admin';
-  currentPerfil = { nome: 'Administrador', tipo: 'admin', email: user.email };
-  // Ensure admin profile exists in Firestore
-  db.collection('users').doc(user.uid).collection('perfil').doc('dados').set({
-    nome: 'Administrador', tipo: 'admin', email: user.email, clinica: 'NOC Clínica'
-  }, { merge: true }).catch(function(){});
   clearLoginError();
   var btnEl = document.querySelector('#form-admin .btn-primary');
-  if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
-  showApp();
+  if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
+  adminLoginInProgress = true;
+  function resetBtn() {
+    if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
+  }
+  function doFinish(user) {
+    // Write/update admin profile then show app
+    db.collection('users').doc(user.uid).collection('perfil').doc('dados').set(
+      { nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica' },
+      { merge: true }
+    ).then(function() {
+      adminLoginInProgress = false;
+      currentUser = user;
+      currentRole = 'admin';
+      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: email };
+      resetBtn();
+      clearLoginError();
+      showApp();
+    }).catch(function(e) {
+      // Permission error on profile write — still proceed as admin
+      adminLoginInProgress = false;
+      currentUser = user;
+      currentRole = 'admin';
+      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: email };
+      resetBtn();
+      clearLoginError();
+      showApp();
+    });
+  }
+  auth.signInWithEmailAndPassword(email, senha)
+    .then(function(cred) { doFinish(cred.user); })
+    .catch(function(e) {
+      var msg = e.message || '';
+      var notFound = msg.indexOf('user-not-found') >= 0 ||
+                     msg.indexOf('invalid-credential') >= 0 ||
+                     msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 ||
+                     msg.indexOf('no user') >= 0;
+      if (notFound) {
+        auth.createUserWithEmailAndPassword(email, senha)
+          .then(function(cred) { doFinish(cred.user); })
+          .catch(function(e2) {
+            adminLoginInProgress = false;
+            resetBtn();
+            showLoginError(traduzirErroFirebase(e2.message));
+          });
+      } else {
+        adminLoginInProgress = false;
+        resetBtn();
+        showLoginError(traduzirErroFirebase(msg));
+      }
+    });
 }
 function lerEspecialidadesSelecionadas(containerId) {
   var checks = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
@@ -531,15 +550,17 @@ function clearLoginError() {
 }
 
 var suppressAuthStateChange = false;
+var adminLoginInProgress = false;
 
 // ============================================================
 // AUTH STATE
 // ============================================================
 auth.onAuthStateChanged(function(user) {
   if (suppressAuthStateChange) return;
-  // If admin already set up via _finishAdminLogin, don't override
-  if (currentRole === 'admin' && user) return;
+  if (adminLoginInProgress) return;
   if (user) {
+    // Already handled by _finishAdminLogin — skip
+    if (currentRole === 'admin') return;
     currentUser = user;
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
       .then(function(doc) {
@@ -1706,21 +1727,27 @@ function adminCriarMedico() {
   if (senha.length < 6) { toast('Senha mínimo 6 caracteres','error'); return; }
   var btn = document.querySelector('[onclick="adminCriarMedico()"]');
   if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
-  suppressAuthStateChange = true;
+  adminLoginInProgress = true;
 
   function salvarPerfilMedico(uid) {
     var perfil = {nome:nome, tipo:'medico', email:email, crm:crm, especialidade:esps[0], especialidades:esps, clinica:clinica};
     return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
       .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico', email:email, nome:nome}); })
       .then(function() { return seedAreasMedico(uid, esps); })
-      .then(function() { return auth.signOut(); });
+      .then(function() {
+        // Sign out the new doctor and sign back in as admin
+        var adminEmail = currentUser ? currentUser.email : '';
+        var adminSenha = document.getElementById('admin-senha') ? document.getElementById('admin-senha').value : '';
+        return auth.signOut().then(function() {
+          if (adminEmail && adminSenha) {
+            return auth.signInWithEmailAndPassword(adminEmail, adminSenha).catch(function() {});
+          }
+        });
+      });
   }
 
   function restoreAdmin() {
-    suppressAuthStateChange = false;
-    currentUser = { uid: 'admin', email: 'admin@novaclin' };
-    currentRole = 'admin';
-    currentPerfil = { nome: 'Administrador', tipo: 'admin' };
+    adminLoginInProgress = false;
     if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
   }
 
