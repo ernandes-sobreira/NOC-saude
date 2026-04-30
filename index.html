@@ -1648,55 +1648,96 @@ function adminRemoverMedico(uid) {
     .catch(function() { toast('Erro ao remover','error'); });
 }
 function adminEditarMedico(uid) {
-  db.collection('users').doc(uid).collection('perfil').doc('dados').get().then(function(doc) {
-    if (!doc.exists) { toast('Perfil não encontrado','error'); return; }
-    var p = doc.data();
-    var esps = p.especialidades || (p.especialidade ? [p.especialidade] : []);
-    var espOptions = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
-    var checksHtml = '';
-    for (var i = 0; i < espOptions.length; i++) {
-      var checked = esps.indexOf(espOptions[i]) >= 0 ? 'checked' : '';
-      checksHtml += '<label style="font-weight:400;display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.85rem;cursor:pointer">' +
-        '<input type="checkbox" value="' + espOptions[i] + '" ' + checked + ' style="width:16px;height:16px;flex-shrink:0"> ' + espOptions[i] + '</label>';
-    }
-    openModal(
-      '<div class="modal"><div class="modal-header"><h3>✏️ Editar Médico</h3>' +
-      '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
-      '<div class="modal-body">' +
-      '<div class="form-grid">' +
-      '<div><label>Nome</label><input id="em-nome" value="' + (p.nome||'') + '"></div>' +
-      '<div><label>CRM</label><input id="em-crm" value="' + (p.crm||'') + '"></div>' +
-      '<div><label>Clínica</label><input id="em-clinica" value="' + (p.clinica||'NOC Clínica') + '"></div>' +
-      '</div>' +
-      '<div class="mt-2"><label>Especialidades</label>' +
-      '<div id="em-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:4px">' +
-      checksHtml + '</div></div>' +
-      '</div>' +
-      '<div class="modal-footer">' +
-      '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
-      '<button class="btn btn-primary" onclick="adminSalvarEdicaoMedico(\'' + uid + '\')">Salvar</button>' +
-      '</div></div>'
-    );
-  }).catch(function() { toast('Erro ao carregar perfil','error'); });
+  db.collection('users').doc(uid).collection('perfil').doc('dados').get()
+    .then(function(doc) {
+      var p = doc.exists ? doc.data() : {nome:'', crm:'', clinica:'NOC Clínica', especialidades:[]};
+      var esps = p.especialidades || (p.especialidade ? [p.especialidade] : []);
+      var espOptions = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
+      var checksHtml = '';
+      for (var i = 0; i < espOptions.length; i++) {
+        var chk = esps.indexOf(espOptions[i]) >= 0 ? 'checked' : '';
+        checksHtml += '<label style="font-weight:400;display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.85rem;cursor:pointer">' +
+          '<input type="checkbox" value="' + espOptions[i] + '" ' + chk + ' style="width:16px;height:16px;flex-shrink:0"> ' + espOptions[i] + '</label>';
+      }
+      openModal(
+        '<div class="modal"><div class="modal-header"><h3>✏️ Editar Médico</h3>' +
+        '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+        '<div class="modal-body">' +
+        '<div class="form-grid">' +
+        '<div><label>Nome</label><input id="em-nome" value="' + (p.nome||'') + '" placeholder="Dr. Caio Araújo"></div>' +
+        '<div><label>CRM</label><input id="em-crm" value="' + (p.crm||'') + '" placeholder="MT 8817"></div>' +
+        '<div><label>E-mail</label><input id="em-email" value="' + (p.email||'') + '" placeholder="dr@clinica.com"></div>' +
+        '<div><label>Clínica</label><input id="em-clinica" value="' + (p.clinica||'NOC Clínica') + '"></div>' +
+        '</div>' +
+        '<div class="mt-2"><label>Especialidades</label>' +
+        '<div id="em-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:4px">' +
+        checksHtml + '</div></div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+        '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="adminSalvarEdicaoMedico(\'' + uid + '\')">Salvar</button>' +
+        '</div></div>'
+      );
+    })
+    .catch(function() {
+      // Profile doesn't exist — open empty form to create it
+      var espOptions = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
+      var checksHtml = '';
+      for (var i = 0; i < espOptions.length; i++) {
+        checksHtml += '<label style="font-weight:400;display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.85rem;cursor:pointer">' +
+          '<input type="checkbox" value="' + espOptions[i] + '" style="width:16px;height:16px;flex-shrink:0"> ' + espOptions[i] + '</label>';
+      }
+      openModal(
+        '<div class="modal"><div class="modal-header"><h3>✏️ Preencher Perfil do Médico</h3>' +
+        '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+        '<div class="modal-body">' +
+        '<div class="card mb-2" style="background:var(--warn-light);border-left:3px solid var(--warn)">' +
+        '<p style="font-size:.82rem;color:var(--warn)">⚠️ Este médico não tem perfil completo no sistema. Preencha os dados abaixo.</p></div>' +
+        '<div class="form-grid">' +
+        '<div><label>Nome</label><input id="em-nome" placeholder="Dr. Caio Araújo"></div>' +
+        '<div><label>CRM</label><input id="em-crm" placeholder="MT 8817"></div>' +
+        '<div><label>E-mail</label><input id="em-email" placeholder="dr@clinica.com"></div>' +
+        '<div><label>Clínica</label><input id="em-clinica" value="NOC Clínica"></div>' +
+        '</div>' +
+        '<div class="mt-2"><label>Especialidades</label>' +
+        '<div id="em-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:4px">' +
+        checksHtml + '</div></div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+        '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="adminSalvarEdicaoMedico(\'' + uid + '\')">Salvar</button>' +
+        '</div></div>'
+      );
+    });
 }
 function adminSalvarEdicaoMedico(uid) {
   var nome = (document.getElementById('em-nome').value||'').trim();
   var crm = (document.getElementById('em-crm').value||'').trim();
-  var clinica = (document.getElementById('em-clinica').value||'').trim();
+  var email = (document.getElementById('em-email').value||'').trim();
+  var clinica = (document.getElementById('em-clinica').value||'NOC Clínica').trim();
   var checks = document.querySelectorAll('#em-esp-checks input:checked');
   var esps = [];
   for (var i = 0; i < checks.length; i++) esps.push(checks[i].value);
-  if (!nome) { toast('Nome obrigatório','error'); return; }
+  if (!nome) { toast('Nome é obrigatório','error'); return; }
   if (!esps.length) esps = ['Clínica Geral'];
-  db.collection('users').doc(uid).collection('perfil').doc('dados').update({
-    nome: nome, crm: crm, clinica: clinica,
-    especialidade: esps[0], especialidades: esps
-  }).then(function() {
-    db.collection('adminIndex').doc(uid).update({ nome: nome }).catch(function(){});
-    toast('Médico atualizado! ✅','success');
-    closeModal();
-    renderAdminDash();
-  }).catch(function() { toast('Erro ao salvar','error'); });
+  var perfil = { nome: nome, tipo: 'medico', clinica: clinica,
+    especialidade: esps[0], especialidades: esps };
+  if (crm) perfil.crm = crm;
+  if (email) perfil.email = email;
+  // set with merge: works whether profile exists or not
+  db.collection('users').doc(uid).collection('perfil').doc('dados')
+    .set(perfil, { merge: true })
+    .then(function() {
+      var idxUpdate = { nome: nome, tipo: 'medico' };
+      if (email) idxUpdate.email = email;
+      return db.collection('adminIndex').doc(uid).set(idxUpdate, { merge: true });
+    })
+    .then(function() {
+      toast('Médico atualizado! ✅', 'success');
+      closeModal();
+      renderAdminDash();
+    })
+    .catch(function(e) { toast('Erro ao salvar: ' + traduzirErroFirebase(e.message), 'error'); });
 }
 function renderAdminMedicos() {
   navTo_setActive('admin-medicos');
@@ -1798,7 +1839,7 @@ function renderAdminPacientes() {
               .then(function(pd) { return pd.exists ? (pd.data().nome||'—') : '—'; })
               .catch(function() { return '—'; }),
             db.collection('users').doc(uid).collection('pacientes').get()
-              .catch(function() { return {docs:[]}; })
+              .catch(function() { return {forEach: function(){}, docs:[]}; })
           ]).then(function(results) {
             var medNome = results[0];
             var ps = results[1];
