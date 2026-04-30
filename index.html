@@ -783,10 +783,16 @@ function getStatus(val, refMin, refMax, tipoCampo) {
   if (tipoCampo && tipoCampo !== 'numero') return 'normal';
   var v = parseFloat(val);
   if (isNaN(v)) return 'normal';
+  // BUG 1: use explicit null/undefined check, not falsy
+  if (refMin === null || refMin === undefined || refMax === null || refMax === undefined) return 'normal';
   var mn = parseFloat(refMin);
   var mx = parseFloat(refMax);
-  if (!isNaN(mn) && v < mn) return 'danger';
-  if (!isNaN(mx) && mx > 0 && v > mx) return 'danger';
+  if (isNaN(mn) || isNaN(mx)) return 'normal';
+  // BUG 5: ref 0–0 means "sem referência" — treat as unclassified
+  if (mn === 0 && mx === 0) return 'normal';
+  // BUG 3: use >= and <= (inclusive), removed the mx>0 guard that broke refMin=0 cases
+  if (v < mn) return 'danger';
+  if (v > mx) return 'danger';
   var range = mx - mn;
   if (range > 0) {
     var lo = mn + range * 0.1;
@@ -1201,29 +1207,41 @@ function renderResumoCards(resultados, container) {
     var keys = Object.keys(vals);
     for (var j = 0; j < keys.length; j++) {
       var k = keys[j];
-      if (!allParams[k]) allParams[k] = [];
-      allParams[k].push(Object.assign({}, vals[k], {data: r.data, areaNome: r.areaNome, areaIco: r.areaIco}));
+      // BUG 4: use exact name as key (already exact since keys come from the object itself)
+      // Normalize to lowercase for grouping to avoid "LH" vs "lh" duplicates
+      var kNorm = k.toLowerCase().trim();
+      if (!allParams[kNorm]) allParams[kNorm] = {displayNome: k, entries: []};
+      allParams[kNorm].entries.push(Object.assign({}, vals[k], {data: r.data, areaNome: r.areaNome, areaIco: r.areaIco, _nomeOriginal: k}));
     }
   }
-  var paramNames = Object.keys(allParams);
-  for (var pi = 0; pi < paramNames.length; pi++) {
-    var nm = paramNames[pi];
-    var hist = allParams[nm];
+  var paramKeys = Object.keys(allParams);
+  for (var pi = 0; pi < paramKeys.length; pi++) {
+    var kn = paramKeys[pi];
+    var nm = allParams[kn].displayNome;
+    var hist = allParams[kn].entries;
     hist.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
     var latest = hist[0];
     var tc = latest.tipoCampo || 'numero';
     if (tc !== 'numero') continue;
     var s = getStatus(latest.valor, latest.refMin, latest.refMax, tc);
     var pos = barPos(latest.valor, latest.refMin, latest.refMax);
+    // BUG 2: cap trend at ±500%, require prev > 0
     var trend = '';
     if (hist.length >= 2) {
       var prev = parseFloat(hist[1].valor);
       var curr = parseFloat(latest.valor);
-      if (!isNaN(prev) && !isNaN(curr) && prev !== 0) {
-        var pct = Math.round(((curr-prev)/Math.abs(prev))*100);
-        if (pct > 2) trend = '<span class="trend-up">↑ ' + pct + '%</span>';
-        else if (pct < -2) trend = '<span class="trend-down">↓ ' + Math.abs(pct) + '%</span>';
-        else trend = '<span class="trend-flat">→ Estável</span>';
+      if (!isNaN(prev) && !isNaN(curr) && prev > 0) {
+        var diff = ((curr - prev) / Math.abs(prev)) * 100;
+        if (Math.abs(diff) >= 500) {
+          trend = '<span class="trend-flat">→ Estável</span>';
+        } else {
+          var pct = Math.round(diff);
+          if (pct > 2) trend = '<span class="trend-up">↑ ' + pct + '%</span>';
+          else if (pct < -2) trend = '<span class="trend-down">↓ ' + Math.abs(pct) + '%</span>';
+          else trend = '<span class="trend-flat">→ Estável</span>';
+        }
+      } else {
+        trend = '<span class="trend-flat">→ Estável</span>';
       }
     }
     var hist4 = hist.slice(0,4);
@@ -1232,15 +1250,19 @@ function renderResumoCards(resultados, container) {
       var hs = getStatus(hist4[hi].valor, hist4[hi].refMin, hist4[hi].refMax, 'numero');
       histHtml += '<span style="font-size:.75rem;color:' + statusColor(hs) + '">' + (hist4[hi].data||'') + ': ' + hist4[hi].valor + ' ' + (hist4[hi].unidade||'') + '</span>';
     }
-    var chartId = 'chart-' + nm.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
+    var chartId = 'chart-' + kn.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
     var miniChart = hist.length >= 2 ? '<canvas id="' + chartId + '" width="260" height="50" class="mini-chart-wrap"></canvas>' : '';
+    // BUG 5: hide Ref when 0–0
+    var mn0 = parseFloat(latest.refMin);
+    var mx0 = parseFloat(latest.refMax);
+    var refLabel = (mn0 === 0 && mx0 === 0) ? 'Ref: —' : 'Ref: ' + latest.refMin + '–' + latest.refMax + ' ' + (latest.unidade||'');
     var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
       '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
       '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
       '<div class="exam-value" style="color:' + statusColor(s) + '">' + latest.valor + ' <span style="font-size:1rem;font-weight:400;color:var(--gray)">' + (latest.unidade||'') + '</span></div>' +
       '<div class="exam-bar"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>' +
       '<div class="exam-bar-marker" style="left:' + pos + '%;background:' + statusColor(s) + '"></div></div>' +
-      '<div style="font-size:.72rem;color:var(--gray)">Ref: ' + latest.refMin + '–' + latest.refMax + ' ' + (latest.unidade||'') + '</div>' +
+      '<div style="font-size:.72rem;color:var(--gray)">' + refLabel + '</div>' +
       '<div class="flex flex-col gap-1 mt-1">' + histHtml + '</div>' +
       miniChart +
       '</div>';
@@ -1255,11 +1277,11 @@ function renderResumoCards(resultados, container) {
   if (!html) html = '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum parâmetro numérico encontrado.</div>';
   container.innerHTML = html;
   // render mini charts
-  for (var pi2 = 0; pi2 < paramNames.length; pi2++) {
-    var nm2 = paramNames[pi2];
-    var hist2 = allParams[nm2];
+  for (var pi2 = 0; pi2 < paramKeys.length; pi2++) {
+    var kn2 = paramKeys[pi2];
+    var hist2 = allParams[kn2].entries;
     if (hist2.length < 2) continue;
-    var cid = 'chart-' + nm2.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
+    var cid = 'chart-' + kn2.replace(new RegExp('[^a-zA-Z0-9]','g'),'_');
     var cel = document.getElementById(cid);
     if (!cel) continue;
     var labels2 = [];
