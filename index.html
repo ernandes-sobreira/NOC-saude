@@ -1666,28 +1666,30 @@ function adminCriarMedico() {
   var btn = document.querySelector('[onclick="adminCriarMedico()"]');
   if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
   suppressAuthStateChange = true;
+
+  function salvarPerfilMedico(uid) {
+    var perfil = {nome:nome, tipo:'medico', email:email, crm:crm, especialidade:esps[0], especialidades:esps, clinica:clinica};
+    return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
+      .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico', email:email, nome:nome}); })
+      .then(function() { return seedAreasMedico(uid, esps); })
+      .then(function() { return auth.signOut(); });
+  }
+
+  function restoreAdmin() {
+    suppressAuthStateChange = false;
+    currentUser = { uid: 'admin', email: 'admin@novaclin' };
+    currentRole = 'admin';
+    currentPerfil = { nome: 'Administrador', tipo: 'admin' };
+    if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
+  }
+
   auth.createUserWithEmailAndPassword(email, senha)
     .then(function(cred) {
-      var uid = cred.user.uid;
-      var perfil = {nome:nome, tipo:'medico', email:email, crm:crm, especialidade:esps[0], especialidades:esps, clinica:clinica};
-      // Write all data first, then sign out the newly created user
-      return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
-        .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico', email:email, nome:nome}); })
-        .then(function() { return seedAreasMedico(uid, esps); })
-        .then(function() {
-          // Sign out the new user — restores admin (local) state
-          return auth.signOut();
-        });
+      return salvarPerfilMedico(cred.user.uid);
     })
     .then(function() {
-      suppressAuthStateChange = false;
-      // Restore admin session (local, no Firebase auth needed)
-      currentUser = { uid: 'admin', email: 'admin@novaclin' };
-      currentRole = 'admin';
-      currentPerfil = { nome: 'Administrador', tipo: 'admin' };
-      if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
+      restoreAdmin();
       toast('Médico criado com sucesso! ✅', 'success');
-      // Clear form
       var fields = ['nm-nome','nm-email','nm-crm','nm-senha'];
       for (var fi = 0; fi < fields.length; fi++) {
         var fel = document.getElementById(fields[fi]);
@@ -1698,15 +1700,33 @@ function adminCriarMedico() {
       adminLoadMedicos();
     })
     .catch(function(e) {
-      suppressAuthStateChange = false;
-      if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
-      // If user was partially created, sign out to restore admin
-      auth.signOut().then(function() {
-        currentUser = { uid: 'admin', email: 'admin@novaclin' };
-        currentRole = 'admin';
-        currentPerfil = { nome: 'Administrador', tipo: 'admin' };
-      }).catch(function() {});
-      toast(traduzirErroFirebase(e.message), 'error');
+      // EMAIL ALREADY EXISTS — sign in with credentials to recover the orphan user
+      if (e.message && e.message.indexOf('email-already-in-use') >= 0) {
+        if (btn) btn.textContent = 'Recuperando...';
+        auth.signInWithEmailAndPassword(email, senha)
+          .then(function(cred) {
+            return salvarPerfilMedico(cred.user.uid);
+          })
+          .then(function() {
+            restoreAdmin();
+            toast('Conta existente recuperada e perfil atualizado! ✅', 'success');
+            adminLoadMedicos();
+          })
+          .catch(function(e2) {
+            // Sign in failed — wrong password or other error
+            auth.signOut().catch(function(){});
+            restoreAdmin();
+            if (e2.message && (e2.message.indexOf('wrong-password') >= 0 || e2.message.indexOf('invalid-credential') >= 0 || e2.message.indexOf('invalid-login-credentials') >= 0)) {
+              toast('E-mail já cadastrado no sistema com outra senha. Verifique a senha ou use outro e-mail.', 'error');
+            } else {
+              toast(traduzirErroFirebase(e2.message), 'error');
+            }
+          });
+      } else {
+        auth.signOut().catch(function(){});
+        restoreAdmin();
+        toast(traduzirErroFirebase(e.message), 'error');
+      }
     });
 }
 function adminLoadMedicos() {
