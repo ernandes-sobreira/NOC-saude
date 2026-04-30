@@ -241,15 +241,15 @@ tr:hover td{background:var(--primary-light)}
         </div>
         <div class="mb-2">
           <label>Especialidades (pode marcar mais de uma)</label>
-          <div id="esp-checkboxes" style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;background:#fff">
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Endocrinologia"> Endocrinologia</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Dermatologia Clínica"> Dermatologia Clínica</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Procedimentos Estéticos"> Procedimentos Estéticos e Anti-Aging</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Cardiologia"> Cardiologia</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Clínica Geral"> Clínica Geral</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Nutrição"> Nutrição</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Ginecologia"> Ginecologia</label>
-            <label style="font-weight:400;display:flex;align-items:center;gap:8px"><input type="checkbox" value="Urologia"> Urologia</label>
+          <div id="esp-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;background:#fff">
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Endocrinologia" style="width:16px;height:16px;flex-shrink:0"> <span>Endocrinologia</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Dermatologia Clínica" style="width:16px;height:16px;flex-shrink:0"> <span>Dermatologia Clínica</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Procedimentos Estéticos" style="width:16px;height:16px;flex-shrink:0"> <span>Procedimentos Estéticos</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Cardiologia" style="width:16px;height:16px;flex-shrink:0"> <span>Cardiologia</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Clínica Geral" style="width:16px;height:16px;flex-shrink:0"> <span>Clínica Geral</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Nutrição" style="width:16px;height:16px;flex-shrink:0"> <span>Nutrição</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Ginecologia" style="width:16px;height:16px;flex-shrink:0"> <span>Ginecologia</span></label>
+            <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0"><input type="checkbox" value="Urologia" style="width:16px;height:16px;flex-shrink:0"> <span>Urologia</span></label>
           </div>
         </div>
         <div class="mb-2">
@@ -491,10 +491,13 @@ function clearLoginError() {
   document.getElementById('login-error').classList.add('hidden');
 }
 
+var suppressAuthStateChange = false;
+
 // ============================================================
 // AUTH STATE
 // ============================================================
 auth.onAuthStateChanged(function(user) {
+  if (suppressAuthStateChange) return;
   if (user) {
     currentUser = user;
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
@@ -1629,16 +1632,16 @@ function renderAdminMedicos() {
     '<div><label>E-mail</label><input type="email" id="nm-email" placeholder="dr@clinica.com"></div>' +
     '<div><label>CRM</label><input id="nm-crm" placeholder="MT 8817"></div>' +
     '</div>' +
-    '<div class="mt-2"><label>Especialidades <span style="font-weight:400;color:var(--gray)">(marque uma ou mais)</span></label>' +
-    '<div id="nm-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Endocrinologia"> Endocrinologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Dermatologia Clínica"> Dermatologia Clínica</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Procedimentos Estéticos"> Procedimentos Estéticos</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Cardiologia"> Cardiologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Clínica Geral"> Clínica Geral</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Nutrição"> Nutrição</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Ginecologia"> Ginecologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" value="Urologia"> Urologia</label>' +
+    '<div class="mt-2"><label>Especialidades <span style="font-weight:400;color:var(--gray);font-size:.85rem">(marque uma ou mais)</span></label>' +
+    '<div id="nm-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Endocrinologia" style="width:16px;height:16px;flex-shrink:0"> <span>Endocrinologia</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Dermatologia Clínica" style="width:16px;height:16px;flex-shrink:0"> <span>Dermatologia Clínica</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Procedimentos Estéticos" style="width:16px;height:16px;flex-shrink:0"> <span>Procedimentos Estéticos</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Cardiologia" style="width:16px;height:16px;flex-shrink:0"> <span>Cardiologia</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Clínica Geral" style="width:16px;height:16px;flex-shrink:0"> <span>Clínica Geral</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Nutrição" style="width:16px;height:16px;flex-shrink:0"> <span>Nutrição</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Ginecologia" style="width:16px;height:16px;flex-shrink:0"> <span>Ginecologia</span></label>' +
+    '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0"><input type="checkbox" value="Urologia" style="width:16px;height:16px;flex-shrink:0"> <span>Urologia</span></label>' +
     '</div></div>' +
     '<div class="form-grid mt-2">' +
     '<div><label>Clínica</label><input id="nm-clinica" value="NOC Clínica"></div>' +
@@ -1658,17 +1661,53 @@ function adminCriarMedico() {
   if (!esps.length) esps = ['Clínica Geral'];
   var clinica = document.getElementById('nm-clinica').value.trim();
   var senha = document.getElementById('nm-senha').value;
-  if (!nome||!email||!senha) { toast('Preencha todos os campos','error'); return; }
+  if (!nome || !email || !senha) { toast('Preencha todos os campos','error'); return; }
+  if (senha.length < 6) { toast('Senha mínimo 6 caracteres','error'); return; }
+  var btn = document.querySelector('[onclick="adminCriarMedico()"]');
+  if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
+  suppressAuthStateChange = true;
   auth.createUserWithEmailAndPassword(email, senha)
     .then(function(cred) {
       var uid = cred.user.uid;
-      var perfil = {nome:nome,tipo:'medico',email:email,crm:crm,especialidade:esps[0],especialidades:esps,clinica:clinica};
+      var perfil = {nome:nome, tipo:'medico', email:email, crm:crm, especialidade:esps[0], especialidades:esps, clinica:clinica};
+      // Write all data first, then sign out the newly created user
       return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
-        .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome}); })
-        .then(function() { return seedAreasMedico(uid, esps); });
+        .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico', email:email, nome:nome}); })
+        .then(function() { return seedAreasMedico(uid, esps); })
+        .then(function() {
+          // Sign out the new user — restores admin (local) state
+          return auth.signOut();
+        });
     })
-    .then(function() { toast('Médico criado com sucesso! ✅','success'); adminLoadMedicos(); })
-    .catch(function(e) { toast(traduzirErroFirebase(e.message),'error'); });
+    .then(function() {
+      suppressAuthStateChange = false;
+      // Restore admin session (local, no Firebase auth needed)
+      currentUser = { uid: 'admin', email: 'admin@novaclin' };
+      currentRole = 'admin';
+      currentPerfil = { nome: 'Administrador', tipo: 'admin' };
+      if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
+      toast('Médico criado com sucesso! ✅', 'success');
+      // Clear form
+      var fields = ['nm-nome','nm-email','nm-crm','nm-senha'];
+      for (var fi = 0; fi < fields.length; fi++) {
+        var fel = document.getElementById(fields[fi]);
+        if (fel) fel.value = '';
+      }
+      var checks = document.querySelectorAll('#nm-esp-checks input[type="checkbox"]');
+      for (var ci = 0; ci < checks.length; ci++) checks[ci].checked = false;
+      adminLoadMedicos();
+    })
+    .catch(function(e) {
+      suppressAuthStateChange = false;
+      if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; }
+      // If user was partially created, sign out to restore admin
+      auth.signOut().then(function() {
+        currentUser = { uid: 'admin', email: 'admin@novaclin' };
+        currentRole = 'admin';
+        currentPerfil = { nome: 'Administrador', tipo: 'admin' };
+      }).catch(function() {});
+      toast(traduzirErroFirebase(e.message), 'error');
+    });
 }
 function adminLoadMedicos() {
   var listEl = document.getElementById('admin-lista-medicos');
