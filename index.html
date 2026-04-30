@@ -1500,7 +1500,22 @@ function genId() {
 // ============================================================
 function renderAdminDash() {
   navTo_setActive('admin-dash');
-  setMainContent('<div class="page-header"><h2>📊 Dashboard Admin — NOC Clínica</h2><p>Av. Bosque da Saúde, 173 · Cuiabá-MT</p></div><div class="kpi-grid" id="admin-kpi-grid"><div class="kpi-card blue"><div class="kpi-icon">👨‍⚕️</div><div class="kpi-value" id="kpi-medicos">...</div><div class="kpi-label">Médicos</div></div><div class="kpi-card green"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpi-pacs">...</div><div class="kpi-label">Pacientes</div></div><div class="kpi-card yellow"><div class="kpi-icon">🔬</div><div class="kpi-value" id="kpi-exames">...</div><div class="kpi-label">Exames</div></div><div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-alertas">...</div><div class="kpi-label">Alertas</div></div></div><div class="card"><div class="section-title">👨‍⚕️ Médicos Cadastrados</div><div id="admin-medicos-list">Carregando...</div></div>');
+  setMainContent(
+    '<div class="page-header flex justify-between align-center wrap gap-1">' +
+    '<div><h2>📊 Dashboard Admin — NOC Clínica</h2><p>Av. Bosque da Saúde, 173 · Cuiabá-MT</p></div>' +
+    '<button class="btn btn-primary" onclick="navTo(\'admin-medicos\')">+ Novo Médico</button>' +
+    '</div>' +
+    '<div class="kpi-grid" id="admin-kpi-grid">' +
+    '<div class="kpi-card blue"><div class="kpi-icon">👨‍⚕️</div><div class="kpi-value" id="kpi-medicos">...</div><div class="kpi-label">Médicos</div></div>' +
+    '<div class="kpi-card green"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpi-pacs">...</div><div class="kpi-label">Pacientes</div></div>' +
+    '<div class="kpi-card yellow"><div class="kpi-icon">🔬</div><div class="kpi-value" id="kpi-exames">...</div><div class="kpi-label">Exames</div></div>' +
+    '<div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-alertas">...</div><div class="kpi-label">Alertas</div></div>' +
+    '</div>' +
+    '<div class="card">' +
+    '<div class="section-title">👨‍⚕️ Médicos Cadastrados</div>' +
+    '<div id="admin-medicos-list">Carregando...</div>' +
+    '</div>'
+  );
   db.collection('adminIndex').get().then(function(snap) {
     var medicos = 0; var pacientes = 0;
     snap.forEach(function(d) {
@@ -1512,14 +1527,46 @@ function renderAdminDash() {
     var kp = document.getElementById('kpi-pacs');
     if (km) km.textContent = medicos;
     if (kp) kp.textContent = pacientes;
-    var rows = '';
-    snap.forEach(function(d) {
-      var data = d.data();
-      if (data.tipo !== 'medico') return;
-      rows += '<tr><td>' + (data.nome||'') + '</td><td>' + (data.email||'') + '</td><td><span class="badge badge-blue">Médico</span></td><td><button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + d.id + '\')">Remover</button></td></tr>';
+    // Load full perfil to show specialties
+    var uids = [];
+    snap.forEach(function(d) { if (d.data().tipo === 'medico') uids.push(d.id); });
+    if (!uids.length) {
+      var el = document.getElementById('admin-medicos-list');
+      if (el) el.innerHTML = '<p style="color:var(--gray);padding:20px">Nenhum médico cadastrado. Clique em <b>+ Novo Médico</b> para começar.</p>';
+      if (document.getElementById('kpi-exames')) document.getElementById('kpi-exames').textContent = '—';
+      if (document.getElementById('kpi-alertas')) document.getElementById('kpi-alertas').textContent = '—';
+      return;
+    }
+    var promises = [];
+    for (var i = 0; i < uids.length; i++) {
+      (function(uid) {
+        promises.push(
+          db.collection('users').doc(uid).collection('perfil').doc('dados').get()
+            .then(function(doc) { return doc.exists ? Object.assign({}, doc.data(), {uid: uid}) : null; })
+        );
+      })(uids[i]);
+    }
+    Promise.all(promises).then(function(perfis) {
+      var rows = '';
+      for (var pi = 0; pi < perfis.length; pi++) {
+        var p = perfis[pi];
+        if (!p) continue;
+        var espsArr = p.especialidades || [p.especialidade || '—'];
+        var espBadges = '';
+        for (var ei = 0; ei < espsArr.length; ei++) {
+          espBadges += '<span class="badge badge-blue" style="margin-right:4px;font-size:.7rem">' + espsArr[ei] + '</span>';
+        }
+        rows += '<tr>' +
+          '<td><div style="font-weight:600">' + (p.nome||'') + '</div>' +
+          '<div style="font-size:.75rem;color:var(--gray)">' + (p.crm ? 'CRM ' + p.crm : '') + (p.clinica ? ' · ' + p.clinica : '') + '</div></td>' +
+          '<td style="font-size:.82rem">' + (p.email||'') + '</td>' +
+          '<td>' + espBadges + '</td>' +
+          '<td class="flex gap-1"><button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">Remover</button></td>' +
+          '</tr>';
+      }
+      var el = document.getElementById('admin-medicos-list');
+      if (el) el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Médico</th><th>E-mail</th><th>Especialidades</th><th>Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
     });
-    var el = document.getElementById('admin-medicos-list');
-    if (el) el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Tipo</th><th>Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
     if (document.getElementById('kpi-exames')) document.getElementById('kpi-exames').textContent = '—';
     if (document.getElementById('kpi-alertas')) document.getElementById('kpi-alertas').textContent = '—';
   }).catch(function() { toast('Erro ao carregar dados admin','error'); });
