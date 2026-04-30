@@ -449,57 +449,37 @@ function doAdminLogin() {
   var email = (document.getElementById('admin-email').value || '').trim();
   var senha = document.getElementById('admin-senha').value;
   if (code !== 'NOC@admin2025') { showLoginError('Código de acesso inválido.'); return; }
-  if (!email || !senha) { showLoginError('Preencha e-mail e senha do admin.'); return; }
+  if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
   if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
   clearLoginError();
   var btnEl = document.querySelector('#form-admin .btn-primary');
   if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
-  adminLoginInProgress = true;
-  function resetBtn() {
-    if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; }
-  }
-  function doFinish(user) {
-    // Write/update admin profile then show app
-    db.collection('users').doc(user.uid).collection('perfil').doc('dados').set(
-      { nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica' },
-      { merge: true }
-    ).then(function() {
-      adminLoginInProgress = false;
-      currentUser = user;
-      currentRole = 'admin';
-      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: email };
-      resetBtn();
-      clearLoginError();
-      showApp();
-    }).catch(function(e) {
-      // Permission error on profile write — still proceed as admin
-      adminLoginInProgress = false;
-      currentUser = user;
-      currentRole = 'admin';
-      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: email };
-      resetBtn();
-      clearLoginError();
-      showApp();
-    });
-  }
+  function resetBtn() { if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; } }
+  // Store admin credentials for re-login after doctor creation
+  window._adminEmail = email;
+  window._adminSenha = senha;
   auth.signInWithEmailAndPassword(email, senha)
-    .then(function(cred) { doFinish(cred.user); })
+    .then(function(cred) {
+      // Force admin profile
+      return db.collection('users').doc(cred.user.uid).collection('perfil').doc('dados')
+        .set({ nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica' })
+        .then(function() { resetBtn(); })
+        .catch(function() { resetBtn(); });
+      // onAuthStateChanged will fire, read tipo:'admin', call showApp() as admin
+    })
     .catch(function(e) {
       var msg = e.message || '';
-      var notFound = msg.indexOf('user-not-found') >= 0 ||
-                     msg.indexOf('invalid-credential') >= 0 ||
-                     msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 ||
-                     msg.indexOf('no user') >= 0;
+      var notFound = msg.indexOf('user-not-found') >= 0 || msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 || msg.indexOf('invalid-credential') >= 0;
       if (notFound) {
         auth.createUserWithEmailAndPassword(email, senha)
-          .then(function(cred) { doFinish(cred.user); })
-          .catch(function(e2) {
-            adminLoginInProgress = false;
-            resetBtn();
-            showLoginError(traduzirErroFirebase(e2.message));
-          });
+          .then(function(cred) {
+            return db.collection('users').doc(cred.user.uid).collection('perfil').doc('dados')
+              .set({ nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica' })
+              .then(function() { resetBtn(); })
+              .catch(function() { resetBtn(); });
+          })
+          .catch(function(e2) { resetBtn(); showLoginError(traduzirErroFirebase(e2.message)); });
       } else {
-        adminLoginInProgress = false;
         resetBtn();
         showLoginError(traduzirErroFirebase(msg));
       }
@@ -553,14 +533,12 @@ var suppressAuthStateChange = false;
 var adminLoginInProgress = false;
 
 // ============================================================
-// AUTH STATE
+// AUTH STATE — single source of truth
 // ============================================================
 auth.onAuthStateChanged(function(user) {
   if (suppressAuthStateChange) return;
   if (adminLoginInProgress) return;
   if (user) {
-    // Already handled by _finishAdminLogin — skip
-    if (currentRole === 'admin') return;
     currentUser = user;
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
       .then(function(doc) {
@@ -1735,13 +1713,12 @@ function adminCriarMedico() {
       .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico', email:email, nome:nome}); })
       .then(function() { return seedAreasMedico(uid, esps); })
       .then(function() {
-        // Sign out the new doctor and sign back in as admin
-        var adminEmail = currentUser ? currentUser.email : '';
-        var adminSenha = document.getElementById('admin-senha') ? document.getElementById('admin-senha').value : '';
+        adminLoginInProgress = false;
         return auth.signOut().then(function() {
-          if (adminEmail && adminSenha) {
-            return auth.signInWithEmailAndPassword(adminEmail, adminSenha).catch(function() {});
-          }
+          // Re-sign in as admin — onAuthStateChanged will restore admin session
+          var ae = window._adminEmail || '';
+          var as = window._adminSenha || '';
+          if (ae && as) return auth.signInWithEmailAndPassword(ae, as).catch(function(){});
         });
       });
   }
