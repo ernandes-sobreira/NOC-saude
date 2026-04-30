@@ -783,245 +783,341 @@ function seedAreasMedico(uid, esp) {
 // REFERÊNCIAS LABORATORIAIS — DICIONÁRIO + FALLBACK (v3)
 // ============================================================
 var REF_LAB = {
+
   'Hemoglobina': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 1)  return {min:13.5,max:19.5,un:'g/dL'};
-      if (idade < 6)  return {min:11.5,max:13.5,un:'g/dL'};
-      if (idade < 12) return {min:11.5,max:15.5,un:'g/dL'};
-      return {min:12.0,max:16.0,un:'g/dL'};
-    }
-    if (idade < 1)  return {min:13.5,max:19.5,un:'g/dL'};
-    if (idade < 6)  return {min:11.5,max:13.5,un:'g/dL'};
-    if (idade < 12) return {min:11.5,max:15.5,un:'g/dL'};
-    if (idade < 18) return {min:13.0,max:17.0,un:'g/dL'};
-    return {min:13.0,max:18.0,un:'g/dL'};
+    var F = (sexo === 'Feminino');
+    if (idade < 0.08)  return { min: 13.5, max: 19.5, un: 'g/dL' };
+    if (idade < 0.5)   return { min: 9.5,  max: 13.5, un: 'g/dL' };
+    if (idade < 2)     return { min: 10.5, max: 13.5, un: 'g/dL' };
+    if (idade < 6)     return { min: 11.5, max: 13.5, un: 'g/dL' };
+    if (idade < 12)    return { min: 11.5, max: 15.5, un: 'g/dL' };
+    if (idade < 18)    return F ? { min: 12.0, max: 16.0, un: 'g/dL' } : { min: 13.0, max: 17.0, un: 'g/dL' };
+    if (idade >= 65)   return F ? { min: 11.5, max: 15.5, un: 'g/dL' } : { min: 12.5, max: 17.0, un: 'g/dL' };
+    return F ? { min: 12.0, max: 16.0, un: 'g/dL' } : { min: 13.5, max: 17.5, un: 'g/dL' };
   },
   'Hematócrito': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 12) return {min:35,max:44,un:'%'};
-      return {min:36,max:46,un:'%'};
-    }
-    if (idade < 12) return {min:35,max:44,un:'%'};
-    if (idade < 18) return {min:38,max:50,un:'%'};
-    return {min:40,max:54,un:'%'};
+    var F = (sexo === 'Feminino');
+    if (idade < 0.08)  return { min: 42, max: 65, un: '%' };
+    if (idade < 0.5)   return { min: 28, max: 42, un: '%' };
+    if (idade < 2)     return { min: 33, max: 40, un: '%' };
+    if (idade < 12)    return { min: 34, max: 44, un: '%' };
+    if (idade < 18)    return F ? { min: 36, max: 46, un: '%' } : { min: 38, max: 50, un: '%' };
+    if (idade >= 65)   return F ? { min: 35, max: 47, un: '%' } : { min: 38, max: 52, un: '%' };
+    return F ? { min: 36, max: 46, un: '%' } : { min: 40, max: 54, un: '%' };
   },
   'Hemácias': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:3.8,max:5.2,un:'milh./mm³'};
-    return {min:4.2,max:5.8,un:'milh./mm³'};
+    var F = (sexo === 'Feminino');
+    if (idade < 0.08)  return { min: 4.0, max: 6.0, un: 'milh./mm³' };
+    if (idade < 0.5)   return { min: 3.0, max: 5.0, un: 'milh./mm³' };
+    if (idade < 2)     return { min: 3.7, max: 5.0, un: 'milh./mm³' };
+    if (idade < 12)    return { min: 3.9, max: 5.3, un: 'milh./mm³' };
+    if (idade >= 65)   return F ? { min: 3.7, max: 5.1, un: 'milh./mm³' } : { min: 3.9, max: 5.5, un: 'milh./mm³' };
+    return F ? { min: 3.8, max: 5.2, un: 'milh./mm³' } : { min: 4.2, max: 5.8, un: 'milh./mm³' };
   },
   'Leucócitos': function(sexo, idade) {
-    if (idade < 1)  return {min:9000,max:30000,un:'/mm³'};
-    if (idade < 6)  return {min:5000,max:15000,un:'/mm³'};
-    if (idade < 12) return {min:4500,max:13500,un:'/mm³'};
-    return {min:4500,max:11000,un:'/mm³'};
+    if (idade < 0.08)  return { min: 9000,  max: 30000, un: '/mm³' };
+    if (idade < 0.25)  return { min: 5000,  max: 18000, un: '/mm³' };
+    if (idade < 2)     return { min: 6000,  max: 16000, un: '/mm³' };
+    if (idade < 6)     return { min: 5000,  max: 14500, un: '/mm³' };
+    if (idade < 12)    return { min: 4500,  max: 13000, un: '/mm³' };
+    if (idade < 18)    return { min: 4500,  max: 11500, un: '/mm³' };
+    if (idade >= 65)   return { min: 4000,  max: 10500, un: '/mm³' };
+    return { min: 4500, max: 11000, un: '/mm³' };
   },
-  'Plaquetas': function(sexo, idade) { return {min:150000,max:400000,un:'/mm³'}; },
-  'VGM': function(sexo, idade) {
-    if (idade < 2)  return {min:70,max:90,un:'fL'};
-    if (idade < 12) return {min:75,max:90,un:'fL'};
-    return {min:80,max:100,un:'fL'};
-  },
-  'HGM':  function(sexo, idade) { return {min:27,max:33,un:'pg'}; },
-  'CHGM': function(sexo, idade) { return {min:32,max:36,un:'%'}; },
-  'RDW':  function(sexo, idade) { return {min:11.5,max:14.5,un:'%'}; },
-  'Neutrófilos': function(sexo, idade) { return {min:1800,max:7500,un:'/mm³'}; },
+  'Neutrófilos':  function(sexo, idade) { return { min: 1800, max: 7500,   un: '/mm³' }; },
   'Linfócitos': function(sexo, idade) {
-    if (idade < 6)  return {min:2000,max:8000,un:'/mm³'};
-    if (idade < 12) return {min:1500,max:5000,un:'/mm³'};
-    return {min:1000,max:4000,un:'/mm³'};
+    if (idade < 6)  return { min: 2000, max: 8000, un: '/mm³' };
+    if (idade < 12) return { min: 1500, max: 5000, un: '/mm³' };
+    return { min: 1000, max: 4500, un: '/mm³' };
   },
-  'Monócitos':   function(sexo, idade) { return {min:200,max:1000,un:'/mm³'}; },
-  'Eosinófilos': function(sexo, idade) { return {min:50,max:500,un:'/mm³'}; },
-  'Basófilos':   function(sexo, idade) { return {min:0,max:100,un:'/mm³'}; },
-  'Colesterol Total':  function(sexo, idade) { return {min:0,max:190,un:'mg/dL',nota:'Desejável < 190'}; },
+  'Monócitos':    function(sexo, idade) { return { min: 200,    max: 1000,   un: '/mm³' }; },
+  'Eosinófilos':  function(sexo, idade) { return { min: 50,     max: 500,    un: '/mm³' }; },
+  'Basófilos':    function(sexo, idade) { return { min: 0,      max: 100,    un: '/mm³' }; },
+  'Plaquetas':    function(sexo, idade) { return { min: 150000, max: 400000, un: '/mm³' }; },
+  'VGM':  function(sexo, idade) {
+    if (idade < 2)  return { min: 70, max: 90,  un: 'fL' };
+    if (idade < 12) return { min: 75, max: 90,  un: 'fL' };
+    return { min: 80, max: 100, un: 'fL' };
+  },
+  'HGM':  function(sexo, idade) { return { min: 27,   max: 33,   un: 'pg'   }; },
+  'CHGM': function(sexo, idade) { return { min: 31,   max: 36,   un: 'g/dL' }; },
+  'RDW':  function(sexo, idade) { return { min: 11.5, max: 14.5, un: '%'    }; },
+  'VPM':  function(sexo, idade) { return { min: 7.5,  max: 12.5, un: 'fL'   }; },
+
+  'Glicose': function(sexo, idade) {
+    if (idade < 0.08) return { min: 40, max: 90, un: 'mg/dL' };
+    if (idade < 12)   return { min: 60, max: 99, un: 'mg/dL' };
+    return { min: 70, max: 99, un: 'mg/dL', nota: 'Pré-diabetes: 100–125 | Diabetes ≥ 126' };
+  },
+  'HbA1c':      function(sexo, idade) { return { min: 4.0, max: 5.7,  un: '%',      nota: 'Pré-diabetes: 5.7–6.4% | Diabetes ≥ 6.5%' }; },
+  'Insulina':   function(sexo, idade) { return { min: 2.0, max: 25.0, un: 'µUI/mL', nota: 'Jejum. Ótimo: 2–10' }; },
+  'Peptídeo C': function(sexo, idade) { return { min: 0.9, max: 4.0,  un: 'ng/mL'  }; },
+
+  'Colesterol Total': function(sexo, idade) {
+    if (idade < 20) return { min: 0, max: 170, un: 'mg/dL', nota: 'Limítrofe 170–199 | Alto ≥ 200' };
+    return { min: 0, max: 190, un: 'mg/dL', nota: 'Desejável < 190 | Limítrofe 190–239 | Alto ≥ 240' };
+  },
   'HDL': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:50,max:999,un:'mg/dL',nota:'Desejável > 50'};
-    return {min:40,max:999,un:'mg/dL',nota:'Desejável > 40'};
+    var F = (sexo === 'Feminino');
+    if (idade < 20) return { min: 45, max: 999, un: 'mg/dL', nota: 'Desejável > 45' };
+    return F ? { min: 50, max: 999, un: 'mg/dL', nota: 'Desejável > 50 | Baixo < 45' }
+             : { min: 40, max: 999, un: 'mg/dL', nota: 'Desejável > 40 | Baixo < 35' };
   },
-  'LDL': function(sexo, idade) { return {min:0,max:130,un:'mg/dL',nota:'Ótimo < 100'}; },
-  'VLDL': function(sexo, idade) { return {min:0,max:30,un:'mg/dL'}; },
+  'LDL': function(sexo, idade) {
+    if (idade < 20) return { min: 0, max: 100, un: 'mg/dL', nota: 'Limítrofe 100–129 | Alto ≥ 130' };
+    return { min: 0, max: 130, un: 'mg/dL', nota: 'Ótimo < 100 | Desejável < 130 | Limítrofe 130–159 | Alto ≥ 160' };
+  },
+  'VLDL':               function(sexo, idade) { return { min: 0, max: 30,  un: 'mg/dL' }; },
   'Triglicerídeos': function(sexo, idade) {
-    if (idade < 10) return {min:0,max:100,un:'mg/dL'};
-    if (idade < 20) return {min:0,max:130,un:'mg/dL'};
-    return {min:0,max:150,un:'mg/dL',nota:'Desejável < 150'};
+    if (idade < 10) return { min: 0, max: 100, un: 'mg/dL', nota: 'Limítrofe 100–149 | Alto ≥ 150' };
+    if (idade < 20) return { min: 0, max: 130, un: 'mg/dL', nota: 'Limítrofe 130–169 | Alto ≥ 170' };
+    return { min: 0, max: 150, un: 'mg/dL', nota: 'Desejável < 150 | Limítrofe 150–199 | Alto ≥ 200' };
   },
-  'Colesterol Não-HDL': function(sexo, idade) { return {min:0,max:160,un:'mg/dL'}; },
-  'Glicose':    function(sexo, idade) { return {min:70,max:99,un:'mg/dL',nota:'Jejum'}; },
-  'HbA1c':     function(sexo, idade) { return {min:4.0,max:5.7,un:'%',nota:'Pré-diabetes: 5.7–6.4%'}; },
-  'Insulina':  function(sexo, idade) { return {min:2.0,max:25.0,un:'µUI/mL',nota:'Jejum'}; },
-  'Peptídeo C': function(sexo, idade) { return {min:0.9,max:4.0,un:'ng/mL'}; },
+  'Colesterol Não-HDL': function(sexo, idade) { return { min: 0, max: 160, un: 'mg/dL', nota: 'Desejável < 160' }; },
+
   'TGO (AST)': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:10,max:35,un:'U/L'};
-    return {min:10,max:40,un:'U/L'};
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 10, max: 40, un: 'U/L' };
+    return F ? { min: 10, max: 35, un: 'U/L' } : { min: 10, max: 40, un: 'U/L' };
   },
   'TGP (ALT)': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:7,max:35,un:'U/L'};
-    return {min:7,max:56,un:'U/L'};
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 7, max: 40, un: 'U/L' };
+    return F ? { min: 7, max: 35, un: 'U/L' } : { min: 7, max: 56, un: 'U/L' };
   },
   'GGT': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:5,max:36,un:'U/L'};
-    return {min:8,max:61,un:'U/L'};
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 5, max: 32, un: 'U/L' };
+    return F ? { min: 5, max: 36, un: 'U/L' } : { min: 9, max: 61, un: 'U/L' };
   },
   'Fosfatase Alcalina': function(sexo, idade) {
-    if (idade < 12) return {min:100,max:350,un:'U/L'};
-    if (idade < 18) return {min:100,max:500,un:'U/L'};
-    return {min:40,max:130,un:'U/L'};
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 100, max: 350, un: 'U/L' };
+    if (idade < 18) return { min: 100, max: 500, un: 'U/L' };
+    return F ? { min: 35, max: 105, un: 'U/L' } : { min: 40, max: 130, un: 'U/L' };
   },
-  'Bilirrubina Total':    function(sexo, idade) { return {min:0.2,max:1.2,un:'mg/dL'}; },
-  'Bilirrubina Direta':   function(sexo, idade) { return {min:0.0,max:0.4,un:'mg/dL'}; },
-  'Bilirrubina Indireta': function(sexo, idade) { return {min:0.2,max:0.8,un:'mg/dL'}; },
+  'Bilirrubina Total':    function(sexo, idade) { if (idade<0.08) return {min:0.2,max:10.0,un:'mg/dL',nota:'RN fisiológico até 12'}; return {min:0.2,max:1.2,un:'mg/dL'}; },
+  'Bilirrubina Direta':   function(sexo, idade) { return { min: 0.0, max: 0.4, un: 'mg/dL' }; },
+  'Bilirrubina Indireta': function(sexo, idade) { return { min: 0.2, max: 0.8, un: 'mg/dL' }; },
+  'Albumina':             function(sexo, idade) { return { min: 3.5, max: 5.0, un: 'g/dL'  }; },
+  'Proteínas Totais':     function(sexo, idade) { return { min: 6.0, max: 8.0, un: 'g/dL'  }; },
+  'LDH':                  function(sexo, idade) { return { min: 120, max: 246, un: 'U/L'   }; },
+
   'Creatinina': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 12) return {min:0.3,max:0.7,un:'mg/dL'};
-      if (idade < 18) return {min:0.5,max:1.0,un:'mg/dL'};
-      return {min:0.5,max:1.1,un:'mg/dL'};
-    }
-    if (idade < 12) return {min:0.3,max:0.7,un:'mg/dL'};
-    if (idade < 18) return {min:0.6,max:1.2,un:'mg/dL'};
-    return {min:0.7,max:1.3,un:'mg/dL'};
+    var F = (sexo === 'Feminino');
+    if (idade < 2)  return { min: 0.2, max: 0.5, un: 'mg/dL' };
+    if (idade < 12) return { min: 0.3, max: 0.7, un: 'mg/dL' };
+    if (idade < 18) return F ? { min: 0.5, max: 1.0, un: 'mg/dL' } : { min: 0.6, max: 1.2, un: 'mg/dL' };
+    return F ? { min: 0.5, max: 1.1, un: 'mg/dL' } : { min: 0.7, max: 1.3, un: 'mg/dL' };
   },
-  'Ureia':     function(sexo, idade) { return {min:15,max:45,un:'mg/dL'}; },
+  'Ureia': function(sexo, idade) {
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 10, max: 35, un: 'mg/dL' };
+    return F ? { min: 15, max: 40, un: 'mg/dL' } : { min: 15, max: 45, un: 'mg/dL' };
+  },
   'Ácido Úrico': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:2.4,max:6.0,un:'mg/dL'};
-    return {min:3.4,max:7.0,un:'mg/dL'};
+    var F = (sexo === 'Feminino');
+    if (idade < 12) return { min: 2.0, max: 5.5, un: 'mg/dL' };
+    return F ? { min: 2.4, max: 6.0, un: 'mg/dL' } : { min: 3.4, max: 7.0, un: 'mg/dL' };
   },
+  'Cistatina C': function(sexo, idade) { return { min: 0.5, max: 1.0, un: 'mg/L' }; },
+
   'TSH': function(sexo, idade) {
-    if (idade < 1)  return {min:0.7,max:15.2,un:'mUI/L'};
-    if (idade < 6)  return {min:0.7,max:5.97,un:'mUI/L'};
-    if (idade < 12) return {min:0.6,max:4.84,un:'mUI/L'};
-    if (idade < 18) return {min:0.51,max:4.3,un:'mUI/L'};
-    return {min:0.4,max:4.0,un:'mUI/L'};
+    if (idade < 0.08) return { min: 1.0,  max: 20.0, un: 'mUI/L' };
+    if (idade < 0.5)  return { min: 0.8,  max: 8.2,  un: 'mUI/L' };
+    if (idade < 2)    return { min: 0.8,  max: 7.0,  un: 'mUI/L' };
+    if (idade < 6)    return { min: 0.7,  max: 6.0,  un: 'mUI/L' };
+    if (idade < 12)   return { min: 0.6,  max: 4.8,  un: 'mUI/L' };
+    if (idade < 18)   return { min: 0.5,  max: 4.3,  un: 'mUI/L' };
+    if (idade >= 65)  return { min: 0.4,  max: 5.0,  un: 'mUI/L' };
+    return { min: 0.4, max: 4.0, un: 'mUI/L' };
   },
   'T4 Livre': function(sexo, idade) {
-    if (idade < 1)  return {min:0.8,max:2.2,un:'ng/dL'};
-    if (idade < 6)  return {min:0.8,max:2.0,un:'ng/dL'};
-    if (idade < 18) return {min:0.8,max:1.9,un:'ng/dL'};
-    return {min:0.8,max:1.8,un:'ng/dL'};
+    if (idade < 2)  return { min: 0.8, max: 2.2, un: 'ng/dL' };
+    if (idade < 12) return { min: 0.8, max: 2.0, un: 'ng/dL' };
+    return { min: 0.8, max: 1.8, un: 'ng/dL' };
   },
-  'T3 Livre':           function(sexo, idade) { return {min:2.3,max:4.2,un:'pg/mL'}; },
-  'T4 Total':           function(sexo, idade) { return {min:5.1,max:14.1,un:'µg/dL'}; },
-  'Anti-TPO':           function(sexo, idade) { return {min:0,max:34,un:'UI/mL',nota:'Negativo < 34'}; },
-  'Anti-Tireoglobulina':function(sexo, idade) { return {min:0,max:115,un:'UI/mL',nota:'Negativo < 115'}; },
+  'T3 Livre':            function(sexo, idade) { return { min: 2.3, max: 4.2,  un: 'pg/mL'  }; },
+  'T4 Total':            function(sexo, idade) { return { min: 5.1, max: 14.1, un: 'µg/dL' }; },
+  'T3 Total':            function(sexo, idade) { return { min: 80,  max: 200,  un: 'ng/dL'  }; },
+  'Anti-TPO':            function(sexo, idade) { return { min: 0, max: 34,  un: 'UI/mL', nota: 'Negativo < 34'  }; },
+  'Anti-Tireoglobulina': function(sexo, idade) { return { min: 0, max: 115, un: 'UI/mL', nota: 'Negativo < 115' }; },
+  'Tireoglobulina':      function(sexo, idade) { return { min: 0, max: 55,  un: 'ng/mL' }; },
+
   'Testosterona Total': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 10) return {min:3,max:32,un:'ng/dL'};
-      return {min:15,max:70,un:'ng/dL'};
+    var F = (sexo === 'Feminino');
+    if (F) {
+      if (idade < 10)  return { min: 3,  max: 32,  un: 'ng/dL' };
+      if (idade < 18)  return { min: 10, max: 55,  un: 'ng/dL' };
+      if (idade >= 50) return { min: 10, max: 55,  un: 'ng/dL' };
+      return { min: 15, max: 70, un: 'ng/dL' };
     }
-    if (idade < 10) return {min:2,max:10,un:'ng/dL'};
-    if (idade < 14) return {min:10,max:570,un:'ng/dL'};
-    if (idade < 18) return {min:100,max:600,un:'ng/dL'};
-    if (idade < 40) return {min:300,max:1000,un:'ng/dL'};
-    if (idade < 60) return {min:200,max:800,un:'ng/dL'};
-    return {min:150,max:600,un:'ng/dL'};
+    if (idade < 10)    return { min: 2,   max: 10,   un: 'ng/dL' };
+    if (idade < 14)    return { min: 10,  max: 570,  un: 'ng/dL' };
+    if (idade < 18)    return { min: 100, max: 600,  un: 'ng/dL' };
+    if (idade < 30)    return { min: 400, max: 1080, un: 'ng/dL' };
+    if (idade < 40)    return { min: 350, max: 950,  un: 'ng/dL' };
+    if (idade < 50)    return { min: 280, max: 850,  un: 'ng/dL' };
+    if (idade < 60)    return { min: 220, max: 750,  un: 'ng/dL' };
+    if (idade < 70)    return { min: 180, max: 650,  un: 'ng/dL' };
+    return { min: 150, max: 550, un: 'ng/dL' };
   },
   'Testosterona Livre': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:0.3,max:1.9,un:'ng/dL'};
-    if (idade < 25) return {min:5.0,max:21.0,un:'ng/dL'};
-    if (idade < 40) return {min:4.5,max:17.0,un:'ng/dL'};
-    if (idade < 60) return {min:3.5,max:14.0,un:'ng/dL'};
-    return {min:2.0,max:9.0,un:'ng/dL'};
+    var F = (sexo === 'Feminino');
+    if (F) return { min: 0.3, max: 1.9, un: 'ng/dL' };
+    if (idade < 30) return { min: 5.0, max: 21.0, un: 'ng/dL' };
+    if (idade < 40) return { min: 4.5, max: 17.0, un: 'ng/dL' };
+    if (idade < 50) return { min: 4.0, max: 14.0, un: 'ng/dL' };
+    if (idade < 60) return { min: 3.5, max: 12.5, un: 'ng/dL' };
+    if (idade < 70) return { min: 2.5, max: 10.0, un: 'ng/dL' };
+    return { min: 2.0, max: 8.0, un: 'ng/dL' };
   },
   'SHBG': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 18) return {min:18,max:144,un:'nmol/L'};
-      return {min:18,max:114,un:'nmol/L'};
+    var F = (sexo === 'Feminino');
+    if (F) {
+      if (idade < 18)  return { min: 18, max: 144, un: 'nmol/L' };
+      if (idade >= 50) return { min: 28, max: 112, un: 'nmol/L' };
+      return { min: 18, max: 114, un: 'nmol/L' };
     }
-    if (idade < 18) return {min:9,max:69,un:'nmol/L'};
-    if (idade < 50) return {min:18,max:54,un:'nmol/L'};
-    return {min:21,max:94,un:'nmol/L'};
+    if (idade < 18)    return { min: 9,  max: 69,  un: 'nmol/L' };
+    if (idade < 50)    return { min: 18, max: 54,  un: 'nmol/L' };
+    return { min: 21, max: 94, un: 'nmol/L' };
   },
   'LH': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:1.9,max:12.5,un:'mUI/mL',nota:'Fase folicular'};
-    return {min:1.5,max:9.3,un:'mUI/mL'};
+    var F = (sexo === 'Feminino');
+    if (F) {
+      if (idade >= 50) return { min: 15.9, max: 54.0,  un: 'mUI/mL', nota: 'Pós-menopausa' };
+      return { min: 1.9, max: 12.5, un: 'mUI/mL', nota: 'Fase folicular' };
+    }
+    return { min: 1.5, max: 9.3, un: 'mUI/mL' };
   },
   'FSH': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:2.5,max:10.2,un:'mUI/mL',nota:'Fase folicular'};
-    return {min:1.4,max:18.1,un:'mUI/mL'};
+    var F = (sexo === 'Feminino');
+    if (F) {
+      if (idade >= 50) return { min: 23.0, max: 116.3, un: 'mUI/mL', nota: 'Pós-menopausa' };
+      return { min: 2.5, max: 10.2, un: 'mUI/mL', nota: 'Fase folicular' };
+    }
+    return { min: 1.4, max: 18.1, un: 'mUI/mL' };
   },
   'Estradiol': function(sexo, idade) {
-    if (sexo === 'Masculino') return {min:10,max:40,un:'pg/mL'};
-    if (idade < 10) return {min:5,max:20,un:'pg/mL'};
-    return {min:30,max:400,un:'pg/mL',nota:'Fase folicular: 30–150'};
+    var F = (sexo === 'Feminino');
+    if (!F) return { min: 10, max: 40, un: 'pg/mL' };
+    if (idade < 10)  return { min: 5,  max: 20,  un: 'pg/mL' };
+    if (idade >= 50) return { min: 0,  max: 50,  un: 'pg/mL', nota: 'Pós-menopausa < 50' };
+    return { min: 30, max: 400, un: 'pg/mL', nota: 'Folicular: 30–150 | Ovulatório: 150–750 | Lúteo: 50–240' };
+  },
+  'Progesterona': function(sexo, idade) {
+    var F = (sexo === 'Feminino');
+    if (!F) return { min: 0.2, max: 1.0, un: 'ng/mL' };
+    if (idade >= 50) return { min: 0.0, max: 1.0,  un: 'ng/mL', nota: 'Pós-menopausa' };
+    return { min: 1.7, max: 27.0, un: 'ng/mL', nota: 'Fase lútea: 1.7–27.0 | Folicular: 0.1–1.5' };
   },
   'Prolactina': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:3,max:30,un:'ng/mL'};
-    return {min:3,max:18,un:'ng/mL'};
+    var F = (sexo === 'Feminino');
+    return F ? { min: 3.0, max: 30.0, un: 'ng/mL' } : { min: 3.0, max: 18.0, un: 'ng/mL' };
   },
   'DHEA-S': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 18) return {min:35,max:430,un:'µg/dL'};
-      if (idade < 30) return {min:65,max:380,un:'µg/dL'};
-      if (idade < 50) return {min:45,max:270,un:'µg/dL'};
-      return {min:18,max:244,un:'µg/dL'};
+    var F = (sexo === 'Feminino');
+    if (F) {
+      if (idade < 18)  return { min: 35,  max: 430, un: 'µg/dL' };
+      if (idade < 30)  return { min: 65,  max: 380, un: 'µg/dL' };
+      if (idade < 40)  return { min: 45,  max: 330, un: 'µg/dL' };
+      if (idade < 50)  return { min: 32,  max: 240, un: 'µg/dL' };
+      if (idade < 60)  return { min: 26,  max: 200, un: 'µg/dL' };
+      return { min: 13, max: 130, un: 'µg/dL' };
     }
-    if (idade < 18) return {min:20,max:555,un:'µg/dL'};
-    if (idade < 30) return {min:280,max:640,un:'µg/dL'};
-    if (idade < 50) return {min:120,max:520,un:'µg/dL'};
-    return {min:50,max:310,un:'µg/dL'};
+    if (idade < 18)    return { min: 20,  max: 555, un: 'µg/dL' };
+    if (idade < 30)    return { min: 280, max: 640, un: 'µg/dL' };
+    if (idade < 40)    return { min: 120, max: 520, un: 'µg/dL' };
+    if (idade < 50)    return { min: 95,  max: 450, un: 'µg/dL' };
+    if (idade < 60)    return { min: 70,  max: 360, un: 'µg/dL' };
+    return { min: 42, max: 290, un: 'µg/dL' };
   },
+  'DHT':                function(sexo, idade) { var F=(sexo==='Feminino'); return F?{min:5,max:46,un:'pg/mL'}:{min:250,max:990,un:'pg/mL'}; },
+  'Androstenediona':    function(sexo, idade) { var F=(sexo==='Feminino'); return F?{min:0.3,max:3.3,un:'ng/mL'}:{min:0.7,max:3.6,un:'ng/mL'}; },
+  '17-OH Progesterona': function(sexo, idade) { var F=(sexo==='Feminino'); return F?{min:0.1,max:2.1,un:'ng/mL',nota:'Fase folicular'}:{min:0.5,max:2.7,un:'ng/mL'}; },
   'IGF-1': function(sexo, idade) {
-    if (idade < 10) return {min:88,max:474,un:'ng/mL'};
-    if (idade < 14) return {min:110,max:565,un:'ng/mL'};
-    if (idade < 18) return {min:202,max:957,un:'ng/mL'};
-    if (idade < 25) return {min:182,max:780,un:'ng/mL'};
-    if (idade < 40) return {min:114,max:492,un:'ng/mL'};
-    if (idade < 55) return {min:90,max:360,un:'ng/mL'};
-    return {min:71,max:290,un:'ng/mL'};
+    if (idade < 6)   return { min: 17,  max: 248, un: 'ng/mL' };
+    if (idade < 10)  return { min: 88,  max: 474, un: 'ng/mL' };
+    if (idade < 14)  return { min: 110, max: 565, un: 'ng/mL' };
+    if (idade < 18)  return { min: 202, max: 957, un: 'ng/mL' };
+    if (idade < 25)  return { min: 182, max: 780, un: 'ng/mL' };
+    if (idade < 40)  return { min: 114, max: 492, un: 'ng/mL' };
+    if (idade < 55)  return { min: 90,  max: 360, un: 'ng/mL' };
+    if (idade < 70)  return { min: 71,  max: 290, un: 'ng/mL' };
+    return { min: 55, max: 225, un: 'ng/mL' };
   },
-  'Cortisol':       function(sexo, idade) { return {min:5,max:25,un:'µg/dL',nota:'Matinal (8h)'}; },
-  'Cortisol Basal': function(sexo, idade) { return {min:5,max:25,un:'µg/dL',nota:'Matinal (8h)'}; },
-  'ACTH':           function(sexo, idade) { return {min:7,max:63,un:'pg/mL',nota:'Matinal'}; },
-  'Vitamina D':     function(sexo, idade) { return {min:30,max:100,un:'ng/mL',nota:'Ótimo: 40–60'}; },
-  'Vitamina B12':   function(sexo, idade) { return {min:200,max:950,un:'pg/mL'}; },
-  'Ácido Fólico':   function(sexo, idade) { return {min:4.0,max:20.0,un:'ng/mL'}; },
+
+  'Cortisol':       function(sexo, idade) { return { min: 5,  max: 25, un: 'µg/dL', nota: 'Matinal (8h). Noturno (23h): 0–7.5' }; },
+  'Cortisol Basal': function(sexo, idade) { return { min: 5,  max: 25, un: 'µg/dL', nota: 'Matinal (8h)' }; },
+  'ACTH':           function(sexo, idade) { return { min: 7,  max: 63, un: 'pg/mL',  nota: 'Matinal' }; },
+  'Aldosterona':    function(sexo, idade) { return { min: 3,  max: 35, un: 'ng/dL',  nota: 'Deitado: 3–35 | Em pé: 7–70' }; },
+
+  'Vitamina D':   function(sexo, idade) { return { min: 30,  max: 100, un: 'ng/mL',  nota: 'Insuficiente: 20–29 | Deficiente < 20 | Ótimo: 40–60' }; },
+  'Vitamina B12': function(sexo, idade) { return { min: 200, max: 950, un: 'pg/mL',  nota: 'Ótimo > 400. Borderline: 200–300' }; },
+  'Ácido Fólico': function(sexo, idade) { return { min: 4.0, max: 20.0, un: 'ng/mL' }; },
+  'Vitamina A':   function(sexo, idade) { return { min: 30,  max: 80,  un: 'µg/dL' }; },
+  'Vitamina E':   function(sexo, idade) { return { min: 5.0, max: 18.0, un: 'mg/L'  }; },
+  'Vitamina C':   function(sexo, idade) { return { min: 0.4, max: 2.0,  un: 'mg/dL' }; },
   'Ferritina': function(sexo, idade) {
-    if (sexo === 'Feminino') {
-      if (idade < 15) return {min:10,max:100,un:'ng/mL'};
-      return {min:10,max:150,un:'ng/mL'};
+    var F = (sexo === 'Feminino');
+    if (idade < 15) return { min: 10, max: 100, un: 'ng/mL' };
+    if (F) {
+      if (idade >= 50) return { min: 10, max: 250, un: 'ng/mL', nota: 'Ótimo: 50–200' };
+      return { min: 10, max: 150, un: 'ng/mL', nota: 'Ótimo: 50–150' };
     }
-    if (idade < 15) return {min:10,max:100,un:'ng/mL'};
-    return {min:20,max:250,un:'ng/mL'};
+    return { min: 22, max: 320, un: 'ng/mL', nota: 'Ótimo: 50–200' };
   },
-  'Ferro Sérico': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:50,max:170,un:'µg/dL'};
-    return {min:60,max:170,un:'µg/dL'};
+  'Ferro Sérico': function(sexo, idade) { var F=(sexo==='Feminino'); return F?{min:50,max:170,un:'µg/dL'}:{min:60,max:170,un:'µg/dL'}; },
+  'Zinco':        function(sexo, idade) { return { min: 60,  max: 120,  un: 'µg/dL' }; },
+  'Magnésio':     function(sexo, idade) { return { min: 1.7, max: 2.4,  un: 'mg/dL'  }; },
+  'Cobre':        function(sexo, idade) { var F=(sexo==='Feminino'); return F?{min:80,max:155,un:'µg/dL'}:{min:70,max:140,un:'µg/dL'}; },
+  'Selênio':      function(sexo, idade) { return { min: 60,  max: 120,  un: 'µg/L'  }; },
+  'Cálcio Total':  function(sexo, idade) { if (idade<12) return {min:8.8,max:11.0,un:'mg/dL'}; return {min:8.5,max:10.5,un:'mg/dL'}; },
+  'Cálcio Iônico': function(sexo, idade) { return { min: 1.1, max: 1.3, un: 'mmol/L' }; },
+  'Fósforo': function(sexo, idade) {
+    if (idade < 2)  return { min: 4.5, max: 8.0, un: 'mg/dL' };
+    if (idade < 12) return { min: 4.0, max: 7.0, un: 'mg/dL' };
+    return { min: 2.5, max: 4.5, un: 'mg/dL' };
   },
-  'Zinco':    function(sexo, idade) { return {min:60,max:120,un:'µg/dL'}; },
-  'Magnésio': function(sexo, idade) { return {min:1.7,max:2.4,un:'mg/dL'}; },
-  'Cobre': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:80,max:155,un:'µg/dL'};
-    return {min:70,max:140,un:'µg/dL'};
-  },
-  'PCR Ultrassensível': function(sexo, idade) { return {min:0,max:1.0,un:'mg/L',nota:'Risco baixo < 1.0'}; },
+
+  'PCR Ultrassensível': function(sexo, idade) { return { min: 0, max: 1.0, un: 'mg/L', nota: 'Baixo risco CV < 1.0 | Moderado 1–3 | Alto > 3' }; },
+  'PCR':          function(sexo, idade) { return { min: 0, max: 5.0,  un: 'mg/L'   }; },
   'VHS': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:0,max:20,un:'mm/h'};
-    return {min:0,max:15,un:'mm/h'};
+    var F = (sexo === 'Feminino');
+    if (idade >= 50) return F ? {min:0,max:30,un:'mm/h'} : {min:0,max:20,un:'mm/h'};
+    return F ? {min:0,max:20,un:'mm/h'} : {min:0,max:15,un:'mm/h'};
   },
-  'Homocisteína':  function(sexo, idade) { return {min:5,max:15,un:'µmol/L',nota:'Ótimo < 10'}; },
+  'Homocisteína': function(sexo, idade) { return { min: 5, max: 15, un: 'µmol/L', nota: 'Ótimo < 10 | Risco leve 15–30 | Moderado 30–100' }; },
+  'Fibrinogênio': function(sexo, idade) { return { min: 200, max: 400, un: 'mg/dL' }; },
+
+  'TP':   function(sexo, idade) { return { min: 11,  max: 13,  un: 'seg' }; },
+  'INR':  function(sexo, idade) { return { min: 0.8, max: 1.2, un: ''    }; },
+  'TTPA': function(sexo, idade) { return { min: 25,  max: 35,  un: 'seg' }; },
+
   'PSA Total': function(sexo, idade) {
-    if (idade < 50) return {min:0,max:2.5,un:'ng/mL'};
-    if (idade < 60) return {min:0,max:3.5,un:'ng/mL'};
-    if (idade < 70) return {min:0,max:4.5,un:'ng/mL'};
-    return {min:0,max:6.5,un:'ng/mL'};
+    if (idade < 50) return { min: 0, max: 2.5, un: 'ng/mL' };
+    if (idade < 60) return { min: 0, max: 3.5, un: 'ng/mL' };
+    if (idade < 70) return { min: 0, max: 4.5, un: 'ng/mL' };
+    return { min: 0, max: 6.5, un: 'ng/mL' };
   },
-  'PSA Livre':            function(sexo, idade) { return {min:0,max:2.0,un:'ng/mL'}; },
-  '17-OH Progesterona': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:0.1,max:2.1,un:'ng/mL',nota:'Fase folicular'};
-    return {min:0.5,max:2.7,un:'ng/mL'};
+  'PSA Livre': function(sexo, idade) { return { min: 0, max: 2.0, un: 'ng/mL' }; },
+
+  'FAN':            function(sexo, idade) { return { min: 0, max: 80,   un: 'título', nota: 'Negativo < 1:80' }; },
+  'Complemento C3': function(sexo, idade) { return { min: 90, max: 180, un: 'mg/dL' }; },
+  'Complemento C4': function(sexo, idade) { return { min: 16, max: 47,  un: 'mg/dL' }; },
+  'IgE Total': function(sexo, idade) {
+    if (idade < 12) return { min: 0, max: 60,  un: 'UI/mL' };
+    return { min: 0, max: 100, un: 'UI/mL', nota: 'Atopia suspeita > 100' };
   },
-  'Androstenediona': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:0.3,max:3.3,un:'ng/mL'};
-    return {min:0.7,max:3.6,un:'ng/mL'};
-  },
-  'DHT': function(sexo, idade) {
-    if (sexo === 'Feminino') return {min:5,max:46,un:'pg/mL'};
-    return {min:250,max:990,un:'pg/mL'};
-  }
+  'Triptase':  function(sexo, idade) { return { min: 0, max: 11.4, un: 'µg/L' }; },
+  'Melatonina': function(sexo, idade) { return { min: 50, max: 200, un: 'pg/mL', nota: 'Noturno (2–3h)' }; }
 };
 
 function calcularIdade(dataNasc) {
-  if (!dataNasc) return 30;
+  if (!dataNasc) return 35;
   var dn = new Date(dataNasc + 'T12:00:00');
+  if (isNaN(dn.getTime())) return 35;
   var hoje = new Date();
   var anos = hoje.getFullYear() - dn.getFullYear();
   var m = hoje.getMonth() - dn.getMonth();
@@ -1032,32 +1128,25 @@ function calcularIdade(dataNasc) {
 function buscarReferencia(nomeExame, sexo, dataNasc) {
   var idade = calcularIdade(dataNasc);
   var sexoNorm = (sexo === 'Feminino' || sexo === 'F') ? 'Feminino' : 'Masculino';
-  // 1. Tentativa exata
   var fn = REF_LAB[nomeExame];
   if (fn) return fn(sexoNorm, idade);
-  // 2. Sem parênteses: "TGO (AST)" → "TGO AST" — alguns salvam sem parênteses
-  var semParen = nomeExame.replace(new RegExp('[()]','g'),'').replace(new RegExp('\\s+',' g'),' ').trim();
-  fn = REF_LAB[semParen];
-  if (fn) return fn(sexoNorm, idade);
-  // 3. Aliases comuns
-  var aliases = {
+  var ALIAS = {
     'TGO': 'TGO (AST)', 'AST': 'TGO (AST)',
     'TGP': 'TGP (ALT)', 'ALT': 'TGP (ALT)',
     'Glicemia': 'Glicose', 'Hemoglobina Glicada': 'HbA1c',
-    'Cortisol Matinal': 'Cortisol Basal', 'Cortisol 8h': 'Cortisol Basal',
+    'Cortisol Matinal': 'Cortisol', 'Cortisol 8h': 'Cortisol',
     'Vit D': 'Vitamina D', 'Vit B12': 'Vitamina B12',
     'Ac Folico': 'Ácido Fólico', 'Ac Úrico': 'Ácido Úrico',
     'Triglicerideos': 'Triglicerídeos', 'Triglicérides': 'Triglicerídeos',
     'Hemáceas': 'Hemácias', 'Hematocrito': 'Hematócrito',
-    'Leucocitos': 'Leucócitos', 'Plaquetas': 'Plaquetas'
+    'Leucocitos': 'Leucócitos'
   };
-  var aliasKey = aliases[nomeExame];
+  var aliasKey = ALIAS[nomeExame];
   if (aliasKey) { fn = REF_LAB[aliasKey]; if (fn) return fn(sexoNorm, idade); }
   return null;
 }
 
 function obterRef(info, nomeExame, sexoPaciente, dataNascPaciente) {
-  // 1. Usar Firebase se refMin/refMax válidos (não null, não 0+0)
   var refSalva = (
     info &&
     info.refMin !== undefined && info.refMin !== null &&
@@ -1065,16 +1154,14 @@ function obterRef(info, nomeExame, sexoPaciente, dataNascPaciente) {
     !(normalizarValorNumerico(info.refMin) === 0 && normalizarValorNumerico(info.refMax) === 0)
   );
   if (refSalva) {
-    return {min: info.refMin, max: info.refMax, un: info.unidade || '', fonte: 'salvo'};
+    return { min: info.refMin, max: info.refMax, un: info.unidade || '', fonte: 'firebase' };
   }
-  // 2. Fallback: dicionário de literatura
   var ref = buscarReferencia(nomeExame, sexoPaciente, dataNascPaciente);
-  if (ref) return {min: ref.min, max: ref.max, un: ref.un, nota: ref.nota || '', fonte: 'dict'};
+  if (ref) return { min: ref.min, max: ref.max, un: ref.un, nota: ref.nota || '', fonte: 'dict' };
   return null;
 }
 
 function getRefPacAtual() {
-  // helper para pegar sexo/dataNasc do paciente em contexto
   var pac = prontuarioPac || null;
   return {
     sexo: pac ? (pac.sexo || 'M') : 'M',
