@@ -1032,8 +1032,27 @@ function calcularIdade(dataNasc) {
 function buscarReferencia(nomeExame, sexo, dataNasc) {
   var idade = calcularIdade(dataNasc);
   var sexoNorm = (sexo === 'Feminino' || sexo === 'F') ? 'Feminino' : 'Masculino';
+  // 1. Tentativa exata
   var fn = REF_LAB[nomeExame];
   if (fn) return fn(sexoNorm, idade);
+  // 2. Sem parênteses: "TGO (AST)" → "TGO AST" — alguns salvam sem parênteses
+  var semParen = nomeExame.replace(new RegExp('[()]','g'),'').replace(new RegExp('\\s+',' g'),' ').trim();
+  fn = REF_LAB[semParen];
+  if (fn) return fn(sexoNorm, idade);
+  // 3. Aliases comuns
+  var aliases = {
+    'TGO': 'TGO (AST)', 'AST': 'TGO (AST)',
+    'TGP': 'TGP (ALT)', 'ALT': 'TGP (ALT)',
+    'Glicemia': 'Glicose', 'Hemoglobina Glicada': 'HbA1c',
+    'Cortisol Matinal': 'Cortisol Basal', 'Cortisol 8h': 'Cortisol Basal',
+    'Vit D': 'Vitamina D', 'Vit B12': 'Vitamina B12',
+    'Ac Folico': 'Ácido Fólico', 'Ac Úrico': 'Ácido Úrico',
+    'Triglicerideos': 'Triglicerídeos', 'Triglicérides': 'Triglicerídeos',
+    'Hemáceas': 'Hemácias', 'Hematocrito': 'Hematócrito',
+    'Leucocitos': 'Leucócitos', 'Plaquetas': 'Plaquetas'
+  };
+  var aliasKey = aliases[nomeExame];
+  if (aliasKey) { fn = REF_LAB[aliasKey]; if (fn) return fn(sexoNorm, idade); }
   return null;
 }
 
@@ -1043,7 +1062,7 @@ function obterRef(info, nomeExame, sexoPaciente, dataNascPaciente) {
     info &&
     info.refMin !== undefined && info.refMin !== null &&
     info.refMax !== undefined && info.refMax !== null &&
-    !(parseFloat(info.refMin) === 0 && parseFloat(info.refMax) === 0)
+    !(normalizarValorNumerico(info.refMin) === 0 && normalizarValorNumerico(info.refMax) === 0)
   );
   if (refSalva) {
     return {min: info.refMin, max: info.refMax, un: info.unidade || '', fonte: 'salvo'};
@@ -1051,7 +1070,6 @@ function obterRef(info, nomeExame, sexoPaciente, dataNascPaciente) {
   // 2. Fallback: dicionário de literatura
   var ref = buscarReferencia(nomeExame, sexoPaciente, dataNascPaciente);
   if (ref) return {min: ref.min, max: ref.max, un: ref.un, nota: ref.nota || '', fonte: 'dict'};
-  // 3. Sem referência
   return null;
 }
 
@@ -1075,7 +1093,8 @@ function formatRefLabel(refObj, unFallback) {
 // ============================================================
 function getStatus(val, refMin, refMax, tipoCampo) {
   if (tipoCampo && tipoCampo !== 'numero') return 'normal';
-  var v = parseFloat(val);
+  // BUG 3: normalize milhar notation before comparison
+  var v = normalizarValorNumerico(val);
   if (isNaN(v)) return 'normal';
   // BUG 1: use explicit null/undefined check, not falsy
   if (refMin === null || refMin === undefined || refMax === null || refMax === undefined) return 'normal';
@@ -1106,7 +1125,7 @@ function statusLabel(s) {
   return 'Normal';
 }
 function barPos(val, refMin, refMax) {
-  var v = parseFloat(val);
+  var v = normalizarValorNumerico(val);
   var mn = parseFloat(refMin);
   var mx = parseFloat(refMax);
   if (isNaN(v) || isNaN(mn) || isNaN(mx) || mx <= mn) return 50;
@@ -1499,10 +1518,35 @@ function loadProntuarioResumo() {
 }
 function normalizarNomeExame(nome) {
   if (!nome) return '';
+  // Manter parênteses — "TGO (AST)" deve permanecer "tgo (ast)" para agrupar corretamente
+  // sem colidir com outros exames. A remoção de parênteses causava falha no lookup REF_LAB.
   return nome.trim().toLowerCase()
     .replace(new RegExp('\\s+','g'), ' ')
-    .replace(new RegExp('[()]','g'), '')
     .trim();
+}
+
+// Normalizar valor numérico: aceita ponto ou vírgula como separador decimal/milhar
+// Ex: "211.000" (br milhar) → 211000 | "5.48" → 5.48 | "211,000" → 211000
+function normalizarValorNumerico(v) {
+  if (v === null || v === undefined) return NaN;
+  var s = String(v).trim();
+  // Se tem ponto E vírgula: formato "1.234,56" → remover ponto, trocar vírgula
+  var reAmbos = new RegExp('[0-9]+\\.[0-9]{3},[0-9]');
+  if (reAmbos.test(s)) {
+    return parseFloat(s.replace(new RegExp('\\.','g'),'').replace(',','.'));
+  }
+  // Se tem apenas vírgula como separador decimal: "5,48" → 5.48
+  var reVirgula = new RegExp('^[0-9]+,[0-9]+$');
+  if (reVirgula.test(s)) {
+    return parseFloat(s.replace(',','.'));
+  }
+  // Se tem ponto como separador de milhar (3 dígitos depois): "211.000" → 211000
+  var reMilhar = new RegExp('^[0-9]+\\.[0-9]{3}$');
+  if (reMilhar.test(s)) {
+    return parseFloat(s.replace('.',''));
+  }
+  // Padrão: ponto como decimal
+  return parseFloat(s);
 }
 
 function renderResumoCards(resultados, container) {
@@ -1541,11 +1585,11 @@ function renderResumoCards(resultados, container) {
       ? getStatus(latest.valor, refMinV, refMaxV, tc)
       : 'normal';
     var pos = temRefV ? barPos(latest.valor, refMinV, refMaxV) : 50;
-    // BUG 2: cap trend at ±500%, require prev > 0
+    // BUG 2: cap trend at ±500%, require prev > 0; BUG 3: normalize milhar values
     var trend = '';
     if (hist.length >= 2) {
-      var prev = parseFloat(hist[1].valor);
-      var curr = parseFloat(latest.valor);
+      var prev = normalizarValorNumerico(hist[1].valor);
+      var curr = normalizarValorNumerico(latest.valor);
       if (!isNaN(prev) && !isNaN(curr) && prev > 0) {
         var diff = ((curr - prev) / Math.abs(prev)) * 100;
         if (Math.abs(diff) >= 500) {
@@ -1608,15 +1652,20 @@ function renderResumoCards(resultados, container) {
     var sorted2 = hist2.slice().sort(function(a,b){ return (a.data||'') > (b.data||'') ? 1 : -1; });
     for (var si = 0; si < sorted2.length; si++) {
       var rawD = sorted2[si].data || '';
-      var dtLabel = rawD.length === 10 ? rawD.substr(8,2) + '/' + rawD.substr(5,2) : rawD;
+      // BUG 2: include year so dates across different years are distinguishable — dd/mm/aa
+      var dtLabel = rawD;
+      if (rawD.length === 10) {
+        dtLabel = rawD.substr(8,2) + '/' + rawD.substr(5,2) + '/' + rawD.substr(2,2);
+      }
       labels2.push(dtLabel);
-      dvals.push(parseFloat(sorted2[si].valor) || 0);
+      // BUG 3: normalize "211.000" (br milhar) → 211000
+      dvals.push(normalizarValorNumerico(sorted2[si].valor) || 0);
     }
     var s2 = getStatus(hist2[0].valor, hist2[0].refMin, hist2[0].refMax, 'numero');
     var pacCtx2 = getRefPacAtual();
     var refObj2 = obterRef(hist2[0], allParams[kn2].displayNome, pacCtx2.sexo, pacCtx2.dataNasc);
-    // recalc status with fallback ref
     if (refObj2) {
+      // getStatus already uses normalizarValorNumerico internally
       s2 = getStatus(hist2[0].valor, refObj2.min, refObj2.max, 'numero');
     }
     // PROB 2: corLinha by status — hex values
