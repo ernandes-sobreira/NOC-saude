@@ -267,15 +267,16 @@ tr:hover td{background:var(--primary-light)}
     </div>
     <!-- PACIENTE LOGIN -->
     <div id="form-paciente" class="hidden">
-      <div class="mb-2">
-        <label>E-mail</label>
-        <input type="email" id="pac-email" placeholder="seuemail@email.com">
+      <div class="mb-2" style="background:#F0FDF4;border-radius:8px;padding:10px;font-size:.82rem;color:#166534;border:1px solid #BBF7D0">
+        💚 Digite o código que seu médico forneceu para acessar seus exames.
       </div>
       <div class="mb-2">
-        <label>Senha</label>
-        <input type="password" id="pac-senha" placeholder="••••••••">
+        <label>Seu código de acesso</label>
+        <input type="text" id="pac-codigo" placeholder="Ex: MARIA123" autocomplete="off"
+          style="font-size:1.3rem;letter-spacing:3px;text-transform:uppercase;text-align:center"
+          oninput="this.value=this.value.toUpperCase()">
       </div>
-      <button class="btn btn-primary w-100" onclick="doPacienteLogin()">Entrar como Paciente</button>
+      <button class="btn btn-primary w-100" onclick="doPacienteLogin()">Entrar</button>
     </div>
     <!-- ADMIN LOGIN -->
     <div id="form-admin" class="hidden">
@@ -438,12 +439,50 @@ function doLogin() {
     .catch(function(e) { showLoginError(traduzirErroFirebase(e.message)); });
 }
 function doPacienteLogin() {
-  var email = document.getElementById('pac-email').value.trim();
-  var senha = document.getElementById('pac-senha').value;
-  if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(function() { clearLoginError(); })
-    .catch(function(e) { showLoginError('Credenciais inválidas.'); });
+  var codigo = (document.getElementById('pac-codigo').value||'').trim().toUpperCase();
+  if (!codigo) { showLoginError('Digite seu código de acesso.'); return; }
+  var btn = document.querySelector('#form-paciente .btn-primary');
+  if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
+  function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
+  // Search all doctors for patient with this access code
+  db.collection('adminIndex').where('tipo','==','medico').get()
+    .then(function(snap) {
+      var promises = [];
+      snap.forEach(function(d) {
+        var medUid = d.id;
+        promises.push(
+          db.collection('users').doc(medUid).collection('pacientes')
+            .where('codigoAcesso','==',codigo).get()
+            .then(function(ps) {
+              if (!ps.empty) return { medUid: medUid, pacDoc: ps.docs[0] };
+              return null;
+            })
+            .catch(function() { return null; })
+        );
+      });
+      Promise.all(promises).then(function(results) {
+        var found = null;
+        for (var i = 0; i < results.length; i++) {
+          if (results[i]) { found = results[i]; break; }
+        }
+        if (!found) {
+          resetBtn();
+          showLoginError('Código não encontrado. Verifique com seu médico.');
+          return;
+        }
+        // Found — set session without Firebase Auth
+        var pac = Object.assign({}, found.pacDoc.data(), {id: found.pacDoc.id});
+        pacienteMedUid = found.medUid;
+        pacientePacId = found.pacDoc.id;
+        currentRole = 'paciente';
+        currentPerfil = { nome: pac.nome, tipo: 'paciente', email: pac.email||'' };
+        currentUser = { uid: 'pac_' + found.pacDoc.id, email: pac.email||codigo };
+        resetBtn();
+        clearLoginError();
+        showApp();
+      });
+    })
+    .catch(function() { resetBtn(); showLoginError('Erro de conexão. Tente novamente.'); });
 }
 function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
@@ -564,6 +603,8 @@ auth.onAuthStateChanged(function(user) {
   if (suppressAuthStateChange) return;
   if (adminLoginInProgress) return;
   if (user) {
+    // Skip Firebase Auth for code-based patient sessions (uid starts with 'pac_')
+    if (currentRole === 'paciente' && currentUser && currentUser.uid && currentUser.uid.indexOf('pac_') === 0) return;
     currentUser = user;
     // If this is the known admin email — force admin role immediately without waiting for Firestore
     if (window._adminEmail && user.email && user.email.toLowerCase() === window._adminEmail.toLowerCase()) {
@@ -2134,6 +2175,7 @@ function renderListaPacientes(pacs) {
       '<td><div class="flex align-center gap-1"><div class="avatar">' + (p.nome||'?')[0].toUpperCase() + '</div><div><div style="font-weight:600">' + (p.nome||'') + '</div><div style="font-size:.78rem;color:var(--gray)">' + (p.cpf||'') + '</div></div></div></td>' +
       '<td>' + (p.cidade||'') + '</td>' +
       '<td><div style="font-size:.8rem;color:var(--gray)">' + (p.especialidade||'') + '</div></td>' +
+      '<td>' + (p.codigoAcesso ? '<span style="font-family:monospace;font-size:.9rem;font-weight:700;color:var(--primary);background:var(--primary-light);padding:3px 10px;border-radius:6px">🔑 ' + p.codigoAcesso + '</span>' : '<span style="color:var(--gray);font-size:.78rem">sem código</span>') + '</td>' +
       '<td>' + badge + '</td>' +
       '<td class="flex gap-1">' +
       '<button class="btn btn-outline btn-sm" onclick="abrirProntuario(\'' + p.id + '\')">📋 Prontuário</button>' +
@@ -2141,7 +2183,7 @@ function renderListaPacientes(pacs) {
       '<button class="btn btn-danger btn-sm" onclick="excluirPaciente(\'' + p.id + '\')">🗑️</button>' +
       '</td></tr>';
   }
-  wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Cidade</th><th>Especialidade</th><th>Status</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Cidade</th><th>Especialidade</th><th>🔑 Código</th><th>Status</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 function filtrarPacientes() {
   var q = (document.getElementById('busca-pac').value||'').toLowerCase();
@@ -2154,11 +2196,21 @@ function filtrarPacientes() {
   renderListaPacientes(filtered);
 }
 function modalNovoPaciente() {
-  openModal('<div class="modal"><div class="modal-header"><h3>Novo Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome completo *</label><input id="np-nome" placeholder="Maria Oliveira"></div><div><label>Data de Nascimento</label><input type="date" id="np-nasc"></div><div><label>Sexo</label><select id="np-sexo"><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select></div><div><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div><div><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div><div><label>E-mail</label><input type="email" id="np-email" placeholder="paciente@email.com"></div><div><label>Cidade</label><input id="np-cidade" placeholder="Cáceres-MT"></div><div><label>Especialidade/Serviço</label><input id="np-esp" value="' + (currentPerfil.especialidade||'') + '"></div></div><div class="mt-2"><label>Queixa principal</label><textarea id="np-queixa" rows="2" placeholder="Motivo da consulta..."></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarNovoPaciente()">Salvar</button></div></div>');
+  openModal('<div class="modal"><div class="modal-header"><h3>Novo Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome completo *</label><input id="np-nome" placeholder="Maria Oliveira"></div><div><label>Data de Nascimento</label><input type="date" id="np-nasc"></div><div><label>Sexo</label><select id="np-sexo"><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select></div><div><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div><div><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div><div><label>E-mail</label><input type="email" id="np-email" placeholder="paciente@email.com"></div><div><label>Cidade</label><input id="np-cidade" placeholder="Cáceres-MT"></div><div><label>Especialidade/Serviço</label><input id="np-esp" value="' + (currentPerfil.especialidade||'') + '"></div><div style="grid-column:1/-1"><label>🔑 Código de Acesso do Paciente *</label><div style=\"display:flex;gap:8px\"><input id=\"np-codigo\" placeholder=\"Ex: MARIA123\" style=\"font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:600\" oninput=\"this.value=this.value.toUpperCase()\"><button type=\"button\" class=\"btn btn-gray btn-sm\" onclick=\"gerarCodigoAuto()\">Gerar</button></div><div style=\"font-size:.75rem;color:var(--gray);margin-top:3px\">O paciente usa este código para acessar seus exames. Anote e entregue a ele.</div></div></div><div class="mt-2"><label>Queixa principal</label><textarea id="np-queixa" rows="2" placeholder="Motivo da consulta..."></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarNovoPaciente()">Salvar</button></div></div>');
+}
+function gerarCodigoAuto() {
+  var el = document.getElementById('np-codigo');
+  if (!el) return;
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  el.value = code;
 }
 function salvarNovoPaciente() {
   var nome = (document.getElementById('np-nome').value||'').trim();
+  var codigo = (document.getElementById('np-codigo').value||'').trim().toUpperCase();
   if (!nome) { toast('Nome é obrigatório','error'); return; }
+  if (!codigo) { toast('Defina um código de acesso para o paciente','error'); return; }
   var dados = {
     nome: nome,
     dataNasc: document.getElementById('np-nasc').value||'',
@@ -2169,12 +2221,25 @@ function salvarNovoPaciente() {
     cidade: document.getElementById('np-cidade').value.trim()||'',
     especialidade: document.getElementById('np-esp').value.trim()||'',
     queixa: document.getElementById('np-queixa').value.trim()||'',
+    codigoAcesso: codigo,
     totalExames: 0,
     temAlteracao: false
   };
   db.collection('users').doc(currentUser.uid).collection('pacientes').add(dados)
-    .then(function() { toast('Paciente cadastrado!','success'); closeModal(); loadPacientes(); })
+    .then(function() {
+      toast('Paciente cadastrado! Código: ' + codigo,'success');
+      closeModal();
+      loadPacientes();
+    })
     .catch(function() { toast('Erro ao salvar','error'); });
+}
+function gerarCodigoEdicao() {
+  var el = document.getElementById('ep-codigo');
+  if (!el) return;
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  el.value = code;
 }
 function modalEditarPaciente(pacId) {
   var pac = null;
@@ -2182,7 +2247,7 @@ function modalEditarPaciente(pacId) {
     if (listaPacientes[i].id === pacId) { pac = listaPacientes[i]; break; }
   }
   if (!pac) return;
-  openModal('<div class="modal"><div class="modal-header"><h3>Editar Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome *</label><input id="ep-nome" value="' + (pac.nome||'') + '"></div><div><label>Data Nasc.</label><input type="date" id="ep-nasc" value="' + (pac.dataNasc||'') + '"></div><div><label>Sexo</label><select id="ep-sexo"><option value="F"' + (pac.sexo==='F'?' selected':'') + '>Feminino</option><option value="M"' + (pac.sexo==='M'?' selected':'') + '>Masculino</option><option value="O"' + (pac.sexo==='O'?' selected':'') + '>Outro</option></select></div><div><label>CPF</label><input id="ep-cpf" value="' + (pac.cpf||'') + '"></div><div><label>Telefone</label><input id="ep-tel" value="' + (pac.telefone||'') + '"></div><div><label>E-mail</label><input type="email" id="ep-email" value="' + (pac.email||'') + '"></div><div><label>Cidade</label><input id="ep-cidade" value="' + (pac.cidade||'') + '"></div><div><label>Especialidade</label><input id="ep-esp" value="' + (pac.especialidade||'') + '"></div></div><div class="mt-2"><label>Queixa</label><textarea id="ep-queixa" rows="2">' + (pac.queixa||'') + '</textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarEdicaoPaciente(\'' + pacId + '\')">Salvar</button></div></div>');
+  openModal('<div class="modal"><div class="modal-header"><h3>Editar Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome *</label><input id="ep-nome" value="' + (pac.nome||'') + '"></div><div><label>Data Nasc.</label><input type="date" id="ep-nasc" value="' + (pac.dataNasc||'') + '"></div><div><label>Sexo</label><select id="ep-sexo"><option value="F"' + (pac.sexo==='F'?' selected':'') + '>Feminino</option><option value="M"' + (pac.sexo==='M'?' selected':'') + '>Masculino</option><option value="O"' + (pac.sexo==='O'?' selected':'') + '>Outro</option></select></div><div><label>CPF</label><input id="ep-cpf" value="' + (pac.cpf||'') + '"></div><div><label>Telefone</label><input id="ep-tel" value="' + (pac.telefone||'') + '"></div><div><label>E-mail</label><input type="email" id="ep-email" value="' + (pac.email||'') + '"></div><div><label>Cidade</label><input id="ep-cidade" value="' + (pac.cidade||'') + '"></div><div><label>Especialidade</label><input id="ep-esp" value="' + (pac.especialidade||'') + '"></div><div style="grid-column:1/-1"><label>🔑 Código de Acesso</label><div style="display:flex;gap:8px"><input id="ep-codigo" value="' + (pac.codigoAcesso||'') + '" style="font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:600" oninput="this.value=this.value.toUpperCase()"><button type="button" class="btn btn-gray btn-sm" onclick="gerarCodigoEdicao()">Gerar</button></div></div></div><div class="mt-2"><label>Queixa</label><textarea id="ep-queixa" rows="2">' + (pac.queixa||'') + '</textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarEdicaoPaciente(\'' + pacId + '\')">Salvar</button></div></div>');
 }
 function salvarEdicaoPaciente(pacId) {
   var nome = (document.getElementById('ep-nome').value||'').trim();
@@ -2196,6 +2261,7 @@ function salvarEdicaoPaciente(pacId) {
     email: document.getElementById('ep-email').value.trim()||'',
     cidade: document.getElementById('ep-cidade').value.trim()||'',
     especialidade: document.getElementById('ep-esp').value.trim()||'',
+    codigoAcesso: (document.getElementById('ep-codigo') ? document.getElementById('ep-codigo').value.trim().toUpperCase() : '') || '',
     queixa: document.getElementById('ep-queixa').value.trim()||''
   };
   db.collection('users').doc(currentUser.uid).collection('pacientes').doc(pacId).update(dados)
