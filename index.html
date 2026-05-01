@@ -447,9 +447,17 @@ function doLogin() {
   function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
   suppressAuthStateChange = false;
   adminLoginInProgress = false;
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(function() { resetBtn(); clearLoginError(); })
-    .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
+  // Force signOut any existing session (including anonymous) then login
+  var doSignIn = function() {
+    auth.signInWithEmailAndPassword(email, senha)
+      .then(function() { resetBtn(); clearLoginError(); })
+      .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
+  };
+  if (auth.currentUser) {
+    auth.signOut().then(doSignIn).catch(doSignIn);
+  } else {
+    doSignIn();
+  }
 }
 function doPacienteLogin() {
   var codigo = (document.getElementById('pac-codigo').value||'').trim().toUpperCase();
@@ -523,52 +531,47 @@ function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
   var email = (document.getElementById('admin-email').value || '').trim();
   var senha = document.getElementById('admin-senha').value;
-  if (code !== 'NOC@admin2025') { showLoginError('Código de acesso inválido.'); return; }
+  if (code !== 'NOC@admin2025') { showLoginError('Codigo de acesso invalido.'); return; }
   if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
-  if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
-  // Clear any anonymous session first
+  if (senha.length < 6) { showLoginError('Senha minimo 6 caracteres.'); return; }
   suppressAuthStateChange = false;
-  if (auth.currentUser && auth.currentUser.isAnonymous) {
-    auth.signOut().catch(function(){});
-  }
   clearLoginError();
   var btnEl = document.querySelector('#form-admin .btn-primary');
   if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
   function resetBtn() { if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; } }
   window._adminEmail = email;
   window._adminSenha = senha;
-  // Persist admin email in sessionStorage so page reload keeps admin session
   try { sessionStorage.setItem('_noc_admin_email', email); } catch(e) {}
-
   function setupAdminProfile(uid) {
-    // 1. Force tipo:admin in profile
-    // 2. Remove admin UID from adminIndex (in case it was wrongly added as medico)
-    // 3. Ensure adminIndex has no entry for admin UID
     return db.collection('users').doc(uid).collection('perfil').doc('dados')
-      .set({ nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clínica' })
-      .then(function() {
-        // Clean up: delete admin from adminIndex if it exists there
-        return db.collection('adminIndex').doc(uid).delete().catch(function(){});
-      })
+      .set({ nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clinica' })
+      .then(function() { return db.collection('adminIndex').doc(uid).delete().catch(function(){}); })
       .then(function() { resetBtn(); })
       .catch(function() { resetBtn(); });
   }
-
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(function(cred) { return setupAdminProfile(cred.user.uid); })
-    .catch(function(e) {
-      var msg = e.message || '';
-      var notFound = msg.indexOf('user-not-found') >= 0 || msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 || msg.indexOf('invalid-credential') >= 0;
-      if (notFound) {
-        auth.createUserWithEmailAndPassword(email, senha)
-          .then(function(cred) { return setupAdminProfile(cred.user.uid); })
-          .catch(function(e2) { resetBtn(); showLoginError(traduzirErroFirebase(e2.message)); });
-      } else {
-        resetBtn();
-        showLoginError(traduzirErroFirebase(msg));
-      }
-    });
+  function doSignIn() {
+    auth.signInWithEmailAndPassword(email, senha)
+      .then(function(cred) { return setupAdminProfile(cred.user.uid); })
+      .catch(function(e) {
+        var msg = e.message || '';
+        var notFound = msg.indexOf('user-not-found') >= 0 || msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 || msg.indexOf('invalid-credential') >= 0;
+        if (notFound) {
+          auth.createUserWithEmailAndPassword(email, senha)
+            .then(function(cred) { return setupAdminProfile(cred.user.uid); })
+            .catch(function(e2) { resetBtn(); showLoginError(traduzirErroFirebase(e2.message)); });
+        } else {
+          resetBtn();
+          showLoginError(traduzirErroFirebase(msg));
+        }
+      });
+  }
+  if (auth.currentUser) {
+    auth.signOut().then(doSignIn).catch(doSignIn);
+  } else {
+    doSignIn();
+  }
 }
+
 function lerEspecialidadesSelecionadas(containerId) {
   var checks = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]');
   var esps = [];
