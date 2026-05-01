@@ -446,15 +446,12 @@ function doPacienteLogin() {
   function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
 
   function buscarPorCodigo() {
-    db.collection('adminIndex').where('tipo','==','medico').get()
+    // Search ALL adminIndex entries (skip admin to avoid misses with tipo filter)
+    db.collection('adminIndex').get()
       .then(function(snap) {
-        if (snap.empty) {
-          resetBtn();
-          showLoginError('Nenhum médico cadastrado.');
-          return;
-        }
         var promises = [];
         snap.forEach(function(d) {
+          if (d.data().tipo === 'admin') return;
           var medUid = d.id;
           promises.push(
             db.collection('users').doc(medUid).collection('pacientes')
@@ -462,9 +459,14 @@ function doPacienteLogin() {
               .then(function(ps) {
                 return (!ps.empty) ? { medUid: medUid, pacDoc: ps.docs[0] } : null;
               })
-              .catch(function(e) { return null; })
+              .catch(function() { return null; })
           );
         });
+        if (!promises.length) {
+          resetBtn();
+          showLoginError('Nenhum médico cadastrado no sistema.');
+          return;
+        }
         Promise.all(promises).then(function(results) {
           var found = null;
           for (var i = 0; i < results.length; i++) {
@@ -472,7 +474,7 @@ function doPacienteLogin() {
           }
           if (!found) {
             resetBtn();
-            showLoginError('Código não encontrado. Verifique com seu médico.');
+            showLoginError('Código "' + codigo + '" não encontrado. Verifique com seu médico.');
             return;
           }
           var pac = Object.assign({}, found.pacDoc.data(), {id: found.pacDoc.id});
@@ -490,7 +492,7 @@ function doPacienteLogin() {
       .catch(function(e) {
         resetBtn();
         var msg = (e && e.message) ? e.message : String(e);
-        showLoginError('Erro Firestore: ' + msg.substring(0, 80));
+        showLoginError('Erro: ' + msg.substring(0, 100));
       });
   }
 
