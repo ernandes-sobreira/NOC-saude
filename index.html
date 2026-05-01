@@ -3092,84 +3092,103 @@ function processarPDFcomIA() {
   var nomeEl = document.getElementById('pdf-nome');
   if (nomeEl) nomeEl.textContent = file.name;
   var st = document.getElementById('pdf-status');
-  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span style="font-size:1.2rem">🤖</span><span>IA lendo o laudo... pode levar alguns segundos...</span></div>';
+  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span>⏳</span><span>Extraindo texto do PDF...</span></div>';
   document.getElementById('pdf-tabela-wrap').innerHTML = '';
 
-  // Convert PDF to base64
+  // Step 1: Extract text with pdf.js
   var reader = new FileReader();
   reader.onload = function(e) {
-    var base64 = e.target.result.split(',')[1];
-
-    // Use Claude API to extract exam values
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-            },
-            {
-              type: 'text',
-              text: 'Este é um laudo laboratorial brasileiro do laboratório São Matheus ou similar.\n\nRetorne SOMENTE JSON válido, sem markdown:\n{\n  "lab": "Nome do laboratório",\n  "data": "YYYY-MM-DD",\n  "solicitante": "Nome do médico solicitante",\n  "paciente": "Nome do paciente",\n  "exames": [\n    {"nome": "Nome padronizado", "valor": "número", "unidade": "unidade"}\n  ]\n}\n\nREGRAS CRÍTICAS:\n1. NUNCA extraia valores de referência — apenas o resultado do paciente\n2. No hemograma São Matheus, os resultados estão ANTES das colunas de referência:\n   - "Hemácias..................... 5,51 milh./mm3" → valor é 5.51\n   - "Hemoglobina.................. 16,80 g/dl" → valor é 16.80\n   - "Hematocrito.................. 48,00 %" → valor é 48.00\n   - "Leucócitos................... 5.250" → valor é 5250\n   - "Contagem de plaquetas........ 210,000 mm³" → valor é 210000\n   - NUNCA use os números depois das colunas "Homens/Mulheres"\n3. Valores com vírgula: "5,51" → "5.51", "16,80" → "16.80"\n4. Valores com ponto como separador de milhar: "5.250" → "5250", "210.000" → "210000"\n5. Se o valor tiver letra junto (ex: "40 a 56"), IGNORE — é referência, não resultado\n6. Nomes padronizados: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Basófilos, Linfócitos, Monócitos, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, GGT, TGO (AST), TGP (ALT), Fosfatase Alcalina\n7. Laboratório São Matheus: procure no cabeçalho/logo\n8. Solicitante: linha "Solicitante...... NOME"\n9. Data: "Data e Hora de Coleta:" ou "Data de Entrada:"'
-            }
-          ]
-        }]
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var text = '';
-      if (data.content && data.content[0]) {
-        text = data.content[0].text || '';
+    var data = new Uint8Array(e.target.result);
+    pdfjsLib.getDocument({data: data}).promise.then(function(pdf) {
+      var total = pdf.numPages;
+      var pageTexts = new Array(total);
+      var loaded = 0;
+      for (var pg = 1; pg <= total; pg++) {
+        (function(pgNum) {
+          pdf.getPage(pgNum).then(function(page) {
+            page.getTextContent().then(function(tc) {
+              var lines = {};
+              for (var ti = 0; ti < tc.items.length; ti++) {
+                var item = tc.items[ti];
+                var y = Math.round(item.transform[5]);
+                if (!lines[y]) lines[y] = [];
+                lines[y].push(item.str);
+              }
+              var ys = Object.keys(lines).map(Number).sort(function(a,b){return b-a;});
+              var text = [];
+              for (var yi = 0; yi < ys.length; yi++) {
+                var line = lines[ys[yi]].join(' ').trim();
+                if (line) text.push(line);
+              }
+              pageTexts[pgNum-1] = text.join('\n');
+              loaded++;
+              if (loaded === total) {
+                var fullText = pageTexts.join('\n\n--- PÁGINA ---\n\n');
+                enviarTextoParaIA(fullText);
+              }
+            });
+          });
+        })(pg);
       }
-      // Clean and parse JSON
-      text = text.replace(/```json/g,'').replace(/```/g,'').trim();
-      var result;
-      try {
-        result = JSON.parse(text);
-      } catch(e) {
-        // Try to extract JSON from text
-        var match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try { result = JSON.parse(match[0]); } catch(e2) { result = null; }
-        }
-      }
-      if (!result || !result.exames || !result.exames.length) {
-        if (st) st.innerHTML = '<span style="color:var(--warn)">⚠️ Não foi possível extrair. Tente novamente ou adicione manualmente.</span>';
-        pdfExtracted = [];
-        renderPdfTable([], '', '');
-        return;
-      }
-      var nExames = result.exames.length;
-      var labNome = result.lab || 'Desconhecido';
-      var solicit = result.solicitante || '';
-      if (st) st.innerHTML =
-        '<div style="background:var(--success-light);border-radius:8px;padding:10px 14px;font-size:.85rem">' +
-        '<div style="font-weight:700;color:var(--success);margin-bottom:4px">✅ ' + nExames + ' parâmetros extraídos</div>' +
-        '<div style="color:var(--text-soft)">🏥 Lab: <strong>' + labNome + '</strong>' +
-        (solicit ? ' &nbsp;·&nbsp; 👨‍⚕️ Solicitante: <strong>' + solicit + '</strong>' : '') +
-        (result.data ? ' &nbsp;·&nbsp; 📅 ' + result.data : '') +
-        '</div></div>';
-      pdfExtracted = result.exames.map(function(e) {
-        return { nome: e.nome, valor: String(e.valor), unidade: e.unidade||'', _removed: false };
-      });
-      // Store solicitante for saving
-      window._pdfSolicitante = solicit;
-      renderPdfTable(pdfExtracted, labNome, result.data||todayISO());
-    })
-    .catch(function(err) {
-      if (st) st.innerHTML = '<span style="color:var(--danger)">Erro na IA: ' + (err.message||err) + '</span>';
+    }).catch(function(err) {
+      if (st) st.innerHTML = '<span style="color:var(--danger)">Erro ao ler PDF: ' + err.message + '</span>';
     });
   };
-  reader.readAsDataURL(file);
+  reader.readAsArrayBuffer(file);
 }
 
+function enviarTextoParaIA(textoLaudo) {
+  var st = document.getElementById('pdf-status');
+  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span>🤖</span><span>IA interpretando o laudo...</span></div>';
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      messages: [{
+        role: 'user',
+        content: 'Este é o texto extraído de um laudo laboratorial brasileiro:\n\n' + textoLaudo + '\n\n---\n\nRetorne SOMENTE JSON válido, sem markdown:\n{"lab":"Nome do laboratório","data":"YYYY-MM-DD","solicitante":"Nome do médico solicitante","paciente":"Nome do paciente","exames":[{"nome":"Nome padronizado","valor":"número","unidade":"unidade"}]}\n\nREGRAS CRÍTICAS:\n1. NUNCA extraia valores de referência — apenas o resultado do paciente\n2. No hemograma, o resultado do paciente vem ANTES das colunas de referência. Ex: "Hemácias... 5,51 milh./mm3 4,50 a 6,00" → valor é 5.51 (não 4.50 nem 6.00)\n3. Virgula decimal: 5,51 → "5.51", 16,80 → "16.80"\n4. Ponto separador de milhar: 5.250 → "5250", 210.000 → "210000"\n5. Ignore qualquer valor seguido de "a" (faixa de referência). Ex: "40 a 56" = referência, IGNORE\n6. Nomes padronizados: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Basófilos, Linfócitos, Monócitos, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, GGT, TGO (AST), TGP (ALT), Fosfatase Alcalina, Colesterol Total, HDL, LDL, VLDL, Triglicerídeos, TSH, T4 Livre, Glicose, HbA1c, Creatinina, Ureia\n7. Laboratório: procure no cabeçalho\n8. Solicitante: linha "Solicitante...... NOME"\n9. Data: "Data e Hora de Coleta:" ou "Data de Entrada:"'
+      }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var text = '';
+    if (data.content && data.content[0]) text = data.content[0].text || '';
+    text = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    var result;
+    try { result = JSON.parse(text); }
+    catch(e) {
+      var m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { result = JSON.parse(m[0]); } catch(e2) { result = null; } }
+    }
+    if (!result || !result.exames || !result.exames.length) {
+      if (st) st.innerHTML = '<span style="color:var(--warn)">⚠️ Não foi possível extrair. Adicione manualmente.</span>';
+      pdfExtracted = [];
+      renderPdfTable([], '', '');
+      return;
+    }
+    var labNome = result.lab || 'Desconhecido';
+    var solicit = result.solicitante || '';
+    if (st) st.innerHTML =
+      '<div style="background:var(--success-light);border-radius:8px;padding:10px 14px;font-size:.85rem">' +
+      '<div style="font-weight:700;color:var(--success);margin-bottom:4px">✅ ' + result.exames.length + ' parâmetros extraídos</div>' +
+      '<div style="color:var(--text-soft)">🏥 <strong>' + labNome + '</strong>' +
+      (solicit ? ' &nbsp;·&nbsp; 👨‍⚕️ <strong>' + solicit + '</strong>' : '') +
+      (result.data ? ' &nbsp;·&nbsp; 📅 ' + result.data : '') +
+      '</div></div>';
+    pdfExtracted = result.exames.map(function(e) {
+      return { nome: e.nome, valor: String(e.valor), unidade: e.unidade||'', _removed: false };
+    });
+    window._pdfSolicitante = solicit;
+    renderPdfTable(pdfExtracted, labNome, result.data||todayISO());
+  })
+  .catch(function(err) {
+    if (st) st.innerHTML = '<span style="color:var(--danger)">Erro na IA: ' + (err.message||err) + '. Verifique sua conexão.</span>';
+  });
+}
 function renderPdfTable(rows, lab, dateFound) {
   var wrap = document.getElementById('pdf-tabela-wrap');
   if (!wrap) return;
