@@ -442,9 +442,16 @@ function doLogin() {
   var email = document.getElementById('login-email').value.trim();
   var senha = document.getElementById('login-senha').value;
   if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(function() { clearLoginError(); })
-    .catch(function(e) { showLoginError(traduzirErroFirebase(e.message)); });
+  var btn = document.querySelector('#form-medico .btn-primary');
+  if (btn) { btn.textContent = 'Entrando...'; btn.disabled = true; }
+  function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
+  // Always sign out first to clear any anonymous session
+  auth.signOut().catch(function(){}).then(function() {
+    suppressAuthStateChange = false;
+    auth.signInWithEmailAndPassword(email, senha)
+      .then(function() { resetBtn(); clearLoginError(); })
+      .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
+  });
 }
 function doPacienteLogin() {
   var codigo = (document.getElementById('pac-codigo').value||'').trim().toUpperCase();
@@ -521,6 +528,11 @@ function doAdminLogin() {
   if (code !== 'NOC@admin2025') { showLoginError('Código de acesso inválido.'); return; }
   if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
   if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
+  // Clear any anonymous session first
+  suppressAuthStateChange = false;
+  if (auth.currentUser && auth.currentUser.isAnonymous) {
+    auth.signOut().catch(function(){});
+  }
   clearLoginError();
   var btnEl = document.querySelector('#form-admin .btn-primary');
   if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
@@ -603,6 +615,7 @@ function doLogout() {
   suppressAuthStateChange = false;
   window._adminEmail = null;
   window._adminSenha = null;
+  window._pdfSolicitante = null;
   try { sessionStorage.removeItem('_noc_admin_email'); } catch(e) {}
   auth.signOut().then(function() {
     document.getElementById('app-shell').classList.add('hidden');
