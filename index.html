@@ -2735,7 +2735,72 @@ function verResultado(resId) {
   });
 }
 function editarResultado(resId) {
-  _openModalResultado(resId);
+  db.collection('users').doc(currentUser.uid).collection('resultados').doc(resId).get()
+    .then(function(doc) {
+      if (!doc.exists) { toast('Resultado não encontrado','error'); return; }
+      var r = doc.data();
+      // Find matching area in cache
+      var areaIdx = 0;
+      for (var i = 0; i < areasCache.length; i++) {
+        if (areasCache[i].nome === r.areaNome) { areaIdx = i; break; }
+      }
+      var areaOptions = '';
+      for (var j = 0; j < areasCache.length; j++) {
+        var sel = j === areaIdx ? ' selected' : '';
+        areaOptions += '<option value="' + j + '"' + sel + '>' + (areasCache[j].ico||'') + ' ' + areasCache[j].nome + '</option>';
+      }
+      openModal(
+        '<div class="modal" style="max-width:800px">' +
+        '<div class="modal-header"><h3>✏️ Editar Resultado</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+        '<div class="modal-body">' +
+        '<div class="form-grid mb-2">' +
+        '<div><label>Área de Exame</label><select id="res-area" onchange="renderParamInputs()">' + areaOptions + '</select></div>' +
+        '<div><label>Data de Coleta</label><input type="date" id="res-data" value="' + (r.data||todayISO()) + '"></div>' +
+        '<div><label>Laboratório</label><input id="res-lab" value="' + (r.lab||'') + '" placeholder="Ex.: Fleury..."></div>' +
+        '</div>' +
+        '<div id="res-params-wrap"></div>' +
+        '</div>' +
+        '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="salvarResultado(\'' + resId + '\')">Salvar</button></div>' +
+        '</div>'
+      );
+      // Pre-fill param inputs with existing values
+      renderParamInputsComValores(areaIdx, r.valores || {}, r.camposTexto || {});
+    })
+    .catch(function() { toast('Erro ao carregar resultado','error'); });
+}
+
+function renderParamInputsComValores(areaIdx, valoresSalvos, camposSalvos) {
+  var area = areasCache[areaIdx];
+  if (!area) return;
+  var wrap = document.getElementById('res-params-wrap');
+  if (!wrap) return;
+  var html = '<div class="section-title">' + (area.ico||'') + ' ' + area.nome + '</div><div class="form-grid">';
+  var params = area.params || [];
+  for (var i = 0; i < params.length; i++) {
+    var p = params[i];
+    var tc = p.tipoCampo || 'numero';
+    // Get existing value
+    var existingVal = '';
+    if (tc === 'numero') {
+      existingVal = valoresSalvos[p.nome] ? (valoresSalvos[p.nome].valor || '') : '';
+    } else {
+      existingVal = camposSalvos[p.nome] || '';
+    }
+    var inputEl = '';
+    if (tc === 'texto') {
+      inputEl = '<input id="p_' + i + '" placeholder="' + p.nome + '" value="' + existingVal.replace(/"/g,'&quot;') + '">';
+    } else if (tc === 'textarea') {
+      inputEl = '<textarea id="p_' + i + '" rows="2">' + existingVal + '</textarea>';
+    } else if (tc === 'data') {
+      inputEl = '<input type="date" id="p_' + i + '" value="' + existingVal + '">';
+    } else {
+      inputEl = '<input type="number" step="any" id="p_' + i + '" value="' + existingVal + '" placeholder="0.0">';
+    }
+    html += '<div><label>' + p.nome + (p.unidade ? ' (' + p.unidade + ')' : '') + '</label>' + inputEl + '</div>';
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
 }
 function excluirResultado(resId) {
   if (!confirm('Excluir este resultado?')) return;
