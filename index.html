@@ -3092,40 +3092,34 @@ function processarPDFcomIA() {
   var nomeEl = document.getElementById('pdf-nome');
   if (nomeEl) nomeEl.textContent = file.name;
   var st = document.getElementById('pdf-status');
-  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span>⏳</span><span>Extraindo texto do PDF...</span></div>';
+  if (st) st.innerHTML = '<span style="color:var(--primary)">⏳ Lendo PDF...</span>';
   document.getElementById('pdf-tabela-wrap').innerHTML = '';
 
-  // Step 1: Extract text with pdf.js
   var reader = new FileReader();
   reader.onload = function(e) {
     var data = new Uint8Array(e.target.result);
     pdfjsLib.getDocument({data: data}).promise.then(function(pdf) {
       var total = pdf.numPages;
-      var pageTexts = new Array(total);
+      var allLines = [];
       var loaded = 0;
       for (var pg = 1; pg <= total; pg++) {
         (function(pgNum) {
           pdf.getPage(pgNum).then(function(page) {
             page.getTextContent().then(function(tc) {
-              var lines = {};
+              var lineMap = {};
               for (var ti = 0; ti < tc.items.length; ti++) {
                 var item = tc.items[ti];
                 var y = Math.round(item.transform[5]);
-                if (!lines[y]) lines[y] = [];
-                lines[y].push(item.str);
+                if (!lineMap[y]) lineMap[y] = [];
+                lineMap[y].push(item.str);
               }
-              var ys = Object.keys(lines).map(Number).sort(function(a,b){return b-a;});
-              var text = [];
+              var ys = Object.keys(lineMap).map(Number).sort(function(a,b){return b-a;});
               for (var yi = 0; yi < ys.length; yi++) {
-                var line = lines[ys[yi]].join(' ').trim();
-                if (line) text.push(line);
+                var line = lineMap[ys[yi]].join(' ').trim();
+                if (line) allLines.push(line);
               }
-              pageTexts[pgNum-1] = text.join('\n');
               loaded++;
-              if (loaded === total) {
-                var fullText = pageTexts.join('\n\n--- PÁGINA ---\n\n');
-                enviarTextoParaIA(fullText);
-              }
+              if (loaded === total) extrairExames(allLines);
             });
           });
         })(pg);
@@ -3137,58 +3131,108 @@ function processarPDFcomIA() {
   reader.readAsArrayBuffer(file);
 }
 
-function enviarTextoParaIA(textoLaudo) {
+function extrairExames(linhas) {
   var st = document.getElementById('pdf-status');
-  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span>🤖</span><span>IA interpretando o laudo...</span></div>';
+  var texto = linhas.join('\n');
 
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 3000,
-      messages: [{
-        role: 'user',
-        content: 'Este é o texto extraído de um laudo laboratorial brasileiro:\n\n' + textoLaudo + '\n\n---\n\nRetorne SOMENTE JSON válido, sem markdown:\n{"lab":"Nome do laboratório","data":"YYYY-MM-DD","solicitante":"Nome do médico solicitante","paciente":"Nome do paciente","exames":[{"nome":"Nome padronizado","valor":"número","unidade":"unidade"}]}\n\nREGRAS CRÍTICAS:\n1. NUNCA extraia valores de referência — apenas o resultado do paciente\n2. No hemograma, o resultado do paciente vem ANTES das colunas de referência. Ex: "Hemácias... 5,51 milh./mm3 4,50 a 6,00" → valor é 5.51 (não 4.50 nem 6.00)\n3. Virgula decimal: 5,51 → "5.51", 16,80 → "16.80"\n4. Ponto separador de milhar: 5.250 → "5250", 210.000 → "210000"\n5. Ignore qualquer valor seguido de "a" (faixa de referência). Ex: "40 a 56" = referência, IGNORE\n6. Nomes padronizados: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Basófilos, Linfócitos, Monócitos, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, GGT, TGO (AST), TGP (ALT), Fosfatase Alcalina, Colesterol Total, HDL, LDL, VLDL, Triglicerídeos, TSH, T4 Livre, Glicose, HbA1c, Creatinina, Ureia\n7. Laboratório: procure no cabeçalho\n8. Solicitante: linha "Solicitante...... NOME"\n9. Data: "Data e Hora de Coleta:" ou "Data de Entrada:"'
-      }]
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    var text = '';
-    if (data.content && data.content[0]) text = data.content[0].text || '';
-    text = text.replace(/```json/g,'').replace(/```/g,'').trim();
-    var result;
-    try { result = JSON.parse(text); }
-    catch(e) {
-      var m = text.match(/\{[\s\S]*\}/);
-      if (m) { try { result = JSON.parse(m[0]); } catch(e2) { result = null; } }
-    }
-    if (!result || !result.exames || !result.exames.length) {
-      if (st) st.innerHTML = '<span style="color:var(--warn)">⚠️ Não foi possível extrair. Adicione manualmente.</span>';
-      pdfExtracted = [];
-      renderPdfTable([], '', '');
-      return;
-    }
-    var labNome = result.lab || 'Desconhecido';
-    var solicit = result.solicitante || '';
-    if (st) st.innerHTML =
-      '<div style="background:var(--success-light);border-radius:8px;padding:10px 14px;font-size:.85rem">' +
-      '<div style="font-weight:700;color:var(--success);margin-bottom:4px">✅ ' + result.exames.length + ' parâmetros extraídos</div>' +
-      '<div style="color:var(--text-soft)">🏥 <strong>' + labNome + '</strong>' +
-      (solicit ? ' &nbsp;·&nbsp; 👨‍⚕️ <strong>' + solicit + '</strong>' : '') +
-      (result.data ? ' &nbsp;·&nbsp; 📅 ' + result.data : '') +
-      '</div></div>';
-    pdfExtracted = result.exames.map(function(e) {
-      return { nome: e.nome, valor: String(e.valor), unidade: e.unidade||'', _removed: false };
-    });
-    window._pdfSolicitante = solicit;
-    renderPdfTable(pdfExtracted, labNome, result.data||todayISO());
-  })
-  .catch(function(err) {
-    if (st) st.innerHTML = '<span style="color:var(--danger)">Erro na IA: ' + (err.message||err) + '. Verifique sua conexão.</span>';
-  });
+  // Detect lab
+  var lab = 'Desconhecido';
+  var labsConhecidos = ['São Matheus','Saomatheus','Fleury','Delboni','Hermes Pardini','Sabin','CERNE','Synlab','Labclin','Lavoisier','Einstein','DASA'];
+  for (var li = 0; li < labsConhecidos.length; li++) {
+    if (texto.toLowerCase().indexOf(labsConhecidos[li].toLowerCase()) >= 0) { lab = labsConhecidos[li]; break; }
+  }
+
+  // Detect date
+  var dataColeta = '';
+  var dmatch = texto.match(/[Cc]oleta[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
+  if (dmatch) dataColeta = dmatch[3]+'-'+dmatch[2]+'-'+dmatch[1];
+  if (!dataColeta) {
+    var dmatch2 = texto.match(/[Ee]ntrada[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
+    if (dmatch2) dataColeta = dmatch2[3]+'-'+dmatch2[2]+'-'+dmatch2[1];
+  }
+
+  // Detect solicitante
+  var solicitante = '';
+  var smatch = texto.match(/[Ss]olicitante[.\s]+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç\s]+?)(?:\n|RG|CPF|Data)/);
+  if (smatch) solicitante = smatch[1].trim().replace(/\s+/,' ');
+
+  // EXAM PATTERNS — map regex patterns to standard names
+  var PATTERNS = [
+    // Hemograma
+    {re:/[Hh]em[áa]cias[\s.]+(\d+[,.]?\d*)\s*milh/,               nome:'Hemácias',          un:'milh/mm³'},
+    {re:/[Hh]emoglobina[\s.]+(\d+[,.]?\d*)\s*g/,                   nome:'Hemoglobina',        un:'g/dL'},
+    {re:/[Hh]ematocrito[\s.]+(\d+[,.]?\d*)\s*%/,                   nome:'Hematócrito',        un:'%'},
+    {re:/V\.G\.M[\s.]+(\d+[,.]?\d*)\s*u/i,                         nome:'VGM',                un:'µ³'},
+    {re:/H\.G\.M[\s.]+(\d+[,.]?\d*)\s*p/i,                         nome:'HGM',                un:'pg'},
+    {re:/C\.H\.G\.M[\s.]+(\d+[,.]?\d*)\s*%/i,                      nome:'CHGM',               un:'%'},
+    {re:/R\.D\.W[\s.]+(\d+[,.]?\d*)\s*%/i,                         nome:'RDW',                un:'%'},
+    {re:/[Ll]eucocitos[\s.]+(\d[\d.]*)\s*(?:\d|$)/,                 nome:'Leucócitos',         un:'/mm³'},
+    {re:/[Cc]ontagem de plaquetas[\s.]+(\d[\d.,]*)/i,               nome:'Plaquetas',          un:'mm³'},
+    {re:/[Vv]olume plaquetario medio[\s.]+(\d+[,.]?\d*)/i,          nome:'VPM',                un:'fL'},
+    {re:/[Ss]egmentados[\s]+\d+\s+(\d[\d.]*)/,                      nome:'Segmentados',        un:'/mm³'},
+    {re:/[Ee]osinof[\w]+[\s]+\d+\s+(\d[\d.]*)/,                    nome:'Eosinófilos',        un:'/mm³'},
+    {re:/[Bb]asofilos[\s]+\d+\s+(\d[\d.]*)/,                       nome:'Basófilos',          un:'/mm³'},
+    {re:/[Ll]infocitos[\s]+\d+\s+(\d[\d.]*)/,                      nome:'Linfócitos',         un:'/mm³'},
+    {re:/[Mm]onocitos[\s]+\d+\s+(\d[\d.]*)/,                       nome:'Monócitos',          un:'/mm³'},
+    // Bioquímica
+    {re:/[Bb]ilirrubina [Tt]otal[\s.:]+(\d+[,.]?\d*)\s*mg/,        nome:'Bilirrubina Total',  un:'mg/dL'},
+    {re:/[Bb]ilirrubina [Dd]ireta[\s.:]+(\d+[,.]?\d*)\s*mg/,       nome:'Bilirrubina Direta', un:'mg/dL'},
+    {re:/[Bb]ilirrubina [Ii]ndireta[\s.:]+(\d+[,.]?\d*)\s*mg/,     nome:'Bilirrubina Indireta',un:'mg/dL'},
+    {re:/[Ff]osfatase [Aa]lcalina[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,nome:'Fosfatase Alcalina',un:'U/L'},
+    {re:/GGT[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'GGT',                un:'U/L'},
+    {re:/TGO[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'TGO (AST)',          un:'U/L'},
+    {re:/TGP[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'TGP (ALT)',          un:'U/L'},
+    {re:/[Cc]olesterol [Tt]otal[\s.:]+(\d+[,.]?\d*)\s*mg/,         nome:'Colesterol Total',   un:'mg/dL'},
+    {re:/HDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                            nome:'HDL',                un:'mg/dL'},
+    {re:/LDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                            nome:'LDL',                un:'mg/dL'},
+    {re:/VLDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                           nome:'VLDL',               un:'mg/dL'},
+    {re:/[Tt]riglice[\w]+[\s.:]+(\d+[,.]?\d*)\s*mg/,               nome:'Triglicerídeos',     un:'mg/dL'},
+    {re:/[Gg]licose[\s.:]+(\d+[,.]?\d*)\s*mg/,                     nome:'Glicose',            un:'mg/dL'},
+    {re:/[Hh]emoglobina [Gg]licada[\s\S]{0,50}(\d+[,.]?\d*)\s*%/,  nome:'HbA1c',              un:'%'},
+    {re:/TSH[\s.:]+(\d+[,.]?\d*)/,                                  nome:'TSH',                un:'mUI/L'},
+    {re:/[Tt]4 [Ll]ivre[\s.:]+(\d+[,.]?\d*)/,                      nome:'T4 Livre',           un:'ng/dL'},
+    {re:/[Cc]reatinina[\s.:]+(\d+[,.]?\d*)\s*mg/,                  nome:'Creatinina',         un:'mg/dL'},
+    {re:/[Uu]reia[\s.:]+(\d+[,.]?\d*)\s*mg/,                       nome:'Ureia',              un:'mg/dL'},
+    {re:/[Ff]erritina[\s.:]+(\d+[,.]?\d*)/,                        nome:'Ferritina',          un:'ng/mL'},
+    {re:/[Vv]itamina D[\s\S]{0,20}(\d+[,.]?\d*)/,                  nome:'Vitamina D',         un:'ng/mL'},
+    {re:/[Vv]itamina B12[\s.:]+(\d+[,.]?\d*)/,                     nome:'Vitamina B12',       un:'pg/mL'},
+    {re:/[Tt]estosterona [Tt]otal[\s.:]+(\d+[,.]?\d*)/,            nome:'Testosterona Total', un:'ng/dL'},
+    {re:/[Ee]stradiol[\s.:]+(\d+[,.]?\d*)/,                        nome:'Estradiol',          un:'pg/mL'},
+    {re:/FSH[\s.:]+(\d+[,.]?\d*)/,                                  nome:'FSH',                un:'mUI/mL'},
+    {re:/\bLH\b[\s.:]+(\d+[,.]?\d*)/,                              nome:'LH',                 un:'mUI/mL'},
+    {re:/[Pp]rolactina[\s.:]+(\d+[,.]?\d*)/,                       nome:'Prolactina',         un:'ng/mL'},
+    {re:/DHEA[\s-]+S[\s.:]+(\d+[,.]?\d*)/i,                        nome:'DHEA-S',             un:'µg/dL'},
+    {re:/[Cc]ortisol[\s.:]+(\d+[,.]?\d*)/,                         nome:'Cortisol Basal',     un:'µg/dL'},
+    {re:/PCR[\s\S]{0,20}(\d+[,.]?\d*)/,                            nome:'PCR Ultrassensível', un:'mg/L'},
+    {re:/[Ff]erro\b[\s.:]+(\d+[,.]?\d*)\s*µ/,                      nome:'Ferro Sérico',       un:'µg/dL'},
+    {re:/[Aa]cido [Uu]rico[\s.:]+(\d+[,.]?\d*)/,                   nome:'Ácido Úrico',        un:'mg/dL'}
+  ];
+
+  var rows = [];
+  var seen = {};
+  for (var pi = 0; pi < PATTERNS.length; pi++) {
+    var p = PATTERNS[pi];
+    var m = p.re.exec(texto);
+    if (!m) continue;
+    if (seen[p.nome]) continue;
+    var valStr = m[1].replace(',','.');
+    var val = parseFloat(valStr);
+    if (isNaN(val) || val <= 0) continue;
+    seen[p.nome] = true;
+    rows.push({nome: p.nome, valor: String(val), unidade: p.un, _removed: false});
+  }
+
+  pdfExtracted = rows;
+  window._pdfSolicitante = solicitante;
+
+  if (st) st.innerHTML = rows.length
+    ? '<div style="background:var(--success-light);border-radius:8px;padding:10px;font-size:.85rem"><strong style="color:var(--success)">✅ ' + rows.length + ' parâmetros encontrados</strong><br>' +
+      '🏥 ' + lab + (solicitante?' &nbsp;·&nbsp; 👨‍⚕️ '+solicitante:'') + (dataColeta?' &nbsp;·&nbsp; 📅 '+dataColeta:'') + '</div>'
+    : '<span style="color:var(--warn)">⚠️ Nenhum parâmetro reconhecido. Adicione manualmente abaixo.</span>';
+
+  renderPdfTable(rows, lab, dataColeta||todayISO());
 }
+
 function renderPdfTable(rows, lab, dateFound) {
   var wrap = document.getElementById('pdf-tabela-wrap');
   if (!wrap) return;
