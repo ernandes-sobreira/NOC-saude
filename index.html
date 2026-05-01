@@ -468,7 +468,7 @@ function doPacienteLogin() {
       currentRole = 'paciente';
       currentPerfil = { nome: pac.nome, tipo: 'paciente', email: pac.email||'' };
       currentUser = { uid: 'pac_' + found.pacDoc.id, email: pac.email||codigo };
-      suppressAuthStateChange = true;
+      suppressAuthStateChange = true; // Keep true — patient session must not be overridden by Firebase auth
       resetBtn(); clearLoginError(); showApp();
     }).catch(function(e) { resetBtn(); showLoginError('Erro busca: '+(e&&e.message?e.message:e)); });
   }
