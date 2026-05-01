@@ -589,6 +589,8 @@ function doLogout() {
   currentPerfil = null;
   pacienteMedUid = null;
   pacientePacId = null;
+  prontuarioPacId = null;
+  prontuarioPac = null;
   adminLoginInProgress = false;
   suppressAuthStateChange = false;
   window._adminEmail = null;
@@ -2340,6 +2342,11 @@ function excluirPaciente(pacId) {
 // ============================================================
 // PRONTUÁRIO
 // ============================================================
+// Always returns the real Firebase UID for Firestore operations
+function getMedUid() {
+  if (currentUser && currentUser.uid && currentUser.uid.indexOf('pac_') < 0) return currentUser.uid;
+  return pacienteMedUid || null;
+}
 var prontuarioPacId = null;
 var prontuarioPac = null;
 function abrirProntuario(pacId) {
@@ -2349,7 +2356,8 @@ function abrirProntuario(pacId) {
     if (listaPacientes[i].id === pacId) { prontuarioPac = listaPacientes[i]; break; }
   }
   if (!prontuarioPac) {
-    db.collection('users').doc(currentUser.uid).collection('pacientes').doc(pacId).get().then(function(doc) {
+    var uid = getMedUid();
+    db.collection('users').doc(uid).collection('pacientes').doc(pacId).get().then(function(doc) {
       if (doc.exists) { prontuarioPac = Object.assign({}, doc.data(), {id: pacId}); renderProntuario(); }
     });
     return;
@@ -2695,7 +2703,8 @@ function renderResumoCards(resultados, container) {
 // ============================================================
 var areasCache = [];
 function loadProntuarioExames() {
-  var uid = currentUser.uid;
+  var uid = getMedUid();
+  if (!uid) { var el2 = document.getElementById('pron-exames'); if (el2) el2.innerHTML = '<p style="color:var(--danger)">Sessão inválida. Faça login novamente.</p>'; return; }
   var pacId = prontuarioPacId;
   var el = document.getElementById('pron-exames');
   if (!el) return;
