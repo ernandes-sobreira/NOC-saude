@@ -3458,26 +3458,51 @@ function loadProntuarioAgenda() {
   var el = document.getElementById('pron-agenda');
   if (!el) return;
   el.innerHTML = 'Carregando...';
-  var uid = currentUser.uid;
+  var uid = getMedUid();
   db.collection('users').doc(uid).collection('agendamentos').where('pacienteId','==',prontuarioPacId).get().then(function(snap) {
     var ags = [];
     snap.forEach(function(d) { ags.push(Object.assign({}, d.data(), {id: d.id})); });
     ags.sort(function(a,b) { return (a.data||'') > (b.data||'') ? 1 : -1; });
+    var hoje = todayISO();
     var rows = '';
     for (var i = 0; i < ags.length; i++) {
       var a = ags[i];
-      rows += '<tr><td>' + (a.data||'') + '</td><td>' + (a.hora||'') + '</td><td>' + (a.tipo||'') + '</td><td>' + (a.local||'') + '</td><td>' + (a.obs||'') + '</td><td><button class="btn btn-danger btn-sm" onclick="excluirAg(\'' + a.id + '\')">🗑️</button></td></tr>';
+      var past = (a.data||'') < hoje;
+      var dataFmt = a.data ? a.data.substr(8,2)+'/'+a.data.substr(5,2)+'/'+a.data.substr(0,4) : '';
+      rows += '<tr style="opacity:' + (past?'0.6':'1') + '">' +
+        '<td>' + dataFmt + '</td>' +
+        '<td>' + (a.hora||'') + '</td>' +
+        '<td>' + (a.tipo||'Consulta') + '</td>' +
+        '<td>' + (a.local||'') + '</td>' +
+        '<td>' + (a.obs||'') + '</td>' +
+        '<td>' + (past ? '<span class="badge badge-blue">✓</span>' : '<span class="badge badge-success">✅</span>') + '</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="excluirAg(\'' + a.id + '\')">🗑️</button></td>' +
+        '</tr>';
     }
     el.innerHTML =
       '<div class="flex gap-1 mb-2">' +
-      '<button class="btn btn-primary" onclick="modalNovoAg()">+ Novo Agendamento</button>' +
+      '<button class="btn btn-primary" onclick="modalNovoAg()">📅 Agendar Consulta</button>' +
       '</div>' +
-      (rows ? '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Obs</th><th>Ação</th></tr></thead><tbody>' + rows + '</tbody></table></div>' :
-        '<div class="card" style="color:var(--gray);text-align:center;padding:40px">Nenhum agendamento.</div>');
+      (rows ? '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Obs</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' :
+        '<div class="card" style="color:var(--gray);text-align:center;padding:32px">Nenhuma consulta agendada ainda.<br><small>Clique em "Agendar Consulta" para adicionar.</small></div>');
   });
 }
 function modalNovoAg() {
-  openModal('<div class="modal"><div class="modal-header"><h3>Novo Agendamento</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Data *</label><input type="date" id="ag-data" value="' + todayISO() + '"></div><div><label>Hora</label><input type="time" id="ag-hora" value="08:00"></div><div><label>Tipo de consulta</label><input id="ag-tipo" placeholder="Retorno, Exame, Procedimento..."></div><div><label>Local</label><input id="ag-local" placeholder="Clínica, Hospital..."></div></div><div class="mt-2"><label>Observações</label><textarea id="ag-obs" rows="2" placeholder="Informações adicionais..."></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAg()">Salvar</button></div></div>');
+  openModal(
+    '<div class="modal"><div class="modal-header"><h3>📅 Agendar Consulta</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">' +
+    '👤 Paciente: <strong>' + (prontuarioPac ? prontuarioPac.nome : '') + '</strong></div>' +
+    '<div class="form-grid">' +
+    '<div><label>Data *</label><input type="date" id="ag-data" value="' + todayISO() + '"></div>' +
+    '<div><label>Hora</label><input type="time" id="ag-hora" value="08:00"></div>' +
+    '<div><label>Tipo de consulta</label><input id="ag-tipo" placeholder="Retorno, Exame, Procedimento..." value="Consulta"></div>' +
+    '<div><label>Local</label><input id="ag-local" placeholder="NOC Clínica" value="NOC Clínica"></div>' +
+    '</div>' +
+    '<div class="mt-2"><label>Observações</label><textarea id="ag-obs" rows="2" placeholder="Informações adicionais..."></textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAg()">Salvar</button></div></div>'
+  );
 }
 function salvarAg() {
   var data = document.getElementById('ag-data').value;
@@ -3488,17 +3513,17 @@ function salvarAg() {
     pacienteNome: nomePac,
     data: data,
     hora: document.getElementById('ag-hora').value||'',
-    tipo: document.getElementById('ag-tipo').value.trim()||'',
-    local: document.getElementById('ag-local').value.trim()||'',
+    tipo: document.getElementById('ag-tipo').value.trim()||'Consulta',
+    local: document.getElementById('ag-local').value.trim()||'NOC Clínica',
     obs: document.getElementById('ag-obs').value.trim()||''
   };
-  db.collection('users').doc(currentUser.uid).collection('agendamentos').add(doc)
-    .then(function() { toast('Agendamento salvo!','success'); closeModal(); loadProntuarioAgenda(); })
+  db.collection('users').doc(getMedUid()).collection('agendamentos').add(doc)
+    .then(function() { toast('Consulta agendada! ✅','success'); closeModal(); loadProntuarioAgenda(); })
     .catch(function() { toast('Erro ao salvar','error'); });
 }
 function excluirAg(agId) {
   if (!confirm('Excluir este agendamento?')) return;
-  db.collection('users').doc(currentUser.uid).collection('agendamentos').doc(agId).delete()
+  db.collection('users').doc(getMedUid()).collection('agendamentos').doc(agId).delete()
     .then(function() { toast('Agendamento excluído','success'); loadProntuarioAgenda(); });
 }
 
@@ -3507,7 +3532,7 @@ function excluirAg(agId) {
 // ============================================================
 function renderMedicoAgenda(filtroData) {
   navTo_setActive('medico-agenda');
-  var uid = currentUser.uid;
+  var uid = getMedUid();
   var hoje = filtroData || todayISO();
   setMainContent(
     '<div class="page-header"><h2>📅 Agenda</h2></div>' +
@@ -3545,22 +3570,54 @@ function excluirAgGeral(id, fd) {
     .then(function() { toast('Excluído','success'); renderMedicoAgenda(fd); });
 }
 function modalNovoAgGeral() {
-  openModal('<div class="modal"><div class="modal-header"><h3>Novo Agendamento</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Paciente (nome)</label><input id="nag-pac" placeholder="Nome do paciente"></div><div><label>Data *</label><input type="date" id="nag-data" value="' + todayISO() + '"></div><div><label>Hora</label><input type="time" id="nag-hora" value="08:00"></div><div><label>Tipo</label><input id="nag-tipo" placeholder="Consulta, Retorno..."></div><div><label>Local</label><input id="nag-local" placeholder="Sala 1..."></div></div><div class="mt-2"><label>Obs</label><textarea id="nag-obs" rows="2"></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAgGeral()">Salvar</button></div></div>');
+  // Load patient list for select
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('pacientes').get().then(function(snap) {
+    var opts = '<option value="">-- Selecione o paciente --</option>';
+    snap.forEach(function(d) {
+      var p = d.data();
+      opts += '<option value="' + d.id + '" data-nome="' + (p.nome||'').replace(/"/g,'&quot;') + '">' + (p.nome||'') + '</option>';
+    });
+    openModal(
+      '<div class="modal"><div class="modal-header"><h3>📅 Novo Agendamento</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+      '<div class="modal-body"><div class="form-grid">' +
+      '<div style="grid-column:1/-1"><label>Paciente *</label><select id="nag-pac-id" onchange="this.setAttribute(\'data-nome\',this.options[this.selectedIndex].getAttribute(\'data-nome\'))">' + opts + '</select></div>' +
+      '<div><label>Data *</label><input type="date" id="nag-data" value="' + todayISO() + '"></div>' +
+      '<div><label>Hora</label><input type="time" id="nag-hora" value="08:00"></div>' +
+      '<div><label>Tipo</label><input id="nag-tipo" placeholder="Consulta, Retorno, Exame..."></div>' +
+      '<div><label>Local</label><input id="nag-local" placeholder="NOC Clínica — Sala 1"></div>' +
+      '</div><div class="mt-2"><label>Observações</label><textarea id="nag-obs" rows="2"></textarea></div></div>' +
+      '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAgGeral()">Salvar</button></div></div>'
+    );
+  }).catch(function() {
+    openModal('<div class="modal"><div class="modal-header"><h3>Novo Agendamento</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Paciente (nome)</label><input id="nag-pac" placeholder="Nome do paciente"></div><div><label>Data *</label><input type="date" id="nag-data" value="' + todayISO() + '"></div><div><label>Hora</label><input type="time" id="nag-hora" value="08:00"></div><div><label>Tipo</label><input id="nag-tipo" placeholder="Consulta..."></div><div><label>Local</label><input id="nag-local" placeholder="Sala 1"></div></div><div class="mt-2"><label>Obs</label><textarea id="nag-obs" rows="2"></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAgGeral()">Salvar</button></div></div>');
+  });
 }
 function salvarAgGeral() {
   var data = document.getElementById('nag-data').value;
   if (!data) { toast('Informe a data','error'); return; }
+  var pacSelect = document.getElementById('nag-pac-id');
+  var pacId = '', pacNome = '';
+  if (pacSelect) {
+    pacId = pacSelect.value || '';
+    pacNome = pacSelect.options[pacSelect.selectedIndex] ? (pacSelect.options[pacSelect.selectedIndex].text || '') : '';
+  } else {
+    var pacInput = document.getElementById('nag-pac');
+    pacNome = pacInput ? pacInput.value.trim() : '';
+  }
+  if (!pacNome) { toast('Selecione o paciente','error'); return; }
   var doc = {
-    pacienteId: '',
-    pacienteNome: document.getElementById('nag-pac').value.trim()||'',
+    pacienteId: pacId,
+    pacienteNome: pacNome,
     data: data,
     hora: document.getElementById('nag-hora').value||'',
-    tipo: document.getElementById('nag-tipo').value.trim()||'',
-    local: document.getElementById('nag-local').value.trim()||'',
+    tipo: document.getElementById('nag-tipo').value.trim()||'Consulta',
+    local: document.getElementById('nag-local').value.trim()||'NOC Clínica',
     obs: document.getElementById('nag-obs').value.trim()||''
   };
-  db.collection('users').doc(currentUser.uid).collection('agendamentos').add(doc)
-    .then(function() { toast('Agendamento salvo!','success'); closeModal(); renderMedicoAgenda(data); });
+  db.collection('users').doc(getMedUid()).collection('agendamentos').add(doc)
+    .then(function() { toast('Agendamento salvo! ✅','success'); closeModal(); renderMedicoAgenda(data); })
+    .catch(function() { toast('Erro ao salvar','error'); });
 }
 
 // ============================================================
@@ -4087,34 +4144,59 @@ function _loadPacExames(uid, pid) {
 // ============================================================
 function renderPacienteAgenda() {
   navTo_setActive('pac-agenda');
-  resolverPacienteContext(function(uid, pid) {
-    if (!uid) {
-      setMainContent('<div class="card" style="text-align:center;padding:60px;color:var(--gray)">Paciente não encontrado.</div>');
-      return;
-    }
-    db.collection('users').doc(uid).collection('agendamentos').where('pacienteId','==',pid).get().then(function(snap) {
+  var uid = pacienteMedUid;
+  var pid = pacientePacId;
+  if (!uid || !pid) {
+    setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessão não encontrada. Saia e entre novamente.</div>');
+    return;
+  }
+  setMainContent('<div class="page-header"><h2>📅 Minha Agenda</h2></div><div class="card" id="pac-agenda-wrap"><p style="color:var(--gray)">Carregando...</p></div>');
+  db.collection('users').doc(uid).collection('agendamentos')
+    .where('pacienteId','==',pid).get()
+    .then(function(snap) {
       var ags = [];
       snap.forEach(function(d) { ags.push(Object.assign({}, d.data(), {id: d.id})); });
       ags.sort(function(a,b) { return (a.data||'') > (b.data||'') ? 1 : -1; });
-      var html = '<div class="page-header"><h2>📅 Minha Agenda</h2></div>';
-      if (!ags.length) {
-        html += '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum agendamento encontrado.</div>';
-      } else {
-        html += '<div class="flex flex-col gap-2">';
-        for (var i = 0; i < ags.length; i++) {
-          var a = ags[i];
-          var past = a.data && a.data < todayISO();
-          html += '<div class="card flex gap-2 align-center" style="border-left:4px solid ' + (past?'var(--gray-200)':'var(--primary)') + ';opacity:' + (past?'0.65':'1') + '">' +
-            '<div style="font-size:2rem">📅</div>' +
-            '<div><div style="font-weight:700">' + (a.tipo||'Consulta') + '</div><div style="color:var(--gray);font-size:.85rem">' + (a.data||'') + ' às ' + (a.hora||'') + ' · ' + (a.local||'') + '</div>' + (a.obs ? '<div style="font-size:.8rem;color:var(--gray)">' + a.obs + '</div>' : '') + '</div>' +
-            (past ? '<span class="badge badge-blue" style="margin-left:auto">Realizado</span>' : '<span class="badge badge-success" style="margin-left:auto">Agendado</span>') +
-            '</div>';
-        }
-        html += '</div>';
+      var hoje = todayISO();
+      var proximas = [], passadas = [];
+      for (var i = 0; i < ags.length; i++) {
+        if ((ags[i].data||'') >= hoje) proximas.push(ags[i]);
+        else passadas.push(ags[i]);
       }
-      setMainContent(html);
+      function agCard(a, past) {
+        var dataFmt = a.data ? a.data.substr(8,2)+'/'+a.data.substr(5,2)+'/'+a.data.substr(0,4) : '';
+        return '<div class="card flex gap-2 align-center mb-2" style="border-left:4px solid ' + (past?'var(--gray-200)':'var(--primary)') + ';opacity:' + (past?'0.6':'1') + '">' +
+          '<div style="background:' + (past?'var(--gray-light)':'var(--primary-light)') + ';border-radius:10px;padding:10px 12px;text-align:center;min-width:56px">' +
+          '<div style="font-size:1.4rem">📅</div>' +
+          '<div style="font-size:.7rem;font-weight:700;color:' + (past?'var(--gray)':'var(--primary)') + '">' + (a.hora||'') + '</div></div>' +
+          '<div style="flex:1"><div style="font-weight:700;font-size:.95rem">' + (a.tipo||'Consulta') + '</div>' +
+          '<div style="color:var(--gray);font-size:.82rem">' + dataFmt + (a.local ? ' · ' + a.local : '') + '</div>' +
+          (a.obs ? '<div style="font-size:.78rem;color:var(--text-soft);margin-top:2px">' + a.obs + '</div>' : '') + '</div>' +
+          (past ? '<span class="badge badge-blue">✓ Realizado</span>' : '<span class="badge badge-success">✅ Agendado</span>') +
+          '</div>';
+      }
+      var html = '';
+      if (!proximas.length && !passadas.length) {
+        html = '<div style="text-align:center;padding:40px;color:var(--gray)">' +
+          '<div style="font-size:3rem;margin-bottom:12px">📅</div>' +
+          '<p>Nenhuma consulta agendada.<br>Seu médico atualizará sua agenda em breve.</p></div>';
+      } else {
+        if (proximas.length) {
+          html += '<div class="section-title">Próximas consultas</div>';
+          for (var i = 0; i < proximas.length; i++) html += agCard(proximas[i], false);
+        }
+        if (passadas.length) {
+          html += '<div class="section-title" style="margin-top:16px">Consultas anteriores</div>';
+          for (var i = 0; i < passadas.length; i++) html += agCard(passadas[i], true);
+        }
+      }
+      var wrap = document.getElementById('pac-agenda-wrap');
+      if (wrap) wrap.innerHTML = html;
+    })
+    .catch(function(e) {
+      var wrap = document.getElementById('pac-agenda-wrap');
+      if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e&&e.message?e.message:'') + '</p>';
     });
-  });
 }
 
 // ============================================================
