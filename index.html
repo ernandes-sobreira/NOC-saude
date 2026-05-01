@@ -448,6 +448,11 @@ function doPacienteLogin() {
   function buscarPorCodigo() {
     db.collection('adminIndex').where('tipo','==','medico').get()
       .then(function(snap) {
+        if (snap.empty) {
+          resetBtn();
+          showLoginError('Nenhum médico cadastrado.');
+          return;
+        }
         var promises = [];
         snap.forEach(function(d) {
           var medUid = d.id;
@@ -455,10 +460,9 @@ function doPacienteLogin() {
             db.collection('users').doc(medUid).collection('pacientes')
               .where('codigoAcesso','==',codigo).get()
               .then(function(ps) {
-                if (!ps.empty) return { medUid: medUid, pacDoc: ps.docs[0] };
-                return null;
+                return (!ps.empty) ? { medUid: medUid, pacDoc: ps.docs[0] } : null;
               })
-              .catch(function() { return null; })
+              .catch(function(e) { return null; })
           );
         });
         Promise.all(promises).then(function(results) {
@@ -477,35 +481,36 @@ function doPacienteLogin() {
           currentRole = 'paciente';
           currentPerfil = { nome: pac.nome, tipo: 'paciente', email: pac.email||'' };
           currentUser = { uid: 'pac_' + found.pacDoc.id, email: pac.email||codigo };
+          suppressAuthStateChange = true;
           resetBtn();
           clearLoginError();
-          suppressAuthStateChange = true; // prevent onAuthStateChanged from overriding
           showApp();
         });
       })
       .catch(function(e) {
         resetBtn();
-        var msg = e && e.message ? e.message : 'desconhecido';
-        if (msg.indexOf('permission') >= 0 || msg.indexOf('PERMISSION') >= 0) {
-          showLoginError('Sem permissão no Firestore. Atualize as regras.');
-        } else {
-          showLoginError('Erro: ' + msg);
-        }
+        var msg = (e && e.message) ? e.message : String(e);
+        showLoginError('Erro Firestore: ' + msg.substring(0, 80));
       });
   }
 
-  // Need Firebase Auth for Firestore — use anonymous sign-in
+  // Try with current user first
   if (auth.currentUser) {
     buscarPorCodigo();
-  } else {
-    auth.signInAnonymously()
-      .then(function() { buscarPorCodigo(); })
-      .catch(function(e2) {
-        showLoginError('Erro no login anônimo: ' + (e2 && e2.message ? e2.message : ''));
-        resetBtn();
-      });
+    return;
   }
+  // Sign in anonymously to get Firestore access
+  auth.signInAnonymously()
+    .then(function() {
+      buscarPorCodigo();
+    })
+    .catch(function(e) {
+      var msg = (e && e.message) ? e.message : String(e);
+      showLoginError('Erro auth: ' + msg.substring(0, 80));
+      resetBtn();
+    });
 }
+
 function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
   var email = (document.getElementById('admin-email').value || '').trim();
