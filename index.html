@@ -3715,26 +3715,40 @@ var pacienteMedUid = null;
 var pacientePacId = null;
 function renderPacienteDash() {
   navTo_setActive('pac-dash');
+  // If patient logged in via code, use stored context directly
+  if (pacienteMedUid && pacientePacId) {
+    Promise.all([
+      db.collection('users').doc(pacienteMedUid).collection('pacientes').doc(pacientePacId).get(),
+      db.collection('users').doc(pacienteMedUid).collection('resultados').where('pacienteId','==',pacientePacId).get()
+    ]).then(function(results) {
+      var pacData = results[0].exists ? results[0].data() : {};
+      var resSnap = [];
+      results[1].forEach(function(d) { resSnap.push(Object.assign({}, d.data(), {id: d.id})); });
+      renderVisaoPaciente(resSnap, false, null, pacData);
+    }).catch(function(e) {
+      setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--danger)">Erro ao carregar: ' + (e&&e.message?e.message:'') + '</div>');
+    });
+    return;
+  }
+  // Fallback: resolve by email
   resolverPacienteContext(function(uid, pid) {
     if (!uid) {
       setMainContent(
         '<div style="text-align:center;padding:60px 20px">' +
         '<div style="font-size:3rem;margin-bottom:16px">🌱</div>' +
         '<h2 style="color:var(--primary);margin-bottom:8px">Bem-vindo à NOC Clínica!</h2>' +
-        '<p style="color:var(--gray);max-width:320px;margin:0 auto">Seus exames ainda não foram cadastrados pelo seu médico. Em breve tudo estará disponível aqui.</p>' +
+        '<p style="color:var(--gray);max-width:320px;margin:0 auto">Seus exames ainda não foram cadastrados. Em breve tudo estará disponível aqui.</p>' +
         '</div>'
       );
       return;
     }
-    // Load patient profile AND results together
     Promise.all([
       db.collection('users').doc(uid).collection('pacientes').doc(pid).get(),
       db.collection('users').doc(uid).collection('resultados').where('pacienteId','==',pid).get()
     ]).then(function(results) {
-      var pacDoc = results[0];
-      var resSnap = resultados = [];
+      var pacData = results[0].exists ? results[0].data() : {};
+      var resSnap = [];
       results[1].forEach(function(d) { resSnap.push(Object.assign({}, d.data(), {id: d.id})); });
-      var pacData = pacDoc.exists ? pacDoc.data() : {};
       renderVisaoPaciente(resSnap, false, null, pacData);
     });
   });
@@ -3979,11 +3993,19 @@ function getFriendlyDesc(param, status) {
 // ============================================================
 function renderPacienteExames() {
   navTo_setActive('pac-exames');
-  resolverPacienteContext(function(uid, pid) {
-    if (!uid) {
-      setMainContent('<div class="card" style="text-align:center;padding:60px;color:var(--gray)">Paciente não encontrado.</div>');
-      return;
-    }
+  var uid = pacienteMedUid;
+  var pid = pacientePacId;
+  if (!uid || !pid) {
+    // Fallback to resolver
+    resolverPacienteContext(function(u, p) {
+      if (!u) { setMainContent('<div class="card" style="text-align:center;padding:60px;color:var(--gray)">Paciente não encontrado.</div>'); return; }
+      _loadPacExames(u, p);
+    });
+    return;
+  }
+  _loadPacExames(uid, pid);
+}
+function _loadPacExames(uid, pid) {
     db.collection('users').doc(uid).collection('resultados').where('pacienteId','==',pid).get().then(function(snap) {
       var resultados = [];
       snap.forEach(function(d) { resultados.push(Object.assign({}, d.data(), {id: d.id})); });
@@ -4008,8 +4030,9 @@ function renderPacienteExames() {
         }
       }
       setMainContent(html);
+    }).catch(function(e) {
+      setMainContent('<div class="card" style="color:var(--danger);padding:20px">Erro: ' + (e&&e.message?e.message:'') + '</div>');
     });
-  });
 }
 
 // ============================================================
