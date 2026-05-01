@@ -3279,3 +3279,13 @@ function salvarDoPDF() {
     .then(function() { toast('Laudo importado! \u2705','success'); loadProntuarioExames(); })
     .catch(function() { toast('Erro ao salvar','error'); });
 }
+
+// ============================================================
+// INIT
+// ============================================================
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+</script>
+</body>
+</html>
