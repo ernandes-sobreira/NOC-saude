@@ -2227,7 +2227,7 @@ function filtrarPacientes() {
   renderListaPacientes(filtered);
 }
 function modalNovoPaciente() {
-  openModal('<div class="modal"><div class="modal-header"><h3>Novo Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome completo *</label><input id="np-nome" placeholder="Maria Oliveira"></div><div><label>Data de Nascimento</label><input type="date" id="np-nasc"></div><div><label>Sexo</label><select id="np-sexo"><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select></div><div><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div><div><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div><div><label>E-mail</label><input type="email" id="np-email" placeholder="paciente@email.com"></div><div><label>Cidade</label><input id="np-cidade" placeholder="Cáceres-MT"></div><div><label>Especialidade/Serviço</label><input id="np-esp" value="' + (currentPerfil.especialidade||'') + '"></div><div style="grid-column:1/-1"><label>🔑 Código de Acesso do Paciente *</label><div style=\"display:flex;gap:8px\"><input id=\"np-codigo\" placeholder=\"Ex: MARIA123\" style=\"font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:600\" oninput=\"this.value=this.value.toUpperCase()\"><button type=\"button\" class=\"btn btn-gray btn-sm\" onclick=\"gerarCodigoAuto()\">Gerar</button></div><div style=\"font-size:.75rem;color:var(--gray);margin-top:3px\">O paciente usa este código para acessar seus exames. Anote e entregue a ele.</div></div></div><div class="mt-2"><label>Queixa principal</label><textarea id="np-queixa" rows="2" placeholder="Motivo da consulta..."></textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarNovoPaciente()">Salvar</button></div></div>');
+  abrirModalNovoPaciente();
 }
 function gerarCodigoAuto() {
   var el = document.getElementById('np-codigo');
@@ -2236,6 +2236,42 @@ function gerarCodigoAuto() {
   var code = '';
   for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   el.value = code;
+}
+function abrirModalNovoPaciente() {
+  var espAtual = currentPerfil ? (currentPerfil.especialidade||'') : '';
+  var modalHtml =
+    '<div class="modal" style="max-width:600px">' +
+    '<div class="modal-header"><h3>Novo Paciente</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div class="form-grid">' +
+    '<div><label>Nome completo *</label><input id="np-nome" placeholder="Maria Oliveira"></div>' +
+    '<div><label>Data de Nascimento</label><input type="date" id="np-nasc"></div>' +
+    '<div><label>Sexo</label><select id="np-sexo"><option value="F">Feminino</option><option value="M">Masculino</option><option value="O">Outro</option></select></div>' +
+    '<div><label>CPF</label><input id="np-cpf" placeholder="000.000.000-00"></div>' +
+    '<div><label>Telefone</label><input id="np-tel" placeholder="(65) 99999-9999"></div>' +
+    '<div><label>E-mail</label><input type="email" id="np-email" placeholder="paciente@email.com"></div>' +
+    '<div><label>Cidade</label><input id="np-cidade" placeholder="Cáceres-MT"></div>' +
+    '<div><label>Especialidade/Serviço</label><input id="np-esp" value="' + espAtual + '"></div>' +
+    '</div>' +
+    '<div class="mt-2">' +
+    '<label>🔑 Código de Acesso *</label>' +
+    '<div style="display:flex;gap:8px;margin-top:4px">' +
+    '<input id="np-codigo" placeholder="Ex: MARIA5" maxlength="10"' +
+    ' style="font-size:1.2rem;letter-spacing:3px;text-transform:uppercase;font-weight:700;text-align:center;flex:1"' +
+    ' oninput="this.value=this.value.toUpperCase()">' +
+    '<button type="button" class="btn btn-gray" onclick="gerarCodigoAuto()">🎲 Gerar</button>' +
+    '</div>' +
+    '<div style="font-size:.75rem;color:var(--gray);margin-top:4px">Anote e entregue ao paciente. Ele usa isso para acessar seus exames.</div>' +
+    '</div>' +
+    '<div class="mt-2"><label>Queixa principal</label>' +
+    '<textarea id="np-queixa" rows="2" placeholder="Motivo da consulta..."></textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarNovoPaciente()">Salvar</button>' +
+    '</div></div>';
+  openModal(modalHtml);
 }
 function salvarNovoPaciente() {
   var nome = (document.getElementById('np-nome').value||'').trim();
