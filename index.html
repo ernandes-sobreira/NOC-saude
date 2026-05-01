@@ -2592,10 +2592,10 @@ function loadProntuarioExames() {
       var r = resultados[i];
       var nParams = Object.keys(r.valores||{}).length;
       var status = r.temAlteracao ? '<span class="badge badge-danger">⚠️ Alterado</span>' : '<span class="badge badge-success">✅ Normal</span>';
-      rows += '<tr><td>' + (r.areaIco||'🔬') + ' ' + (r.areaNome||'') + '</td><td>' + (r.data||'') + '</td><td>' + (r.lab||'—') + '</td><td>' + nParams + ' param.</td><td>' + status + '</td>' +
+      rows += '<tr><td>' + (r.areaIco||'🔬') + ' ' + (r.areaNome||'') + '</td><td>' + (r.data||'') + '</td><td>' + (r.lab||'—') + '</td><td style="font-size:.8rem;color:var(--gray)">' + (r.medicoSolicitante||'—') + '</td><td>' + nParams + ' param.</td><td>' + status + '</td>' +
         '<td class="flex gap-1"><button class="btn btn-outline btn-sm" onclick="verResultado(\'' + r.id + '\')">Ver</button><button class="btn btn-gray btn-sm" onclick="editarResultado(\'' + r.id + '\')">✏️</button><button class="btn btn-danger btn-sm" onclick="excluirResultado(\'' + r.id + '\')">🗑️</button></td></tr>';
     }
-    el.innerHTML = addBtn + '<div class="table-wrap"><table><thead><tr><th>Área</th><th>Data</th><th>Laboratório</th><th>Parâmetros</th><th>Status</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    el.innerHTML = addBtn + '<div class="table-wrap"><table><thead><tr><th>Área</th><th>Data</th><th>Laboratório</th><th>Méd. Solicitante</th><th>Parâmetros</th><th>Status</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }).catch(function() { toast('Erro ao carregar exames','error'); });
 }
 function modalAdicionarResultado() {
@@ -2620,6 +2620,7 @@ function _openModalResultado(resultadoId) {
     '<div><label>Área de Exame</label><select id="res-area" onchange="renderParamInputs()">' + areaOptions + '</select></div>' +
     '<div><label>Data de Coleta</label><input type="date" id="res-data" value="' + todayISO() + '"></div>' +
     '<div><label>Laboratório</label><input id="res-lab" placeholder="Ex.: Fleury, São Matheus..."></div>' +
+    '<div><label>Médico solicitante</label><input id="res-medsolicitante" placeholder="Dr. Nome..."></div>' +
     '</div>' +
     '<div id="res-params-wrap"></div>' +
     '</div>' +
@@ -2658,6 +2659,7 @@ function salvarResultado(resultadoId) {
   var sel = document.getElementById('res-area');
   var data = document.getElementById('res-data').value;
   var lab = document.getElementById('res-lab').value.trim();
+  var medicoSolicitante = (document.getElementById('res-medsolicitante') ? document.getElementById('res-medsolicitante').value.trim() : '');
   if (!sel || !data) { toast('Preencha área e data','error'); return; }
   var idx = parseInt(sel.value);
   var area = areasCache[idx];
@@ -2692,6 +2694,7 @@ function salvarResultado(resultadoId) {
     areaIco: area.ico||'🔬',
     areaCor: area.cor||'#EFF6FF',
     lab: lab,
+    medicoSolicitante: medicoSolicitante,
     valores: valores,
     camposTexto: camposTexto,
     temAlteracao: temAlt
@@ -2739,68 +2742,107 @@ function editarResultado(resId) {
     .then(function(doc) {
       if (!doc.exists) { toast('Resultado não encontrado','error'); return; }
       var r = doc.data();
-      // Find matching area in cache
-      var areaIdx = 0;
-      for (var i = 0; i < areasCache.length; i++) {
-        if (areasCache[i].nome === r.areaNome) { areaIdx = i; break; }
+      var vals = r.valores || {};
+      var ct = r.camposTexto || {};
+      var vkeys = Object.keys(vals);
+      var ctkeys = Object.keys(ct);
+
+      var rows = '';
+      // Numeric values
+      for (var i = 0; i < vkeys.length; i++) {
+        var k = vkeys[i];
+        var v = vals[k];
+        var s = getStatus(v.valor, v.refMin, v.refMax, 'numero');
+        rows += '<div style="display:grid;grid-template-columns:1fr 100px 80px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-200)">' +
+          '<div style="font-size:.88rem;font-weight:600;color:' + statusColor(s) + '">' + k + '</div>' +
+          '<input id="ev_' + i + '" data-nome="' + k.replace(/"/g,'&quot;') + '" data-tipo="numero" ' +
+          'data-unidade="' + (v.unidade||'').replace(/"/g,'&quot;') + '" ' +
+          'data-refmin="' + v.refMin + '" data-refmax="' + v.refMax + '" ' +
+          'type="number" step="any" value="' + v.valor + '" style="border:1.5px solid var(--gray-200);border-radius:8px;padding:7px 10px;font-size:.9rem">' +
+          '<span style="font-size:.78rem;color:var(--gray)">' + (v.unidade||'') + '</span>' +
+          '</div>';
       }
-      var areaOptions = '';
-      for (var j = 0; j < areasCache.length; j++) {
-        var sel = j === areaIdx ? ' selected' : '';
-        areaOptions += '<option value="' + j + '"' + sel + '>' + (areasCache[j].ico||'') + ' ' + areasCache[j].nome + '</option>';
+      // Text fields
+      for (var j = 0; j < ctkeys.length; j++) {
+        var ck = ctkeys[j];
+        rows += '<div style="padding:8px 0;border-bottom:1px solid var(--gray-200)">' +
+          '<label style="font-size:.82rem;font-weight:600;margin-bottom:4px;display:block">' + ck + '</label>' +
+          '<input id="ect_' + j + '" data-nome="' + ck.replace(/"/g,'&quot;') + '" data-tipo="texto" ' +
+          'value="' + ct[ck].replace(/"/g,'&quot;') + '" style="border:1.5px solid var(--gray-200);border-radius:8px;padding:7px 10px;width:100%;font-size:.88rem">' +
+          '</div>';
       }
+
+      var infoLine = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div><label style="font-size:.78rem;font-weight:600;color:var(--gray)">Data</label>' +
+        '<input type="date" id="ev-data" value="' + (r.data||todayISO()) + '" style="border:1.5px solid var(--gray-200);border-radius:8px;padding:7px 10px;width:100%"></div>' +
+        '<div><label style="font-size:.78rem;font-weight:600;color:var(--gray)">Laboratório</label>' +
+        '<input id="ev-lab" value="' + (r.lab||'') + '" placeholder="Lab..." style="border:1.5px solid var(--gray-200);border-radius:8px;padding:7px 10px;width:100%"></div>' +
+        '<div style="grid-column:1/-1"><label style="font-size:.78rem;font-weight:600;color:var(--gray)">Médico solicitante</label>' +
+        '<input id="ev-medsolicitante" value="' + (r.medicoSolicitante||'') + '" placeholder="Dr. Nome..." style="border:1.5px solid var(--gray-200);border-radius:8px;padding:7px 10px;width:100%"></div>' +
+        '</div>';
+
       openModal(
-        '<div class="modal" style="max-width:800px">' +
-        '<div class="modal-header"><h3>✏️ Editar Resultado</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+        '<div class="modal" style="max-width:600px">' +
+        '<div class="modal-header">' +
+        '<div><h3>' + (r.areaIco||'🔬') + ' ' + (r.areaNome||'Resultado') + '</h3>' +
+        '<p style="font-size:.78rem;color:var(--gray);margin-top:2px">' + (r.data||'') + ' · ' + (r.lab||'—') + '</p></div>' +
+        '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button>' +
+        '</div>' +
         '<div class="modal-body">' +
-        '<div class="form-grid mb-2">' +
-        '<div><label>Área de Exame</label><select id="res-area" onchange="renderParamInputs()">' + areaOptions + '</select></div>' +
-        '<div><label>Data de Coleta</label><input type="date" id="res-data" value="' + (r.data||todayISO()) + '"></div>' +
-        '<div><label>Laboratório</label><input id="res-lab" value="' + (r.lab||'') + '" placeholder="Ex.: Fleury..."></div>' +
+        infoLine +
+        '<div style="font-size:.8rem;font-weight:700;color:var(--gray);margin-bottom:8px">VALORES</div>' +
+        rows +
         '</div>' +
-        '<div id="res-params-wrap"></div>' +
-        '</div>' +
-        '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn btn-primary" onclick="salvarResultado(\'' + resId + '\')">Salvar</button></div>' +
-        '</div>'
+        '<div class="modal-footer">' +
+        '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn btn-primary" onclick="salvarEdicaoSimples(\'' + resId + '\',' + vkeys.length + ',' + ctkeys.length + ')">Salvar</button>' +
+        '</div></div>'
       );
-      // Pre-fill param inputs with existing values
-      renderParamInputsComValores(areaIdx, r.valores || {}, r.camposTexto || {});
     })
     .catch(function() { toast('Erro ao carregar resultado','error'); });
 }
 
-function renderParamInputsComValores(areaIdx, valoresSalvos, camposSalvos) {
-  var area = areasCache[areaIdx];
-  if (!area) return;
-  var wrap = document.getElementById('res-params-wrap');
-  if (!wrap) return;
-  var html = '<div class="section-title">' + (area.ico||'') + ' ' + area.nome + '</div><div class="form-grid">';
-  var params = area.params || [];
-  for (var i = 0; i < params.length; i++) {
-    var p = params[i];
-    var tc = p.tipoCampo || 'numero';
-    // Get existing value
-    var existingVal = '';
-    if (tc === 'numero') {
-      existingVal = valoresSalvos[p.nome] ? (valoresSalvos[p.nome].valor || '') : '';
-    } else {
-      existingVal = camposSalvos[p.nome] || '';
+function salvarEdicaoSimples(resId, nVals, nCt) {
+  var data = document.getElementById('ev-data').value;
+  var lab = (document.getElementById('ev-lab').value||'').trim();
+  var medicoSolicitante = (document.getElementById('ev-medsolicitante').value||'').trim();
+  if (!data) { toast('Informe a data','error'); return; }
+  var valores = {};
+  var temAlt = false;
+  // Read numeric inputs
+  for (var i = 0; i < nVals; i++) {
+    var el = document.getElementById('ev_' + i);
+    if (!el) continue;
+    var nome = el.getAttribute('data-nome');
+    var val = el.value.trim();
+    var unidade = el.getAttribute('data-unidade') || '';
+    var refMin = parseFloat(el.getAttribute('data-refmin')) || 0;
+    var refMax = parseFloat(el.getAttribute('data-refmax')) || 0;
+    if (nome && val !== '') {
+      var s = getStatus(val, refMin, refMax, 'numero');
+      if (s !== 'normal') temAlt = true;
+      valores[nome] = {valor: val, unidade: unidade, refMin: refMin, refMax: refMax, tipoCampo: 'numero'};
     }
-    var inputEl = '';
-    if (tc === 'texto') {
-      inputEl = '<input id="p_' + i + '" placeholder="' + p.nome + '" value="' + existingVal.replace(/"/g,'&quot;') + '">';
-    } else if (tc === 'textarea') {
-      inputEl = '<textarea id="p_' + i + '" rows="2">' + existingVal + '</textarea>';
-    } else if (tc === 'data') {
-      inputEl = '<input type="date" id="p_' + i + '" value="' + existingVal + '">';
-    } else {
-      inputEl = '<input type="number" step="any" id="p_' + i + '" value="' + existingVal + '" placeholder="0.0">';
-    }
-    html += '<div><label>' + p.nome + (p.unidade ? ' (' + p.unidade + ')' : '') + '</label>' + inputEl + '</div>';
   }
-  html += '</div>';
-  wrap.innerHTML = html;
+  // Read text inputs
+  var camposTexto = {};
+  for (var j = 0; j < nCt; j++) {
+    var tel = document.getElementById('ect_' + j);
+    if (!tel) continue;
+    var tnome = tel.getAttribute('data-nome');
+    if (tnome && tel.value) camposTexto[tnome] = tel.value;
+  }
+  var update = {data: data, lab: lab, valores: valores, camposTexto: camposTexto, temAlteracao: temAlt};
+  if (medicoSolicitante) update.medicoSolicitante = medicoSolicitante;
+  var uid = currentUser.uid;
+  db.collection('users').doc(uid).collection('resultados').doc(resId).update(update)
+    .then(function() {
+      db.collection('users').doc(uid).collection('pacientes').doc(prontuarioPacId).update({temAlteracao: temAlt}).catch(function(){});
+      toast('Resultado atualizado! ✅','success');
+      closeModal();
+      loadProntuarioExames();
+    })
+    .catch(function() { toast('Erro ao salvar','error'); });
 }
 function excluirResultado(resId) {
   if (!confirm('Excluir este resultado?')) return;
