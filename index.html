@@ -162,12 +162,23 @@ tr:hover td{background:var(--primary-light)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:var(--gray-200);border-radius:99px}
 /* RESPONSIVE */
+/* RESPONSIVE */
 @media(max-width:768px){
-  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
+  .sidebar{transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+  .sidebar.open{transform:translateX(0);box-shadow:4px 0 30px rgba(0,0,0,.18)}
   .main-content{margin-left:0}
   .mobile-toggle{display:flex!important}
 }
-.mobile-toggle{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:1.1rem;cursor:pointer}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99;-webkit-tap-highlight-color:transparent}
+.sidebar-overlay.show{display:block}
+.mobile-toggle{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-size:1.2rem;cursor:pointer;box-shadow:0 2px 8px rgba(45,80,22,.3)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:10px;margin:2px 8px;cursor:pointer;transition:background .15s;color:var(--text);font-size:.92rem;font-weight:500;-webkit-tap-highlight-color:transparent;min-height:48px}
+.nav-item:active{background:var(--primary-light)}
+.nav-item.active{background:var(--primary-light);color:var(--primary);font-weight:700}
+.nav-item-icon{font-size:1.15rem;width:22px;text-align:center;flex-shrink:0}
+.sidebar-footer{padding:12px 16px 20px;border-top:1px solid var(--gray-200)}
+.btn-sair{width:100%;padding:12px;background:#fff;border:1.5px solid var(--danger);color:var(--danger);border-radius:10px;font-weight:600;font-size:.9rem;cursor:pointer;transition:all .2s;min-height:48px}
+.btn-sair:active{background:var(--danger-light)}
 /* PROCEDURE FIELDS */
 .proc-fields{background:#F8FAFC;border-radius:8px;padding:14px;border:1px solid var(--gray-200)}
 /* ALERT dot */
@@ -307,6 +318,7 @@ tr:hover td{background:var(--primary-light)}
 <!-- APP SHELL -->
 <div id="app-shell" class="hidden">
   <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <div class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="sidebar-logo-row">
@@ -723,10 +735,15 @@ function buildSidebar() {
       var el = document.createElement('div');
       el.className = 'nav-item';
       el.id = 'nav-' + item.id;
-      el.innerHTML = '<span class="nav-icon">' + item.icon + '</span>' + item.label;
-      el.onclick = function() { navTo(item.id); };
+      el.innerHTML = '<span class="nav-item-icon">' + item.icon + '</span>' + item.label;
+      el.onclick = function() { navTo(item.id); closeSidebar(); };
       nav.appendChild(el);
     })(items[i]);
+  }
+  // Logout button - always visible, big touch target
+  var footer = document.getElementById('sidebar-footer');
+  if (footer) {
+    footer.innerHTML = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>';
   }
 }
 function navTo(pageId) {
@@ -747,8 +764,30 @@ function navTo(pageId) {
   else if (pageId === 'pac-agenda') renderPacienteAgenda();
 }
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+  var s = document.getElementById('sidebar');
+  var o = document.getElementById('sidebar-overlay');
+  var isOpen = s.classList.contains('open');
+  if (isOpen) { s.classList.remove('open'); if(o) o.classList.remove('show'); }
+  else { s.classList.add('open'); if(o) o.classList.add('show'); }
 }
+function closeSidebar() {
+  var s = document.getElementById('sidebar');
+  var o = document.getElementById('sidebar-overlay');
+  s.classList.remove('open');
+  if (o) o.classList.remove('show');
+}
+// Swipe from left edge to open sidebar
+(function() {
+  var touchStartX = 0;
+  document.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; }, {passive:true});
+  document.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    var s = document.getElementById('sidebar');
+    if (!s) return;
+    if (touchStartX < 30 && dx > 60) { s.classList.add('open'); var o=document.getElementById('sidebar-overlay'); if(o) o.classList.add('show'); }
+    else if (dx < -60 && s.classList.contains('open')) { s.classList.remove('open'); var o2=document.getElementById('sidebar-overlay'); if(o2) o2.classList.remove('show'); }
+  }, {passive:true});
+})();
 function setMainContent(html) {
   destroyAllCharts();
   document.getElementById('main-content').innerHTML = html;
@@ -2120,16 +2159,24 @@ function adminRemoverPaciente(medUid, pacId, nome) {
 
 function renderMedicoDash() {
   navTo_setActive('medico-dash');
-  var uid = currentUser.uid;
+  var uid = getMedUid();
   var esp = currentPerfil.especialidade || 'Médico';
   var crm = currentPerfil.crm ? ' · CRM ' + currentPerfil.crm : '';
   setMainContent(
     '<div class="page-header"><h2>📊 Painel Clínico</h2><p>' + (currentPerfil.nome||'Médico') + ' · ' + esp + crm + ' · NOC Clínica</p></div>' +
+    // Clickable KPIs
     '<div class="kpi-grid">' +
-    '<div class="kpi-card blue"><div class="kpi-icon">👤</div><div class="kpi-value" id="kpi-m-pacs">...</div><div class="kpi-label">Pacientes</div></div>' +
-    '<div class="kpi-card green"><div class="kpi-icon">🔬</div><div class="kpi-value" id="kpi-m-exames">...</div><div class="kpi-label">Exames</div></div>' +
-    '<div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-m-alertas">...</div><div class="kpi-label">Alertas</div></div>' +
-    '<div class="kpi-card yellow"><div class="kpi-icon">📅</div><div class="kpi-value" id="kpi-m-agenda">...</div><div class="kpi-label">Agendamentos</div></div>' +
+    '<div class="kpi-card blue" onclick="navTo(\'medico-pacientes\')" style="cursor:pointer"><div class="kpi-icon">👤</div><div class="kpi-value" id="kpi-m-pacs">...</div><div class="kpi-label">Pacientes</div></div>' +
+    '<div class="kpi-card green" style="cursor:pointer" onclick="navTo(\'medico-pacientes\')"><div class="kpi-icon">🔬</div><div class="kpi-value" id="kpi-m-exames">...</div><div class="kpi-label">Resultados</div></div>' +
+    '<div class="kpi-card red" style="cursor:pointer" onclick="navTo(\'medico-pacientes\')"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-m-alertas">...</div><div class="kpi-label">Alertas</div></div>' +
+    '<div class="kpi-card yellow" onclick="navTo(\'medico-agenda\')" style="cursor:pointer"><div class="kpi-icon">📅</div><div class="kpi-value" id="kpi-m-agenda">...</div><div class="kpi-label">Agenda</div></div>' +
+    '</div>' +
+    // Quick action buttons
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+    '<button class="btn btn-primary" onclick="navTo(\'medico-pacientes\')" style="padding:14px;font-size:.95rem;border-radius:12px;justify-content:center">👤 Pacientes</button>' +
+    '<button class="btn btn-outline" onclick="navTo(\'medico-agenda\')" style="padding:14px;font-size:.95rem;border-radius:12px;justify-content:center">📅 Agenda</button>' +
+    '<button class="btn btn-outline" onclick="navTo(\'medico-areas\')" style="padding:14px;font-size:.95rem;border-radius:12px;justify-content:center">🔬 Áreas de Exame</button>' +
+    '<button class="btn btn-outline" onclick="modalNovoPaciente()" style="padding:14px;font-size:.95rem;border-radius:12px;justify-content:center">➕ Novo Paciente</button>' +
     '</div>' +
     '<div class="card"><div class="section-title">⚠️ Pacientes com Alterações</div><div id="dash-alertas">Carregando...</div></div>'
   );
