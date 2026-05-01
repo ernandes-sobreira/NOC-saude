@@ -727,6 +727,7 @@ function buildSidebar() {
     items = [
       {id:'pac-dash',icon:'💚',label:'Minha Saúde'},
       {id:'pac-exames',icon:'🔬',label:'Meus Exames'},
+      {id:'pac-pedidos',icon:'📝',label:'Pedidos de Exame'},
       {id:'pac-agenda',icon:'📅',label:'Minha Agenda'}
     ];
   }
@@ -761,6 +762,7 @@ function navTo(pageId) {
   else if (pageId === 'medico-areas') renderMedicoAreas();
   else if (pageId === 'pac-dash') renderPacienteDash();
   else if (pageId === 'pac-exames') renderPacienteExames();
+  else if (pageId === 'pac-pedidos') renderPacientePedidos();
   else if (pageId === 'pac-agenda') renderPacienteAgenda();
 }
 function toggleSidebar() {
@@ -2415,9 +2417,10 @@ function renderProntuario() {
   var p = prontuarioPac;
   navTo_setActive('medico-pacientes');
   setMainContent(
-    '<div class="flex align-center gap-2 mb-2">' +
+    '<div class="flex align-center gap-2 mb-2 wrap">' +
     '<button class="btn btn-gray btn-sm" onclick="renderMedicoPacientes()">← Voltar</button>' +
-    '<div class="flex-col gap-1"><h2 style="font-size:1.3rem">' + (p.nome||'') + '</h2><span style="color:var(--gray);font-size:.85rem">' + (p.especialidade||'') + ' · ' + (p.cidade||'') + '</span></div>' +
+    '<div class="flex-col gap-1" style="flex:1"><h2 style="font-size:1.3rem">' + (p.nome||'') + '</h2>' +
+    '<span style="color:var(--gray);font-size:.85rem">' + (p.especialidade||'') + ' · ' + (p.cidade||'') + '</span></div>' +
     '<button class="btn btn-outline btn-sm" onclick="verComoPaciente(\'' + p.id + '\')">👁 Ver como Paciente</button>' +
     '</div>' +
     '<div class="tabs" id="pron-tabs">' +
@@ -2425,11 +2428,13 @@ function renderProntuario() {
     '<div class="tab" onclick="switchPronTab(\'exames\',this)">🔬 Exames</div>' +
     '<div class="tab" onclick="switchPronTab(\'laudos\',this)">📄 Laudos</div>' +
     '<div class="tab" onclick="switchPronTab(\'agenda\',this)">📅 Agenda</div>' +
+    '<div class="tab" onclick="switchPronTab(\'pedidos\',this)">📝 Pedidos</div>' +
     '</div>' +
     '<div id="pron-resumo" class="tab-panel active"></div>' +
     '<div id="pron-exames" class="tab-panel"></div>' +
     '<div id="pron-laudos" class="tab-panel"></div>' +
-    '<div id="pron-agenda" class="tab-panel"></div>'
+    '<div id="pron-agenda" class="tab-panel"></div>' +
+    '<div id="pron-pedidos" class="tab-panel"></div>'
   );
   loadProntuarioResumo();
 }
@@ -2437,7 +2442,7 @@ function switchPronTab(tab, el) {
   var tabs = document.querySelectorAll('.tab');
   for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
   el.classList.add('active');
-  var panels = ['resumo','exames','laudos','agenda'];
+  var panels = ['resumo','exames','laudos','agenda','pedidos'];
   for (var j = 0; j < panels.length; j++) {
     var panel = document.getElementById('pron-' + panels[j]);
     if (panel) panel.classList.toggle('active', panels[j] === tab);
@@ -2446,6 +2451,7 @@ function switchPronTab(tab, el) {
   else if (tab === 'exames') loadProntuarioExames();
   else if (tab === 'laudos') loadProntuarioLaudos();
   else if (tab === 'agenda') loadProntuarioAgenda();
+  else if (tab === 'pedidos') loadProntuarioPedidos();
 }
 function loadProntuarioResumo() {
   var uid = currentUser.uid;
@@ -3528,8 +3534,115 @@ function excluirAg(agId) {
 }
 
 // ============================================================
-// MÉDICO — AGENDA GERAL
+// PRONTUÁRIO — PEDIDOS DE EXAME
 // ============================================================
+function loadProntuarioPedidos() {
+  var el = document.getElementById('pron-pedidos');
+  if (!el) return;
+  el.innerHTML = 'Carregando...';
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('pedidos')
+    .where('pacienteId','==',prontuarioPacId).get()
+    .then(function(snap) {
+      var pedidos = [];
+      snap.forEach(function(d) { pedidos.push(Object.assign({}, d.data(), {id: d.id})); });
+      pedidos.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
+      var html = '<div class="flex gap-1 mb-2 wrap">' +
+        '<button class="btn btn-primary" onclick="modalNovoPedido()">📝 Novo Pedido de Exame</button>' +
+        '</div>';
+      if (!pedidos.length) {
+        html += '<div class="card" style="color:var(--gray);text-align:center;padding:32px">Nenhum pedido emitido ainda.<br><small>Crie um pedido para que o paciente possa visualizar.</small></div>';
+      } else {
+        for (var i = 0; i < pedidos.length; i++) {
+          var pd = pedidos[i];
+          var dataFmt = pd.data ? pd.data.substr(8,2)+'/'+pd.data.substr(5,2)+'/'+pd.data.substr(0,4) : '';
+          var status = pd.realizado ? '<span class="badge badge-success">✅ Realizado</span>' : '<span class="badge badge-blue">⏳ Pendente</span>';
+          html += '<div class="card mb-2">' +
+            '<div class="flex justify-between align-center mb-2">' +
+            '<div><strong style="font-size:.95rem">📋 Pedido de ' + (pd.tipo||'Exames') + '</strong><br>' +
+            '<span style="font-size:.78rem;color:var(--gray)">' + dataFmt + (pd.validade ? ' · Válido até: ' + pd.validade : '') + '</span></div>' +
+            status + '</div>' +
+            '<div style="background:var(--gray-light);border-radius:8px;padding:12px;font-size:.85rem;white-space:pre-wrap">' + (pd.exames||'') + '</div>' +
+            (pd.obs ? '<div style="font-size:.8rem;color:var(--gray);margin-top:8px">Obs: ' + pd.obs + '</div>' : '') +
+            '<div class="flex gap-1 mt-2">' +
+            '<button class="btn btn-outline btn-sm" onclick="togglePedidoRealizado(\'' + pd.id + '\',' + (pd.realizado?'true':'false') + ')">' + (pd.realizado ? '↩ Marcar pendente' : '✅ Marcar realizado') + '</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="excluirPedido(\'' + pd.id + '\')">🗑️</button>' +
+            '</div></div>';
+        }
+      }
+      el.innerHTML = html;
+    });
+}
+function modalNovoPedido() {
+  var EXAMES_COMUNS = [
+    'Hemograma completo','Glicose','HbA1c','Colesterol Total','HDL','LDL','Triglicerídeos',
+    'TSH','T4 Livre','Vitamina D','Vitamina B12','Ferritina','PCR Ultrassensível',
+    'TGO (AST)','TGP (ALT)','Creatinina','Ureia','Ácido Úrico',
+    'Testosterona Total','Estradiol','DHEA-S','Prolactina','FSH','LH',
+    'Cortisol Basal','Insulina','IGF-1','SHBG','Zinco','Magnésio'
+  ];
+  var checkboxes = '';
+  for (var i = 0; i < EXAMES_COMUNS.length; i++) {
+    checkboxes += '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;padding:3px 0;cursor:pointer">' +
+      '<input type="checkbox" value="' + EXAMES_COMUNS[i] + '" class="pedido-exame-chk" style="width:15px;height:15px"> ' + EXAMES_COMUNS[i] + '</label>';
+  }
+  openModal(
+    '<div class="modal" style="max-width:600px"><div class="modal-header"><h3>📝 Pedido de Exame</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">' +
+    '👤 ' + (prontuarioPac ? prontuarioPac.nome : '') + '</div>' +
+    '<div class="form-grid mb-2">' +
+    '<div><label>Tipo</label><input id="ped-tipo" value="Exames Laboratoriais" placeholder="Exames Laboratoriais, Imagem..."></div>' +
+    '<div><label>Data</label><input type="date" id="ped-data" value="' + todayISO() + '"></div>' +
+    '</div>' +
+    '<div class="mb-2"><label>Exames solicitados (marque ou escreva abaixo)</label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;max-height:220px;overflow-y:auto">' +
+    checkboxes + '</div></div>' +
+    '<div class="mb-2"><label>Ou escreva livremente</label>' +
+    '<textarea id="ped-exames" rows="3" placeholder="Ex: Hemograma, Glicose, TSH..."></textarea></div>' +
+    '<div class="mb-2"><label>Observações / Indicação clínica</label>' +
+    '<textarea id="ped-obs" rows="2" placeholder="Ex: Paciente com queixa de..."></textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarPedido()">Emitir Pedido</button></div></div>'
+  );
+}
+function salvarPedido() {
+  var data = document.getElementById('ped-data').value;
+  var tipo = (document.getElementById('ped-tipo').value||'').trim();
+  // Collect checkboxes
+  var checks = document.querySelectorAll('.pedido-exame-chk:checked');
+  var examesList = [];
+  for (var i = 0; i < checks.length; i++) examesList.push('• ' + checks[i].value);
+  // Add free text
+  var livre = (document.getElementById('ped-exames').value||'').trim();
+  if (livre) examesList.push(livre);
+  if (!examesList.length) { toast('Selecione ou escreva os exames','error'); return; }
+  var doc = {
+    pacienteId: prontuarioPacId,
+    pacienteNome: prontuarioPac ? (prontuarioPac.nome||'') : '',
+    data: data,
+    tipo: tipo || 'Exames Laboratoriais',
+    exames: examesList.join('\n'),
+    obs: (document.getElementById('ped-obs').value||'').trim(),
+    medicoNome: currentPerfil ? (currentPerfil.nome||'') : '',
+    realizado: false
+  };
+  db.collection('users').doc(getMedUid()).collection('pedidos').add(doc)
+    .then(function() { toast('Pedido emitido! ✅','success'); closeModal(); loadProntuarioPedidos(); })
+    .catch(function() { toast('Erro ao salvar','error'); });
+}
+function togglePedidoRealizado(pedId, atual) {
+  db.collection('users').doc(getMedUid()).collection('pedidos').doc(pedId)
+    .update({ realizado: !atual })
+    .then(function() { loadProntuarioPedidos(); });
+}
+function excluirPedido(pedId) {
+  if (!confirm('Excluir este pedido?')) return;
+  db.collection('users').doc(getMedUid()).collection('pedidos').doc(pedId).delete()
+    .then(function() { toast('Pedido excluído','success'); loadProntuarioPedidos(); });
+}
 function renderMedicoAgenda(filtroData) {
   navTo_setActive('medico-agenda');
   var uid = getMedUid();
@@ -4196,6 +4309,60 @@ function renderPacienteAgenda() {
     .catch(function(e) {
       var wrap = document.getElementById('pac-agenda-wrap');
       if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e&&e.message?e.message:'') + '</p>';
+    });
+}
+
+// ============================================================
+// PACIENTE — PEDIDOS DE EXAME
+// ============================================================
+function renderPacientePedidos() {
+  navTo_setActive('pac-pedidos');
+  var uid = pacienteMedUid;
+  var pid = pacientePacId;
+  if (!uid || !pid) {
+    setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessão inválida. Saia e entre novamente.</div>');
+    return;
+  }
+  setMainContent(
+    '<div class="page-header"><h2>📝 Pedidos de Exame</h2></div>' +
+    '<div class="card" id="pac-pedidos-wrap"><p style="color:var(--gray)">Carregando...</p></div>'
+  );
+  db.collection('users').doc(uid).collection('pedidos')
+    .where('pacienteId','==',pid).get()
+    .then(function(snap) {
+      var pedidos = [];
+      snap.forEach(function(d) { pedidos.push(Object.assign({}, d.data(), {id: d.id})); });
+      pedidos.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
+      var wrap = document.getElementById('pac-pedidos-wrap');
+      if (!wrap) return;
+      if (!pedidos.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray)">' +
+          '<div style="font-size:3rem;margin-bottom:12px">📋</div>' +
+          '<p>Nenhum pedido de exame emitido ainda.<br>Seu médico publicará os pedidos aqui.</p></div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < pedidos.length; i++) {
+        var pd = pedidos[i];
+        var dataFmt = pd.data ? pd.data.substr(8,2)+'/'+pd.data.substr(5,2)+'/'+pd.data.substr(0,4) : '';
+        var status = pd.realizado
+          ? '<span class="badge badge-success">✅ Realizado</span>'
+          : '<span class="badge badge-blue" style="background:#FEF9C3;color:#854D0E">⏳ Pendente</span>';
+        html += '<div class="card mb-2" style="border-left:4px solid ' + (pd.realizado?'var(--success)':'var(--warn)') + '">' +
+          '<div class="flex justify-between align-center mb-2">' +
+          '<div><strong style="font-size:.95rem">📋 ' + (pd.tipo||'Exames') + '</strong><br>' +
+          '<span style="font-size:.75rem;color:var(--gray)">' + dataFmt +
+          (pd.medicoNome ? ' · Dr(a). ' + pd.medicoNome : '') + '</span></div>' +
+          status + '</div>' +
+          '<div style="background:var(--gray-light);border-radius:8px;padding:12px;font-size:.88rem;white-space:pre-wrap;line-height:1.6">' + (pd.exames||'') + '</div>' +
+          (pd.obs ? '<div style="font-size:.8rem;color:var(--text-soft);margin-top:8px;background:var(--warn-light);padding:8px;border-radius:6px">ℹ️ ' + pd.obs + '</div>' : '') +
+          '</div>';
+      }
+      wrap.innerHTML = html;
+    })
+    .catch(function(e) {
+      var wrap = document.getElementById('pac-pedidos-wrap');
+      if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e&&e.message?e.message:'permissão negada') + '</p>';
     });
 }
 
