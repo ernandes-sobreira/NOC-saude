@@ -446,6 +446,7 @@ function doPacienteLogin() {
   function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
 
   function buscarCodigo(uids) {
+    if (!uids.length) { resetBtn(); showLoginError('Nenhum médico no sistema.'); return; }
     var promises = [];
     for (var i = 0; i < uids.length; i++) {
       (function(medUid) {
@@ -460,7 +461,7 @@ function doPacienteLogin() {
     Promise.all(promises).then(function(results) {
       var found = null;
       for (var i = 0; i < results.length; i++) { if (results[i]) { found = results[i]; break; } }
-      if (!found) { resetBtn(); showLoginError('Código "' + codigo + '" não encontrado.'); return; }
+      if (!found) { resetBtn(); showLoginError('Código não encontrado. Verifique com seu médico.'); return; }
       var pac = Object.assign({}, found.pacDoc.data(), {id: found.pacDoc.id});
       pacienteMedUid = found.medUid;
       pacientePacId = found.pacDoc.id;
@@ -469,7 +470,7 @@ function doPacienteLogin() {
       currentUser = { uid: 'pac_' + found.pacDoc.id, email: pac.email||codigo };
       suppressAuthStateChange = true;
       resetBtn(); clearLoginError(); showApp();
-    }).catch(function(e) { resetBtn(); showLoginError('Erro: '+(e&&e.message?e.message:e)); });
+    }).catch(function(e) { resetBtn(); showLoginError('Erro busca: '+(e&&e.message?e.message:e)); });
   }
 
   function fazerBusca() {
@@ -477,20 +478,33 @@ function doPacienteLogin() {
     db.collection('adminIndex').get()
       .then(function(s) {
         s.forEach(function(d) { if (d.data().tipo !== 'admin') uids.push(d.id); });
-        return db.collection('users').get();
+        // Also try all users as fallback
+        return db.collection('users').get().catch(function() { return {forEach:function(){}}; });
       })
       .then(function(s2) {
         s2.forEach(function(d) { if (uids.indexOf(d.id) < 0) uids.push(d.id); });
-        if (!uids.length) { resetBtn(); showLoginError('Sistema vazio.'); return; }
         buscarCodigo(uids);
       })
-      .catch(function(e) { resetBtn(); showLoginError('Erro: '+(e&&e.message?e.message:e)); });
+      .catch(function(e) {
+        resetBtn();
+        showLoginError('Erro acesso: '+(e&&e.message?e.message:e));
+      });
   }
 
-  if (auth.currentUser) { fazerBusca(); return; }
-  auth.signInAnonymously()
-    .then(function() { fazerBusca(); })
-    .catch(function(e) { resetBtn(); showLoginError('Erro auth: '+(e&&e.message?e.message:e)); });
+  // Use current session if available, otherwise sign in anonymously
+  var user = auth.currentUser;
+  if (user) {
+    fazerBusca();
+  } else {
+    suppressAuthStateChange = true;
+    auth.signInAnonymously()
+      .then(function() { fazerBusca(); })
+      .catch(function(e) {
+        suppressAuthStateChange = false;
+        resetBtn();
+        showLoginError('Erro login anônimo: '+(e&&e.message?e.message:e));
+      });
+  }
 }
 function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
@@ -605,9 +619,6 @@ try {
   var _storedAdminEmail = sessionStorage.getItem('_noc_admin_email');
   if (_storedAdminEmail) window._adminEmail = _storedAdminEmail;
 } catch(e) {}
-
-// Sign in anonymously on load so patient code lookup always has auth
-auth.signInAnonymously().catch(function(){});
 
 // ============================================================
 // AUTH STATE — single source of truth
