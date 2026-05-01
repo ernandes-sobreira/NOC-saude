@@ -233,10 +233,6 @@ tr:hover td{background:var(--primary-light)}
           <input type="password" id="login-senha" placeholder="••••••••">
         </div>
         <button class="btn btn-primary w-100" onclick="doLogin()">Entrar</button>
-        <div class="mt-2" style="text-align:center">
-          <span style="font-size:.82rem;color:var(--gray)">Não tem conta? </span>
-          <a href="#" style="font-size:.82rem;color:var(--primary);font-weight:600" onclick="toggleRegister()">Criar conta de médico</a>
-        </div>
       </div>
       <div id="register-group" class="hidden">
         <div class="mb-2">
@@ -638,12 +634,11 @@ try {
 // AUTH STATE — single source of truth
 // ============================================================
 auth.onAuthStateChanged(function(user) {
-  if (suppressAuthStateChange) return;
+  // Only suppress for active patient-by-code sessions
+  if (suppressAuthStateChange && currentRole === 'paciente') return;
   if (adminLoginInProgress) return;
   if (user) {
-    // Ignore anonymous sessions (used only for patient code lookup)
     if (user.isAnonymous) return;
-    // Ignore if patient already loaded via code
     if (currentRole === 'paciente') return;
     currentUser = user;
     // If this is the known admin email — force admin role immediately without waiting for Firestore
