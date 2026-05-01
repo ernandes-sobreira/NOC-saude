@@ -458,6 +458,8 @@ function doAdminLogin() {
   function resetBtn() { if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; } }
   window._adminEmail = email;
   window._adminSenha = senha;
+  // Persist admin email in sessionStorage so page reload keeps admin session
+  try { sessionStorage.setItem('_noc_admin_email', email); } catch(e) {}
 
   function setupAdminProfile(uid) {
     // 1. Force tipo:admin in profile
@@ -526,10 +528,12 @@ function doLogout() {
   currentPerfil = null;
   adminLoginInProgress = false;
   suppressAuthStateChange = false;
+  window._adminEmail = null;
+  window._adminSenha = null;
+  try { sessionStorage.removeItem('_noc_admin_email'); } catch(e) {}
   auth.signOut().then(function() {
     document.getElementById('app-shell').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
-    // Reset login form tabs to médico
     switchLoginTab('medico');
   }).catch(function() {
     document.getElementById('app-shell').classList.add('hidden');
@@ -547,6 +551,11 @@ function clearLoginError() {
 
 var suppressAuthStateChange = false;
 var adminLoginInProgress = false;
+// Restore admin email from previous session (survives page reload)
+try {
+  var _storedAdminEmail = sessionStorage.getItem('_noc_admin_email');
+  if (_storedAdminEmail) window._adminEmail = _storedAdminEmail;
+} catch(e) {}
 
 // ============================================================
 // AUTH STATE — single source of truth
@@ -556,10 +565,18 @@ auth.onAuthStateChanged(function(user) {
   if (adminLoginInProgress) return;
   if (user) {
     currentUser = user;
+    // If this is the known admin email — force admin role immediately without waiting for Firestore
+    if (window._adminEmail && user.email && user.email.toLowerCase() === window._adminEmail.toLowerCase()) {
+      currentRole = 'admin';
+      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: user.email };
+      showApp();
+      return;
+    }
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
       .then(function(doc) {
         if (doc.exists) {
           currentPerfil = doc.data();
+          // Extra guard: if tipo is admin, always show admin dashboard
           currentRole = currentPerfil.tipo || 'medico';
         } else {
           currentPerfil = { nome: user.email, tipo: 'paciente' };
@@ -573,7 +590,6 @@ auth.onAuthStateChanged(function(user) {
         showApp();
       });
   } else {
-    // user signed out — always show login
     currentUser = null; currentRole = null; currentPerfil = null;
     document.getElementById('app-shell').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
