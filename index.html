@@ -518,7 +518,20 @@ function doRegister() {
     .catch(function(e) { showLoginError(traduzirErroFirebase(e.message)); });
 }
 function doLogout() {
-  auth.signOut();
+  currentUser = null;
+  currentRole = null;
+  currentPerfil = null;
+  adminLoginInProgress = false;
+  suppressAuthStateChange = false;
+  auth.signOut().then(function() {
+    document.getElementById('app-shell').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    // Reset login form tabs to médico
+    switchLoginTab('medico');
+  }).catch(function() {
+    document.getElementById('app-shell').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+  });
 }
 function showLoginError(msg) {
   var el = document.getElementById('login-error');
@@ -557,11 +570,10 @@ auth.onAuthStateChanged(function(user) {
         showApp();
       });
   } else {
-    if (currentRole !== 'admin') {
-      currentUser = null; currentRole = null; currentPerfil = null;
-      document.getElementById('app-shell').classList.add('hidden');
-      document.getElementById('login-screen').classList.remove('hidden');
-    }
+    // user signed out — always show login
+    currentUser = null; currentRole = null; currentPerfil = null;
+    document.getElementById('app-shell').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
   }
 });
 
@@ -2653,228 +2665,370 @@ function loadProntuarioLaudos() {
 }
 
 // PDF.js worker
+// PDF.js worker
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-var EXAM_DICT = {
+// ============================================================
+// LEITOR DE PDF — extração inteligente por linha
+// ============================================================
+var LAB_DICT = [
+  'São Matheus','Fleury','Delboni','Hermes Pardini','Sabin',
+  'CERNE','Lâmina','Synlab','Labclin','Lavoisier','Clementino',
+  'Bronstein','Einstein','DB Molecular','DASA','Diagnósticos'
+];
+
+// Mapa de sinônimos: texto do laudo → nome padrão do sistema
+var EXAM_SINONIMOS = {
   'COLESTEROL TOTAL': 'Colesterol Total',
-  'HDL': 'HDL',
+  'COLESTEROL-TOTAL': 'Colesterol Total',
+  'CT': 'Colesterol Total',
+  'HDL COLESTEROL': 'HDL',
   'COLESTEROL HDL': 'HDL',
-  'LDL': 'LDL',
+  'LDL COLESTEROL': 'LDL',
   'COLESTEROL LDL': 'LDL',
-  'VLDL': 'VLDL',
+  'LDL CALCULADO': 'LDL',
+  'VLDL COLESTEROL': 'VLDL',
+  'COLESTEROL VLDL': 'VLDL',
   'TRIGLICERIDEOS': 'Triglicerídeos',
   'TRIGLICERÍDEOS': 'Triglicerídeos',
-  'TSH': 'TSH',
-  'T4 LIVRE': 'T4 Livre',
-  'T3 LIVRE': 'T3 Livre',
+  'TRIGLICÉRIDES': 'Triglicerídeos',
   'GLICOSE': 'Glicose',
   'GLICEMIA': 'Glicose',
+  'GLICEMIA DE JEJUM': 'Glicose',
   'HBA1C': 'HbA1c',
   'HEMOGLOBINA GLICADA': 'HbA1c',
+  'HEMOGLOBINA GLICADA (HBA1C)': 'HbA1c',
   'HEMOGLOBINA': 'Hemoglobina',
+  'HGB': 'Hemoglobina',
+  'HB': 'Hemoglobina',
   'HEMATOCRITO': 'Hematócrito',
   'HEMATÓCRITO': 'Hematócrito',
+  'HCT': 'Hematócrito',
+  'ERITROCITOS': 'Hemácias',
+  'ERITRÓCITOS': 'Hemácias',
+  'HEMACIAS': 'Hemácias',
+  'HEMÁCIAS': 'Hemácias',
   'LEUCOCITOS': 'Leucócitos',
   'LEUCÓCITOS': 'Leucócitos',
+  'LEUCOCITOS TOTAIS': 'Leucócitos',
   'PLAQUETAS': 'Plaquetas',
+  'VGM': 'VGM',
+  'HGM': 'HGM',
+  'CHGM': 'CHGM',
+  'RDW': 'RDW',
+  'VPM': 'VPM',
   'CREATININA': 'Creatinina',
   'UREIA': 'Ureia',
   'URÉIA': 'Ureia',
   'ACIDO URICO': 'Ácido Úrico',
   'ÁCIDO ÚRICO': 'Ácido Úrico',
+  'ACIDO ÚRICO': 'Ácido Úrico',
   'TGO': 'TGO (AST)',
+  'TGO (AST)': 'TGO (AST)',
+  'ASPARTATO AMINOTRANSFERASE': 'TGO (AST)',
   'AST': 'TGO (AST)',
   'TGP': 'TGP (ALT)',
+  'TGP (ALT)': 'TGP (ALT)',
+  'ALANINA AMINOTRANSFERASE': 'TGP (ALT)',
   'ALT': 'TGP (ALT)',
   'GGT': 'GGT',
-  'VITAMINA D': 'Vitamina D',
-  'VITAMINA B12': 'Vitamina B12',
-  'FERRITINA': 'Ferritina',
-  'FERRO SERICO': 'Ferro Sérico',
-  'FERRO SÉRICO': 'Ferro Sérico',
-  'PCR': 'PCR Ultrassensível',
-  'PROTEINA C REATIVA': 'PCR Ultrassensível',
-  'PROTEÍNA C REATIVA': 'PCR Ultrassensível',
-  'PSA TOTAL': 'PSA Total',
-  'PSA LIVRE': 'PSA Livre',
-  'CORTISOL': 'Cortisol Basal',
+  'GAMA GT': 'GGT',
+  'GAMA-GT': 'GGT',
+  'FOSFATASE ALCALINA': 'Fosfatase Alcalina',
+  'BILIRRUBINA TOTAL': 'Bilirrubina Total',
+  'BILIRRUBINA DIRETA': 'Bilirrubina Direta',
+  'BILIRRUBINA INDIRETA': 'Bilirrubina Indireta',
+  'TSH': 'TSH',
+  'T4 LIVRE': 'T4 Livre',
+  'TIROXINA LIVRE': 'T4 Livre',
+  'T3 LIVRE': 'T3 Livre',
+  'T4 TOTAL': 'T4 Total',
+  'T3 TOTAL': 'T3 Total',
+  'ANTI-TPO': 'Anti-TPO',
+  'ANTICORPO ANTI-TPO': 'Anti-TPO',
+  'ANTI-TIREOGLOBULINA': 'Anti-Tireoglobulina',
+  'TESTOSTERONA TOTAL': 'Testosterona Total',
   'TESTOSTERONA': 'Testosterona Total',
+  'TESTOSTERONA LIVRE': 'Testosterona Livre',
+  'DHEA-S': 'DHEA-S',
+  'SULFATO DE DHEA': 'DHEA-S',
+  'DHEAS': 'DHEA-S',
   'ESTRADIOL': 'Estradiol',
-  'PROGESTERONA': 'Progesterona',
   'FSH': 'FSH',
   'LH': 'LH',
   'PROLACTINA': 'Prolactina',
-  'INSULINA': 'Insulina',
-  'VITAMINA D 25': 'Vitamina D',
+  'PROGESTERONA': 'Progesterona',
+  'SHBG': 'SHBG',
+  'IGF-1': 'IGF-1',
+  'IGF1': 'IGF-1',
+  'CORTISOL': 'Cortisol Basal',
+  'CORTISOL BASAL': 'Cortisol Basal',
+  'CORTISOL MATINAL': 'Cortisol Basal',
+  'VITAMINA D': 'Vitamina D',
+  'VITAMINA D 25-OH': 'Vitamina D',
+  '25-OH-VITAMINA D': 'Vitamina D',
+  '25 OH VITAMINA D': 'Vitamina D',
+  'VITAMINA B12': 'Vitamina B12',
+  'COBALAMINA': 'Vitamina B12',
+  'ACIDO FOLICO': 'Ácido Fólico',
+  'ÁCIDO FÓLICO': 'Ácido Fólico',
+  'FOLATO': 'Ácido Fólico',
+  'FERRITINA': 'Ferritina',
+  'FERRO SERICO': 'Ferro Sérico',
+  'FERRO SÉRICO': 'Ferro Sérico',
+  'FERRO': 'Ferro Sérico',
   'ZINCO': 'Zinco',
   'MAGNESIO': 'Magnésio',
-  'MAGNÉSIO': 'Magnésio'
+  'MAGNÉSIO': 'Magnésio',
+  'PCR': 'PCR Ultrassensível',
+  'PROTEINA C REATIVA': 'PCR Ultrassensível',
+  'PROTEÍNA C REATIVA': 'PCR Ultrassensível',
+  'PCR ULTRASSENSIVEL': 'PCR Ultrassensível',
+  'PCR ULTRASSENSÍVEL': 'PCR Ultrassensível',
+  'VHS': 'VHS',
+  'VELOCIDADE DE HEMOSSEDIMENTACAO': 'VHS',
+  'PSA TOTAL': 'PSA Total',
+  'PSA LIVRE': 'PSA Livre',
+  'INSULINA': 'Insulina',
+  'HOMOCISTEINA': 'Homocisteína',
+  'HOMOCISTEÍNA': 'Homocisteína',
+  'IGE TOTAL': 'IgE Total',
+  'IGE': 'IgE Total',
+  'FAN': 'FAN (ANA)',
+  'ANA': 'FAN (ANA)',
+  'COMPLEMENTO C3': 'Complemento C3',
+  'COMPLEMENTO C4': 'Complemento C4',
+  'ACTH': 'ACTH',
+  'DHT': 'DHT',
+  'ANDROSTENEDIONA': 'Androstenediona',
+  'PEPTIDEO C': 'Peptídeo C',
+  'PEPTÍDEO C': 'Peptídeo C',
+  'CISTATINA C': 'Cistatina C',
+  'ALBUMINA': 'Albumina',
+  'PROTEINAS TOTAIS': 'Proteínas Totais',
+  'PROTEÍNAS TOTAIS': 'Proteínas Totais',
+  'TP': 'TP',
+  'INR': 'INR',
+  'TTPA': 'TTPA',
+  'FIBRINOGENIO': 'Fibrinogênio',
+  'FIBRINOGÊNIO': 'Fibrinogênio',
+  'LDH': 'LDH',
+  'FOSFATASE ALCALINA': 'Fosfatase Alcalina'
 };
-var LAB_DICT = ['São Matheus','Fleury','Delboni','Hermes Pardini','Sabin','CERNE','Lâmina','Synlab','Labclin','Lavoisier'];
 
 var pdfExtracted = [];
+
 function processarPDF() {
   var input = document.getElementById('pdf-input');
   if (!input || !input.files || !input.files[0]) return;
   var file = input.files[0];
   var st = document.getElementById('pdf-status');
-  if (st) st.innerHTML = '<span style="color:var(--primary)">⏳ Processando PDF...</span>';
+  if (st) st.innerHTML = '<span style="color:var(--primary)">⏳ Lendo PDF...</span>';
   var reader = new FileReader();
   reader.onload = function(e) {
     var data = new Uint8Array(e.target.result);
     pdfjsLib.getDocument({data: data}).promise.then(function(pdf) {
-      var pagesText = [];
-      var pageCount = pdf.numPages;
+      var total = pdf.numPages;
+      var pagesText = new Array(total);
       var loaded = 0;
-      for (var pg = 1; pg <= pageCount; pg++) {
+      for (var pg = 1; pg <= total; pg++) {
         (function(pgNum) {
           pdf.getPage(pgNum).then(function(page) {
             page.getTextContent().then(function(tc) {
-              var str = '';
-              for (var i = 0; i < tc.items.length; i++) str += tc.items[i].str + ' ';
-              pagesText[pgNum-1] = str;
+              // Preserve line structure by grouping items by Y position
+              var lineMap = {};
+              for (var ti = 0; ti < tc.items.length; ti++) {
+                var item = tc.items[ti];
+                var y = Math.round(item.transform[5]);
+                if (!lineMap[y]) lineMap[y] = [];
+                lineMap[y].push(item.str);
+              }
+              var ys = Object.keys(lineMap).map(Number).sort(function(a,b){return b-a;});
+              var lines = [];
+              for (var yi = 0; yi < ys.length; yi++) {
+                lines.push(lineMap[ys[yi]].join(' ').trim());
+              }
+              pagesText[pgNum-1] = lines.join('\n');
               loaded++;
-              if (loaded === pageCount) {
-                var fullText = pagesText.join(' ');
-                extractFromText(fullText);
+              if (loaded === total) {
+                extractFromText(pagesText.join('\n'));
               }
             });
           });
         })(pg);
       }
-    }).catch(function() {
+    }).catch(function(err) {
       var st2 = document.getElementById('pdf-status');
-      if (st2) st2.innerHTML = '<span style="color:var(--danger)">Erro ao processar PDF.</span>';
+      if (st2) st2.innerHTML = '<span style="color:var(--danger)">Erro ao ler PDF: ' + err.message + '</span>';
     });
   };
   reader.readAsArrayBuffer(file);
 }
-// PROB 3: helper — whole word boundary check (no letter/digit before or after)
-function ehPalavraInteira(texto, inicio, tamanho) {
-  var antes = inicio > 0 ? texto[inicio - 1] : ' ';
-  var depois = (inicio + tamanho) < texto.length ? texto[inicio + tamanho] : ' ';
-  var reLetra = new RegExp('[a-zA-Z0-9\u00C0-\u017E]');
-  return !reLetra.test(antes) && !reLetra.test(depois);
+
+function normalizarLinha(s) {
+  return s.toUpperCase()
+    .replace(new RegExp('[\\u00C0-\\u00FF]', 'g'), function(c) {
+      var map = {'\u00C0':'A','\u00C1':'A','\u00C2':'A','\u00C3':'A','\u00C4':'A','\u00C5':'A',
+                 '\u00C8':'E','\u00C9':'E','\u00CA':'E','\u00CB':'E',
+                 '\u00CC':'I','\u00CD':'I','\u00CE':'I','\u00CF':'I',
+                 '\u00D2':'O','\u00D3':'O','\u00D4':'O','\u00D5':'O','\u00D6':'O',
+                 '\u00D9':'U','\u00DA':'U','\u00DB':'U','\u00DC':'U',
+                 '\u00E0':'A','\u00E1':'A','\u00E2':'A','\u00E3':'A','\u00E4':'A','\u00E5':'A',
+                 '\u00E8':'E','\u00E9':'E','\u00EA':'E','\u00EB':'E',
+                 '\u00EC':'I','\u00ED':'I','\u00EE':'I','\u00EF':'I',
+                 '\u00F2':'O','\u00F3':'O','\u00F4':'O','\u00F5':'O','\u00F6':'O',
+                 '\u00F9':'U','\u00FA':'U','\u00FB':'U','\u00FC':'U',
+                 '\u00E7':'C','\u00C7':'C','\u00F1':'N','\u00D1':'N'};
+      return map[c] || c;
+    })
+    .replace(new RegExp('[^A-Z0-9\\s\\-\\.\\,\\(\\)/]','g'), ' ')
+    .replace(new RegExp('\\s+','g'), ' ')
+    .trim();
 }
 
-function extractFromText(text) {
+function extractFromText(fullText) {
   var st = document.getElementById('pdf-status');
+
+  // Detect lab
   var lab = 'Desconhecido';
   for (var li = 0; li < LAB_DICT.length; li++) {
-    if (text.indexOf(LAB_DICT[li]) >= 0) { lab = LAB_DICT[li]; break; }
+    if (fullText.indexOf(LAB_DICT[li]) >= 0) { lab = LAB_DICT[li]; break; }
   }
-  // Extract date >= 2020
-  var dateReg = new RegExp('(\\d{2})[\\s/\\-](\\d{2})[\\s/\\-](20[2-9]\\d)', 'g');
+
+  // Detect date (dd/mm/yyyy or dd-mm-yyyy >= 2020)
   var foundDate = '';
-  var dm = dateReg.exec(text);
-  if (dm) {
-    foundDate = dm[3] + '-' + dm[2] + '-' + dm[1];
-  }
+  var dateReg = new RegExp('(\\d{2})[/\\-](\\d{2})[/\\-](20[2-9]\\d)');
+  var dm = dateReg.exec(fullText);
+  if (dm) foundDate = dm[3] + '-' + dm[2] + '-' + dm[1];
+
+  // Process line by line
+  var lines = fullText.split('\n');
   var rows = [];
-  var dictKeys = Object.keys(EXAM_DICT);
-  var textUp = text.toUpperCase();
-  for (var di = 0; di < dictKeys.length; di++) {
-    var key = dictKeys[di];
-    var searchFrom = 0;
-    var found = false;
-    while (!found) {
-      var pos = textUp.indexOf(key, searchFrom);
-      if (pos < 0) break;
-      searchFrom = pos + 1;
-      // PROB 3: require whole word — no letter/digit adjacent
-      if (!ehPalavraInteira(textUp, pos, key.length)) continue;
-      // extract context after key (60 chars)
-      var ctx = text.substr(pos + key.length, 80);
-      var ctxLow = ctx.toLowerCase();
-      // PROB 4: skip "plaquetas" if context has "médio" or "volume"
-      if ((key === 'PLAQUETAS') &&
-          (ctxLow.indexOf('médio') !== -1 || ctxLow.indexOf('medio') !== -1 || ctxLow.indexOf('volume') !== -1)) {
-        continue;
-      }
-      var numReg = new RegExp('([0-9]+[.,][0-9]+|[0-9]+)');
-      var nm = numReg.exec(ctx);
-      if (nm) {
-        var val = parseFloat(nm[1].replace(',','.'));
-        // PROB 3/v2: TGO, TGP, GGT must be > 5 (zeros and 1s from differential table)
-        var nomeExame = EXAM_DICT[key];
-        if ((nomeExame === 'TGO (AST)' || nomeExame === 'TGP (ALT)' || nomeExame === 'GGT') && val <= 5) {
-          continue;
-        }
-        rows.push({nome: nomeExame, valor: String(val), unidade: '', remover: false});
-        found = true;
-      }
-    }
-  }
-  // Deduplicate by normalized name (keep first found) — consistent with renderResumoCards
   var seen = {};
-  var unique = [];
-  for (var ri = 0; ri < rows.length; ri++) {
-    var seenKey = normalizarNomeExame(rows[ri].nome);
-    if (!seen[seenKey]) {
-      seen[seenKey] = true;
-      unique.push(rows[ri]);
+
+  for (var li2 = 0; li2 < lines.length; li2++) {
+    var rawLine = lines[li2].trim();
+    if (!rawLine || rawLine.length < 3) continue;
+    var normLine = normalizarLinha(rawLine);
+
+    // Try to match exam name from synonyms dictionary
+    var dictKeys = Object.keys(EXAM_SINONIMOS);
+    for (var di = 0; di < dictKeys.length; di++) {
+      var key = dictKeys[di];
+      var normKey = normalizarLinha(key);
+      var pos = normLine.indexOf(normKey);
+      if (pos < 0) continue;
+
+      // Ensure word boundary: char before must be start or non-alpha
+      var charBefore = pos > 0 ? normLine[pos-1] : ' ';
+      var charAfter = pos + normKey.length < normLine.length ? normLine[pos + normKey.length] : ' ';
+      var reLetter = new RegExp('[A-Z0-9]');
+      if (reLetter.test(charBefore)) continue;
+      if (reLetter.test(charAfter) && charAfter !== '(' && charAfter !== ')' && charAfter !== '/') continue;
+
+      // Extract numeric value from rest of line after key
+      var rest = rawLine.substr(pos + key.length);
+      // Look for number: handles "1.234,56" "5,48" "5.48" "211.000"
+      var numReg = new RegExp('([0-9]+[.,][0-9]{3},[0-9]|[0-9]+,[0-9]+|[0-9]+[.,][0-9]+|[0-9]+)');
+      var nm = numReg.exec(rest);
+      if (!nm) {
+        // Try next line
+        if (li2 + 1 < lines.length) {
+          var nextLine = lines[li2+1].trim();
+          nm = numReg.exec(nextLine);
+        }
+      }
+      if (!nm) continue;
+
+      var valStr = nm[1];
+      var valNum = normalizarValorNumerico(valStr);
+      if (isNaN(valNum)) continue;
+
+      // Skip implausible values for specific exams
+      var nomePadrao = EXAM_SINONIMOS[key];
+      if ((nomePadrao === 'TGO (AST)' || nomePadrao === 'TGP (ALT)' || nomePadrao === 'GGT') && valNum <= 5) continue;
+      if (nomePadrao === 'Plaquetas' && valNum < 10) continue;
+
+      // Extract unit if present
+      var unidade = '';
+      var unitReg = new RegExp('[0-9][.,]?[0-9]*\\s*([a-zA-Z%/\u00b5µ]+[^\\s]*)');
+      var um = unitReg.exec(rest);
+      if (um && um[1] && um[1].length < 15) unidade = um[1];
+
+      if (!seen[nomePadrao]) {
+        seen[nomePadrao] = true;
+        rows.push({nome: nomePadrao, valor: String(valNum), unidade: unidade, _removed: false});
+      }
+      break;
     }
   }
-  pdfExtracted = unique;
-  if (st) st.innerHTML = '<span style="color:var(--success)">✅ ' + unique.length + ' parâmetros extraídos · Lab: ' + lab + (foundDate ? ' · Data: ' + foundDate : '') + '</span>';
-  renderPdfTable(unique, lab, foundDate);
+
+  pdfExtracted = rows;
+
+  if (st) st.innerHTML = rows.length
+    ? '<span style="color:var(--success)">✅ ' + rows.length + ' parâmetros extraídos · Lab: ' + lab + (foundDate ? ' · Data: ' + foundDate : '') + '</span>'
+    : '<span style="color:var(--warn)">⚠️ Nenhum parâmetro reconhecido. Adicione manualmente na tabela abaixo.</span>';
+
+  renderPdfTable(rows, lab, foundDate);
 }
+
 function renderPdfTable(rows, lab, dateFound) {
   var wrap = document.getElementById('pdf-tabela-wrap');
   if (!wrap) return;
   var trRows = '';
   for (var i = 0; i < rows.length; i++) {
+    if (rows[i]._removed) continue;
     trRows += '<tr>' +
-      '<td><input class="pdf-nome-' + i + '" value="' + rows[i].nome + '" style="width:160px"></td>' +
-      '<td><input class="pdf-val-' + i + '" value="' + rows[i].valor + '" style="width:80px"></td>' +
-      '<td><input class="pdf-unit-' + i + '" value="' + rows[i].unidade + '" style="width:80px" placeholder="mg/dL"></td>' +
-      '<td><button class="btn btn-danger btn-sm" onclick="pdfRemoveRow(' + i + ')">🗑️</button></td>' +
+      '<td><input id="pdfn-' + i + '" value="' + (rows[i].nome||'') + '" style="width:100%"></td>' +
+      '<td><input id="pdfv-' + i + '" value="' + (rows[i].valor||'') + '" style="width:80px"></td>' +
+      '<td><input id="pdfu-' + i + '" value="' + (rows[i].unidade||'') + '" placeholder="unid." style="width:80px"></td>' +
+      '<td><button class="btn btn-danger btn-sm" onclick="pdfRemoveRowByIdx(' + i + ')">🗑️</button></td>' +
       '</tr>';
   }
-  wrap.innerHTML = '<div class="card"><div class="section-title">Tabela Editável</div>' +
+  if (!trRows) trRows = '<tr><td colspan="4" style="text-align:center;color:var(--gray);padding:16px">Nenhum parâmetro extraído. Adicione manualmente.</td></tr>';
+  wrap.innerHTML =
+    '<div class="card">' +
+    '<div class="section-title">Tabela Editável — confira e ajuste antes de salvar</div>' +
     '<div class="form-grid mb-2">' +
     '<div><label>Laboratório</label><input id="pdf-lab" value="' + lab + '"></div>' +
     '<div><label>Data de Coleta</label><input type="date" id="pdf-data" value="' + (dateFound||todayISO()) + '"></div>' +
     '</div>' +
-    '<div class="table-wrap pdf-table"><table><thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th><th>Remover</th></tr></thead><tbody id="pdf-tbody">' + trRows + '</tbody></table></div>' +
+    '<div class="table-wrap pdf-table"><table><thead><tr><th>Parâmetro</th><th>Valor</th><th>Unidade</th><th></th></tr></thead>' +
+    '<tbody id="pdf-tbody">' + trRows + '</tbody></table></div>' +
     '<div class="flex gap-1 mt-2">' +
     '<button class="btn btn-gray btn-sm" onclick="pdfAddRow()">+ Linha</button>' +
     '<button class="btn btn-success" onclick="salvarDoPDF()">💾 Salvar como Resultado</button>' +
     '</div></div>';
 }
-function pdfRemoveRow(i) {
-  pdfExtracted[i]._removed = true;
-  renderPdfTableFromCache();
-}
-function pdfAddRow() {
-  pdfExtracted.push({nome:'', valor:'', unidade:'', _removed:false});
-  renderPdfTableFromCache();
-}
+
 function renderPdfTableFromCache() {
   var tbody = document.getElementById('pdf-tbody');
   if (!tbody) return;
   var trRows = '';
-  var idx = 0;
   for (var i = 0; i < pdfExtracted.length; i++) {
     if (pdfExtracted[i]._removed) continue;
-    (function(ri, ii) {
-      trRows += '<tr>' +
-        '<td><input id="pdfn-' + ri + '" value="' + (pdfExtracted[ii].nome||'') + '" style="width:160px"></td>' +
-        '<td><input id="pdfv-' + ri + '" value="' + (pdfExtracted[ii].valor||'') + '" style="width:80px"></td>' +
-        '<td><input id="pdfu-' + ri + '" value="' + (pdfExtracted[ii].unidade||'') + '" style="width:80px" placeholder="mg/dL"></td>' +
-        '<td><button class="btn btn-danger btn-sm" onclick="pdfRemoveRowByIdx(' + ii + ')">🗑️</button></td>' +
-        '</tr>';
-    })(idx, i);
-    idx++;
+    trRows += '<tr>' +
+      '<td><input id="pdfn-' + i + '" value="' + (pdfExtracted[i].nome||'') + '" style="width:100%"></td>' +
+      '<td><input id="pdfv-' + i + '" value="' + (pdfExtracted[i].valor||'') + '" style="width:80px"></td>' +
+      '<td><input id="pdfu-' + i + '" value="' + (pdfExtracted[i].unidade||'') + '" placeholder="unid." style="width:80px"></td>' +
+      '<td><button class="btn btn-danger btn-sm" onclick="pdfRemoveRowByIdx(' + i + ')">🗑️</button></td>' +
+      '</tr>';
   }
-  tbody.innerHTML = trRows;
+  tbody.innerHTML = trRows || '<tr><td colspan="4" style="text-align:center;color:var(--gray)">Sem itens.</td></tr>';
 }
+
 function pdfRemoveRowByIdx(ii) {
   pdfExtracted[ii]._removed = true;
   renderPdfTableFromCache();
 }
+
+function pdfAddRow() {
+  pdfExtracted.push({nome:'', valor:'', unidade:'', _removed:false});
+  renderPdfTableFromCache();
+}
+
 function salvarDoPDF() {
   var lab = (document.getElementById('pdf-lab').value||'').trim();
   var data = document.getElementById('pdf-data').value;
@@ -2882,28 +3036,31 @@ function salvarDoPDF() {
   var valores = {};
   var temAlt = false;
   for (var i = 0; i < pdfExtracted.length; i++) {
-    var row = pdfExtracted[i];
-    if (row._removed) continue;
-    var nome = (document.getElementById('pdfn-' + i) ? document.getElementById('pdfn-' + i).value : row.nome)||'';
-    var val = (document.getElementById('pdfv-' + i) ? document.getElementById('pdfv-' + i).value : row.valor)||'';
-    var unit = (document.getElementById('pdfu-' + i) ? document.getElementById('pdfu-' + i).value : row.unidade)||'';
+    if (pdfExtracted[i]._removed) continue;
+    var nomeEl = document.getElementById('pdfn-' + i);
+    var valEl  = document.getElementById('pdfv-' + i);
+    var unitEl = document.getElementById('pdfu-' + i);
+    var nome = nomeEl ? nomeEl.value.trim() : pdfExtracted[i].nome;
+    var val  = valEl  ? valEl.value.trim()  : pdfExtracted[i].valor;
+    var unit = unitEl ? unitEl.value.trim() : pdfExtracted[i].unidade;
     if (nome && val) {
-      valores[nome] = {valor: val, unidade: unit, refMin: 0, refMax: 0, tipoCampo: 'numero'};
+      valores[nome] = {valor: val, unidade: unit||'', refMin: 0, refMax: 0, tipoCampo: 'numero'};
     }
   }
-  var doc = {
+  if (!Object.keys(valores).length) { toast('Nenhum dado para salvar','error'); return; }
+  var docData = {
     pacienteId: prontuarioPacId,
     data: data,
-    areaNome: 'Laudo PDF',
-    areaIco: '📄',
+    areaNome: 'Laudo PDF — ' + (lab||'Lab'),
+    areaIco: '\ud83d\udcc4',
     areaCor: '#F8FAFC',
     lab: lab,
     valores: valores,
     camposTexto: {},
     temAlteracao: temAlt
   };
-  db.collection('users').doc(currentUser.uid).collection('resultados').add(doc)
-    .then(function() { toast('Laudo importado com sucesso!','success'); loadProntuarioExames(); })
+  db.collection('users').doc(currentUser.uid).collection('resultados').add(docData)
+    .then(function() { toast('Laudo importado com sucesso! \u2705','success'); loadProntuarioExames(); })
     .catch(function() { toast('Erro ao salvar','error'); });
 }
 
