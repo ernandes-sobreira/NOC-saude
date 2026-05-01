@@ -606,6 +606,9 @@ try {
   if (_storedAdminEmail) window._adminEmail = _storedAdminEmail;
 } catch(e) {}
 
+// Sign in anonymously on load so patient code lookup always has auth
+auth.signInAnonymously().catch(function(){});
+
 // ============================================================
 // AUTH STATE — single source of truth
 // ============================================================
