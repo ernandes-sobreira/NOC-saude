@@ -3580,13 +3580,25 @@ function renderPacienteDash() {
   navTo_setActive('pac-dash');
   resolverPacienteContext(function(uid, pid) {
     if (!uid) {
-      setMainContent('<div class="card" style="text-align:center;padding:60px;color:var(--gray)">Paciente não encontrado. Entre em contato com seu médico.</div>');
+      setMainContent(
+        '<div style="text-align:center;padding:60px 20px">' +
+        '<div style="font-size:3rem;margin-bottom:16px">🌱</div>' +
+        '<h2 style="color:var(--primary);margin-bottom:8px">Bem-vindo à NOC Clínica!</h2>' +
+        '<p style="color:var(--gray);max-width:320px;margin:0 auto">Seus exames ainda não foram cadastrados pelo seu médico. Em breve tudo estará disponível aqui.</p>' +
+        '</div>'
+      );
       return;
     }
-    db.collection('users').doc(uid).collection('resultados').where('pacienteId','==',pid).get().then(function(snap) {
-      var resultados = [];
-      snap.forEach(function(d) { resultados.push(Object.assign({}, d.data(), {id: d.id})); });
-      renderVisaoPaciente(resultados, false, null);
+    // Load patient profile AND results together
+    Promise.all([
+      db.collection('users').doc(uid).collection('pacientes').doc(pid).get(),
+      db.collection('users').doc(uid).collection('resultados').where('pacienteId','==',pid).get()
+    ]).then(function(results) {
+      var pacDoc = results[0];
+      var resSnap = resultados = [];
+      results[1].forEach(function(d) { resSnap.push(Object.assign({}, d.data(), {id: d.id})); });
+      var pacData = pacDoc.exists ? pacDoc.data() : {};
+      renderVisaoPaciente(resSnap, false, null, pacData);
     });
   });
 }
@@ -3617,16 +3629,26 @@ function resolverPacienteContext(cb) {
     });
   });
 }
-function renderVisaoPaciente(resultados, isDoctor, pacId) {
+function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
+  var pacData = pacDataArg || prontuarioPac || {};
+  var nomePac = pacData.nome || (isDoctor && prontuarioPac ? prontuarioPac.nome : '') || currentPerfil.nome || 'Paciente';
+  // Use first name only
+  var primeiroNome = nomePac.split(' ')[0];
+
   var score = calcHealthScore(resultados);
-  var badge = '';
-  var badgeColor = '';
-  if (score >= 85) { badge = 'ÓTIMO 🏆'; badgeColor = '#16A34A'; }
-  else if (score >= 65) { badge = 'BOM 💪'; badgeColor = '#2563EB'; }
-  else if (score >= 40) { badge = 'ATENÇÃO ⚠️'; badgeColor = '#D97706'; }
-  else { badge = 'URGENTE ❤️‍🔥'; badgeColor = '#DC2626'; }
+  var badge = ''; var emoji = '';
+  if (score >= 85) { badge = 'ÓTIMO'; emoji = '🏆'; }
+  else if (score >= 65) { badge = 'BOM'; emoji = '💪'; }
+  else if (score >= 40) { badge = 'ATENÇÃO'; emoji = '⚠️'; }
+  else { badge = 'CUIDE-SE'; emoji = '❤️'; }
+
+  var saudacao = '';
+  var h = new Date().getHours();
+  if (h < 12) saudacao = 'Bom dia';
+  else if (h < 18) saudacao = 'Boa tarde';
+  else saudacao = 'Boa noite';
+
   var normalCount = 0; var warnCount = 0; var altCount = 0;
-  // gather all params
   var allP = {};
   for (var i = 0; i < resultados.length; i++) {
     var r = resultados[i];
@@ -3639,82 +3661,155 @@ function renderVisaoPaciente(resultados, isDoctor, pacId) {
     }
   }
   var pkeys = Object.keys(allP);
+  var pacCtxV = {sexo: pacData.sexo||'M', dataNasc: pacData.dataNasc||null};
   for (var pi = 0; pi < pkeys.length; pi++) {
     var latest = allP[pkeys[pi]][0];
-    var s = getStatus(latest.valor, latest.refMin, latest.refMax, latest.tipoCampo||'numero');
-    if (s === 'normal') normalCount++;
-    else if (s === 'warn') warnCount++;
+    var refObjV = obterRef(latest, pkeys[pi], pacCtxV.sexo, pacCtxV.dataNasc);
+    var sV = refObjV ? getStatus(latest.valor, refObjV.min, refObjV.max, latest.tipoCampo||'numero') : 'normal';
+    if (sV === 'normal') normalCount++;
+    else if (sV === 'warn') warnCount++;
     else altCount++;
   }
-  var backBtn = isDoctor ? '<button class="btn btn-gray btn-sm" style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff" onclick="renderProntuario()">← Voltar</button>' : '';
+
+  var backBtn = isDoctor
+    ? '<button onclick="renderProntuario()" style="position:absolute;top:14px;left:14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:.8rem;cursor:pointer">← Voltar</button>'
+    : '';
+
+  // Hero card
   var html =
-    '<div class="health-hero">' + backBtn +
-    '<div style="font-size:.9rem;opacity:.85;margin-bottom:6px">Índice de Saúde</div>' +
+    '<div class="health-hero" style="margin-bottom:0;border-radius:20px 20px 0 0">' + backBtn +
+    '<div style="font-size:.88rem;opacity:.8;margin-bottom:4px">' + saudacao + ', <strong>' + primeiroNome + '</strong>! 👋</div>' +
+    '<div style="font-size:.78rem;opacity:.7;margin-bottom:12px">NOC Clínica · ' + (pacData.especialidade||'Acompanhamento') + '</div>' +
     '<div class="health-score">' + score + '%</div>' +
+    '<div style="font-size:.8rem;opacity:.75;margin-bottom:8px">Índice de Saúde</div>' +
     '<div class="health-bar-bg"><div class="health-bar-fill" style="width:' + score + '%"></div></div>' +
-    '<div style="font-size:1.1rem;font-weight:800;margin-top:8px;background:rgba(255,255,255,.15);display:inline-block;padding:6px 20px;border-radius:99px">' + badge + '</div>' +
-    '<div class="flex justify-center gap-3 mt-3 wrap">' +
-    '<div style="text-align:center"><div style="font-size:1.5rem;font-weight:800">' + normalCount + '</div><div style="font-size:.78rem;opacity:.8">Normais</div></div>' +
-    '<div style="text-align:center"><div style="font-size:1.5rem;font-weight:800">' + warnCount + '</div><div style="font-size:.78rem;opacity:.8">Atenção</div></div>' +
-    '<div style="text-align:center"><div style="font-size:1.5rem;font-weight:800">' + altCount + '</div><div style="font-size:.78rem;opacity:.8">Alterados</div></div>' +
+    '<div style="margin-top:10px;background:rgba(255,255,255,.15);display:inline-block;padding:6px 20px;border-radius:99px;font-weight:800;font-size:1rem">' + emoji + ' ' + badge + '</div>' +
+    '<div style="display:flex;justify-content:center;gap:24px;margin-top:16px">' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + normalCount + '</div><div style="font-size:.72rem;opacity:.8">Normais</div></div>' +
+    '<div style="width:1px;background:rgba(255,255,255,.2)"></div>' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + warnCount + '</div><div style="font-size:.72rem;opacity:.8">Atenção</div></div>' +
+    '<div style="width:1px;background:rgba(255,255,255,.2)"></div>' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + altCount + '</div><div style="font-size:.72rem;opacity:.8">Alterados</div></div>' +
     '</div></div>';
-  // systems map
+
+  // Motivational message below hero
+  var motivMsg = '';
+  if (score >= 85) motivMsg = '🌟 Você está indo muito bem! Continue com seus hábitos saudáveis.';
+  else if (score >= 65) motivMsg = '💪 Bom trabalho! Pequenos ajustes vão te levar ao ótimo.';
+  else if (score >= 40) motivMsg = '⚠️ Alguns itens precisam de atenção. Converse com seu médico.';
+  else motivMsg = '❤️ Cuide-se! Siga as orientações do seu médico. Você não está sozinho.';
+
+  html += '<div style="background:#fff;border-radius:0 0 16px 16px;padding:14px 20px;margin-bottom:16px;border:1px solid var(--gray-200);border-top:none">' +
+    '<p style="font-size:.85rem;color:var(--text-soft);text-align:center">' + motivMsg + '</p>' +
+    '</div>';
+
+  // Quick exam summary list — show ALL params with status
+  if (pkeys.length > 0) {
+    var examRows = '';
+    // Sort: altered first, then warn, then normal
+    var grouped = {danger:[], warn:[], normal:[]};
+    for (var pk = 0; pk < pkeys.length; pk++) {
+      var nm = pkeys[pk];
+      var hist0 = allP[nm];
+      hist0.sort(function(a,b){ return (b.data||'') > (a.data||'') ? 1:-1; });
+      var lat0 = hist0[0];
+      if (!lat0 || normalizarValorNumerico(lat0.valor) === 0) continue;
+      var rObj0 = obterRef(lat0, nm, pacCtxV.sexo, pacCtxV.dataNasc);
+      var s0 = rObj0 ? getStatus(lat0.valor, rObj0.min, rObj0.max, lat0.tipoCampo||'numero') : 'normal';
+      var icon0 = s0 === 'danger' ? '🔴' : s0 === 'warn' ? '🟡' : '🟢';
+      var dateStr = lat0.data ? lat0.data.substr(8,2)+'/'+lat0.data.substr(5,2)+'/'+lat0.data.substr(0,4) : '';
+      grouped[s0].push({nm:nm, lat:lat0, s:s0, icon:icon0, dateStr:dateStr, rObj:rObj0});
+    }
+    var allGroups = grouped.danger.concat(grouped.warn).concat(grouped.normal);
+    for (var gi = 0; gi < allGroups.length; gi++) {
+      var g = allGroups[gi];
+      var refTxt = g.rObj ? 'Ref: ' + g.rObj.min + '–' + g.rObj.max + ' ' + (g.rObj.un||g.lat.unidade||'') : '';
+      examRows +=
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)">' +
+        '<span style="font-size:1.1rem">' + g.icon + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:600;font-size:.88rem">' + g.nm + '</div>' +
+        '<div style="font-size:.72rem;color:var(--gray)">' + refTxt + (g.dateStr ? ' · ' + g.dateStr : '') + '</div>' +
+        '</div>' +
+        '<div style="font-weight:800;font-size:1.1rem;color:' + statusColor(g.s) + '">' + formatarValorDisplay(g.lat.valor) + '</div>' +
+        '<div style="font-size:.75rem;color:var(--gray);min-width:36px;text-align:right">' + (g.lat.unidade||'') + '</div>' +
+        '</div>';
+    }
+    html += '<div class="card" style="margin-bottom:16px">' +
+      '<div style="font-weight:700;font-size:.95rem;margin-bottom:4px">📋 Seus Exames</div>' +
+      '<div style="font-size:.75rem;color:var(--gray);margin-bottom:12px">' + allGroups.length + ' parâmetro(s) · 🔴 Alterado  🟡 Atenção  🟢 Normal</div>' +
+      examRows +
+      '</div>';
+  }
+
+  // Body systems accordion
   var SISTEMAS = [
     {ico:'🩸',label:'Seu Sangue',keys:['Hemoglobina','Hematócrito','Leucócitos','Plaquetas','Hemácias','VGM','HGM','CHGM','RDW']},
     {ico:'❤️',label:'Coração e Vasos',keys:['Colesterol Total','HDL','LDL','VLDL','Triglicerídeos','Colesterol Não-HDL','Homocisteína','Fibrinogênio','PCR Ultrassensível']},
     {ico:'🟤',label:'Seu Fígado',keys:['TGO (AST)','TGP (ALT)','GGT','Fosfatase Alcalina','Bilirrubina Total','Bilirrubina Direta','Bilirrubina Indireta']},
     {ico:'🦋',label:'Tireoide',keys:['TSH','T4 Livre','T3 Livre','T4 Total','Anti-TPO','Anti-Tireoglobulina']},
-    {ico:'⚗️',label:'Hormônios',keys:['Testosterona Total','Testosterona Livre','SHBG','LH','FSH','Estradiol','Prolactina','DHEA-S','Cortisol Basal','ACTH']},
+    {ico:'⚗️',label:'Hormônios',keys:['Testosterona Total','Testosterona Livre','SHBG','LH','FSH','Estradiol','Prolactina','DHEA-S','Cortisol Basal','ACTH','IGF-1']},
     {ico:'🍬',label:'Açúcar no Sangue',keys:['Glicose','HbA1c','Insulina','Peptídeo C']},
     {ico:'💧',label:'Seus Rins',keys:['Creatinina','Ureia','Ácido Úrico','Cistatina C','TFG estimada']},
-    {ico:'💊',label:'Vitaminas e Minerais',keys:['Vitamina D','Vitamina B12','Ácido Fólico','Ferritina','Ferro Sérico','Zinco','Magnésio','Cobre']},
-    {ico:'✨',label:'Procedimentos Realizados',keys:['Botox','Preenchimento','Peeling']}
+    {ico:'💊',label:'Vitaminas e Minerais',keys:['Vitamina D','Vitamina B12','Ácido Fólico','Ferritina','Ferro Sérico','Zinco','Magnésio','Cobre','Selênio']},
+    {ico:'✨',label:'Procedimentos',keys:['Botox','Preenchimento','Peeling','Laser','Microagulhamento','Skinbooster','Fios']}
   ];
   for (var si = 0; si < SISTEMAS.length; si++) {
     var sys = SISTEMAS[si];
     var sysParams = [];
-    for (var pk = 0; pk < pkeys.length; pk++) {
-      var found = false;
+    for (var pk2 = 0; pk2 < pkeys.length; pk2++) {
       for (var sk = 0; sk < sys.keys.length; sk++) {
-        if (pkeys[pk].indexOf(sys.keys[sk]) >= 0 || sys.keys[sk].indexOf(pkeys[pk]) >= 0) { found = true; break; }
+        if (pkeys[pk2].indexOf(sys.keys[sk]) >= 0 || sys.keys[sk].indexOf(pkeys[pk2]) >= 0) {
+          sysParams.push(pkeys[pk2]); break;
+        }
       }
-      if (found) sysParams.push(pkeys[pk]);
     }
     if (!sysParams.length) continue;
     var bodyHtml = '';
     for (var spi = 0; spi < sysParams.length; spi++) {
-      var nm = sysParams[spi];
-      var hist = allP[nm];
-      hist.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
-      var latest2 = hist[0];
-      var s2 = getStatus(latest2.valor, latest2.refMin, latest2.refMax, latest2.tipoCampo||'numero');
-      var pos2 = barPos(latest2.valor, latest2.refMin, latest2.refMax);
-      var desc = getFriendlyDesc(nm, s2);
+      var nm2 = sysParams[spi];
+      var hist2 = allP[nm2];
+      hist2.sort(function(a,b){ return (b.data||'') > (a.data||'') ? 1:-1; });
+      var lat2 = hist2[0];
+      var rObj2 = obterRef(lat2, nm2, pacCtxV.sexo, pacCtxV.dataNasc);
+      var s2 = rObj2 ? getStatus(lat2.valor, rObj2.min, rObj2.max, lat2.tipoCampo||'numero') : 'normal';
+      var pos2 = rObj2 ? barPos(lat2.valor, rObj2.min, rObj2.max) : 50;
+      var desc = getFriendlyDesc(nm2, s2);
+      var refLabel2 = rObj2 ? ('Ref: ' + rObj2.min + '–' + rObj2.max + ' ' + (rObj2.un||lat2.unidade||'')) : 'Ref: —';
       var histHtml = '';
-      var hist3 = hist.slice(0,3);
+      var hist3 = hist2.slice(0,3);
       for (var hi = 0; hi < hist3.length; hi++) {
-        var hs = getStatus(hist3[hi].valor, hist3[hi].refMin, hist3[hi].refMax, 'numero');
-        histHtml += '<span style="font-size:.72rem;color:' + statusColor(hs) + '">' + (hist3[hi].data||'') + ': ' + hist3[hi].valor + '</span> ';
+        var rh = obterRef(hist3[hi], nm2, pacCtxV.sexo, pacCtxV.dataNasc);
+        var hs = rh ? getStatus(hist3[hi].valor, rh.min, rh.max, 'numero') : 'normal';
+        var dh = hist3[hi].data||'';
+        var dhFmt = dh.length===10 ? dh.substr(8,2)+'/'+dh.substr(5,2)+'/'+dh.substr(2,2) : dh;
+        histHtml += '<span style="font-size:.72rem;color:' + statusColor(hs) + '">' + dhFmt + ': ' + hist3[hi].valor + '</span> ';
       }
-      bodyHtml += '<div style="padding:10px;border-left:3px solid ' + statusColor(s2) + ';margin-bottom:8px;border-radius:0 8px 8px 0;background:' + (s2==='normal'?'var(--success-light)':s2==='warn'?'var(--warn-light)':'var(--danger-light)') + '">' +
-        '<div class="flex justify-between align-center">' +
-        '<span style="font-weight:700;font-size:.9rem">' + nm + '</span>' +
-        '<span style="font-size:1.3rem;font-weight:800;color:' + statusColor(s2) + '">' + latest2.valor + ' <span style="font-size:.75rem">' + (latest2.unidade||'') + '</span></span>' +
+      bodyHtml +=
+        '<div style="padding:12px;border-left:3px solid ' + statusColor(s2) + ';margin-bottom:8px;border-radius:0 10px 10px 0;background:' + (s2==='normal'?'var(--success-light)':s2==='warn'?'var(--warn-light)':'var(--danger-light)') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span style="font-weight:700;font-size:.9rem">' + nm2 + '</span>' +
+        '<span style="font-size:1.3rem;font-weight:800;color:' + statusColor(s2) + '">' + formatarValorDisplay(lat2.valor) + ' <span style="font-size:.72rem;font-weight:400;color:var(--gray)">' + (lat2.unidade||'') + '</span></span>' +
         '</div>' +
         '<div class="exam-bar"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>' +
         '<div class="exam-bar-marker" style="left:' + pos2 + '%;background:' + statusColor(s2) + '"></div></div>' +
-        '<div style="font-size:.78rem;color:var(--gray-700)">' + desc + '</div>' +
-        '<div class="flex gap-1 mt-1 wrap">' + histHtml + '</div>' +
+        '<div style="font-size:.75rem;color:var(--gray);margin-bottom:4px">' + refLabel2 + '</div>' +
+        '<div style="font-size:.78rem;color:var(--text-soft)">' + desc + '</div>' +
+        (histHtml ? '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">' + histHtml + '</div>' : '') +
         '</div>';
     }
-    html += '<div class="body-system-card"><div class="body-system-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">' +
-      '<span style="font-size:1.4rem">' + sys.ico + '</span>' +
-      '<span style="font-weight:700">' + sys.label + '</span>' +
-      '<span style="margin-left:auto;font-size:.8rem;color:var(--gray)">' + sysParams.length + ' itens ▾</span>' +
-      '</div><div class="body-system-body">' + bodyHtml + '</div></div>';
+    html +=
+      '<div class="body-system-card" style="margin-bottom:12px">' +
+      '<div class="body-system-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">' +
+      '<span style="font-size:1.3rem">' + sys.ico + '</span>' +
+      '<span style="font-weight:700;font-size:.92rem">' + sys.label + '</span>' +
+      '<span style="margin-left:auto;font-size:.75rem;color:var(--gray)">' + sysParams.length + ' ▾</span>' +
+      '</div><div class="body-system-body" style="display:none">' + bodyHtml + '</div></div>';
   }
   if (!resultados.length) {
-    html += '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum exame cadastrado ainda.</div>';
+    html += '<div class="card" style="text-align:center;color:var(--gray);padding:40px">' +
+      '<div style="font-size:2rem;margin-bottom:8px">🔬</div>' +
+      'Seus exames aparecerão aqui quando seu médico os cadastrar.</div>';
   }
   setMainContent(html);
 }
