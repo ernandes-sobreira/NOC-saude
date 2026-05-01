@@ -445,13 +445,11 @@ function doLogin() {
   var btn = document.querySelector('#form-medico .btn-primary');
   if (btn) { btn.textContent = 'Entrando...'; btn.disabled = true; }
   function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
-  // Always sign out first to clear any anonymous session
-  auth.signOut().catch(function(){}).then(function() {
-    suppressAuthStateChange = false;
-    auth.signInWithEmailAndPassword(email, senha)
-      .then(function() { resetBtn(); clearLoginError(); })
-      .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
-  });
+  suppressAuthStateChange = false;
+  adminLoginInProgress = false;
+  auth.signInWithEmailAndPassword(email, senha)
+    .then(function() { resetBtn(); clearLoginError(); })
+    .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
 }
 function doPacienteLogin() {
   var codigo = (document.getElementById('pac-codigo').value||'').trim().toUpperCase();
@@ -647,12 +645,12 @@ try {
 // AUTH STATE — single source of truth
 // ============================================================
 auth.onAuthStateChanged(function(user) {
-  // Only suppress for active patient-by-code sessions
   if (suppressAuthStateChange && currentRole === 'paciente') return;
   if (adminLoginInProgress) return;
   if (user) {
-    if (user.isAnonymous) return;
+    if (user.isAnonymous) return; // ignore anon sessions
     if (currentRole === 'paciente') return;
+    suppressAuthStateChange = false;
     currentUser = user;
     // If this is the known admin email — force admin role immediately without waiting for Firestore
     if (window._adminEmail && user.email && user.email.toLowerCase() === window._adminEmail.toLowerCase()) {
