@@ -3158,54 +3158,53 @@ function extrairExames(linhas) {
 
   // EXAM PATTERNS — map regex patterns to standard names
   var PATTERNS = [
-    // Hemograma
-    {re:/[Hh]em[áa]cias[\s.]+(\d+[,.]?\d*)\s*milh/,               nome:'Hemácias',          un:'milh/mm³'},
-    {re:/[Hh]emoglobina[\s.]+(\d+[,.]?\d*)\s*g/,                   nome:'Hemoglobina',        un:'g/dL'},
-    {re:/[Hh]ematocrito[\s.]+(\d+[,.]?\d*)\s*%/,                   nome:'Hematócrito',        un:'%'},
-    {re:/V\.G\.M[\s.]+(\d+[,.]?\d*)\s*u/i,                         nome:'VGM',                un:'µ³'},
-    {re:/H\.G\.M[\s.]+(\d+[,.]?\d*)\s*p/i,                         nome:'HGM',                un:'pg'},
-    {re:/C\.H\.G\.M[\s.]+(\d+[,.]?\d*)\s*%/i,                      nome:'CHGM',               un:'%'},
-    {re:/R\.D\.W[\s.]+(\d+[,.]?\d*)\s*%/i,                         nome:'RDW',                un:'%'},
-    {re:/[Ll]eucocitos[\s.]+(\d[\d.]*)\s*(?:\d|$)/,                 nome:'Leucócitos',         un:'/mm³'},
-    {re:/[Cc]ontagem de plaquetas[\s.]+(\d[\d.,]*)/i,               nome:'Plaquetas',          un:'mm³'},
-    {re:/[Vv]olume plaquetario medio[\s.]+(\d+[,.]?\d*)/i,          nome:'VPM',                un:'fL'},
-    {re:/[Ss]egmentados[\s]+\d+\s+(\d[\d.]*)/,                      nome:'Segmentados',        un:'/mm³'},
-    {re:/[Ee]osinof[\w]+[\s]+\d+\s+(\d[\d.]*)/,                    nome:'Eosinófilos',        un:'/mm³'},
-    {re:/[Bb]asofilos[\s]+\d+\s+(\d[\d.]*)/,                       nome:'Basófilos',          un:'/mm³'},
-    {re:/[Ll]infocitos[\s]+\d+\s+(\d[\d.]*)/,                      nome:'Linfócitos',         un:'/mm³'},
-    {re:/[Mm]onocitos[\s]+\d+\s+(\d[\d.]*)/,                       nome:'Monócitos',          un:'/mm³'},
-    // Bioquímica
-    {re:/[Bb]ilirrubina [Tt]otal[\s.:]+(\d+[,.]?\d*)\s*mg/,        nome:'Bilirrubina Total',  un:'mg/dL'},
-    {re:/[Bb]ilirrubina [Dd]ireta[\s.:]+(\d+[,.]?\d*)\s*mg/,       nome:'Bilirrubina Direta', un:'mg/dL'},
-    {re:/[Bb]ilirrubina [Ii]ndireta[\s.:]+(\d+[,.]?\d*)\s*mg/,     nome:'Bilirrubina Indireta',un:'mg/dL'},
-    {re:/[Ff]osfatase [Aa]lcalina[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,nome:'Fosfatase Alcalina',un:'U/L'},
-    {re:/GGT[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'GGT',                un:'U/L'},
-    {re:/TGO[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'TGO (AST)',          un:'U/L'},
-    {re:/TGP[\s\S]{0,30}[Rr]esultado[\s.:]+(\d+[,.]?\d*)/,         nome:'TGP (ALT)',          un:'U/L'},
-    {re:/[Cc]olesterol [Tt]otal[\s.:]+(\d+[,.]?\d*)\s*mg/,         nome:'Colesterol Total',   un:'mg/dL'},
-    {re:/HDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                            nome:'HDL',                un:'mg/dL'},
-    {re:/LDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                            nome:'LDL',                un:'mg/dL'},
-    {re:/VLDL[\s.:]+(\d+[,.]?\d*)\s*mg/,                           nome:'VLDL',               un:'mg/dL'},
-    {re:/[Tt]riglice[\w]+[\s.:]+(\d+[,.]?\d*)\s*mg/,               nome:'Triglicerídeos',     un:'mg/dL'},
-    {re:/[Gg]licose[\s.:]+(\d+[,.]?\d*)\s*mg/,                     nome:'Glicose',            un:'mg/dL'},
-    {re:/[Hh]emoglobina [Gg]licada[\s\S]{0,50}(\d+[,.]?\d*)\s*%/,  nome:'HbA1c',              un:'%'},
-    {re:/TSH[\s.:]+(\d+[,.]?\d*)/,                                  nome:'TSH',                un:'mUI/L'},
-    {re:/[Tt]4 [Ll]ivre[\s.:]+(\d+[,.]?\d*)/,                      nome:'T4 Livre',           un:'ng/dL'},
-    {re:/[Cc]reatinina[\s.:]+(\d+[,.]?\d*)\s*mg/,                  nome:'Creatinina',         un:'mg/dL'},
-    {re:/[Uu]reia[\s.:]+(\d+[,.]?\d*)\s*mg/,                       nome:'Ureia',              un:'mg/dL'},
-    {re:/[Ff]erritina[\s.:]+(\d+[,.]?\d*)/,                        nome:'Ferritina',          un:'ng/mL'},
-    {re:/[Vv]itamina D[\s\S]{0,20}(\d+[,.]?\d*)/,                  nome:'Vitamina D',         un:'ng/mL'},
-    {re:/[Vv]itamina B12[\s.:]+(\d+[,.]?\d*)/,                     nome:'Vitamina B12',       un:'pg/mL'},
-    {re:/[Tt]estosterona [Tt]otal[\s.:]+(\d+[,.]?\d*)/,            nome:'Testosterona Total', un:'ng/dL'},
-    {re:/[Ee]stradiol[\s.:]+(\d+[,.]?\d*)/,                        nome:'Estradiol',          un:'pg/mL'},
-    {re:/FSH[\s.:]+(\d+[,.]?\d*)/,                                  nome:'FSH',                un:'mUI/mL'},
-    {re:/\bLH\b[\s.:]+(\d+[,.]?\d*)/,                              nome:'LH',                 un:'mUI/mL'},
-    {re:/[Pp]rolactina[\s.:]+(\d+[,.]?\d*)/,                       nome:'Prolactina',         un:'ng/mL'},
-    {re:/DHEA[\s-]+S[\s.:]+(\d+[,.]?\d*)/i,                        nome:'DHEA-S',             un:'µg/dL'},
-    {re:/[Cc]ortisol[\s.:]+(\d+[,.]?\d*)/,                         nome:'Cortisol Basal',     un:'µg/dL'},
-    {re:/PCR[\s\S]{0,20}(\d+[,.]?\d*)/,                            nome:'PCR Ultrassensível', un:'mg/L'},
-    {re:/[Ff]erro\b[\s.:]+(\d+[,.]?\d*)\s*µ/,                      nome:'Ferro Sérico',       un:'µg/dL'},
-    {re:/[Aa]cido [Uu]rico[\s.:]+(\d+[,.]?\d*)/,                   nome:'Ácido Úrico',        un:'mg/dL'}
+    // Formato "Resultado: 62 U/L" ou "RESULTADO: 29,5 nmol/L"
+    {re:/[Ff]osfatase [Aa]lcalina[\s\S]{0,5}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,    nome:'Fosfatase Alcalina', un:'U/L'},
+    {re:/GGT[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'GGT',                un:'U/L'},
+    {re:/TGO[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'TGO (AST)',          un:'U/L'},
+    {re:/TGP[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'TGP (ALT)',          un:'U/L'},
+    {re:/PSA [Ll]ivre[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,               nome:'PSA Livre',          un:'ng/mL'},
+    {re:/PSA [Tt]otal[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,               nome:'PSA Total',          un:'ng/mL'},
+    {re:/[Cc]alprotectina[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,           nome:'Calprotectina',      un:'mcg/g'},
+    {re:/[Gg]licose[\s\S]{0,80}[Rr]esultado[.:]+[\s]+(\d+[,.]?\d*)/,             nome:'Glicose',            un:'mg/dL'},
+    // Formato "RESULTADO: 29,5 nmol/L" (hormônios)
+    {re:/SHBG[\s\S]{0,30}RESULTADO[:\s]+(\d+[,.]?\d*)/i,                          nome:'SHBG',               un:'nmol/L'},
+    {re:/TESTOSTERONA TOTAL[\s\S]{0,30}RESULTADO[:\s]+([\d.,]+)/i,                 nome:'Testosterona Total', un:'ng/dL'},
+    {re:/TESTOSTERONA LIVRE[\s\S]{0,30}RESULTADO[:\s]+([\d.,]+)/i,                 nome:'Testosterona Livre', un:'ng/dL'},
+    // Hemograma — formato tabular São Matheus
+    {re:/[Hh]em[áa]cias[\s.]+(\d+[,.]\d+)\s*milh/,                               nome:'Hemácias',           un:'milh/mm³'},
+    {re:/[Hh]emoglobina[\s.]+(\d+[,.]\d+)\s*g/,                                   nome:'Hemoglobina',        un:'g/dL'},
+    {re:/[Hh]ematocrito[\s.]+(\d+[,.]\d+)\s*%/,                                   nome:'Hematócrito',        un:'%'},
+    {re:/V\.G\.M[\s.]+(\d+)\s*u/i,                                                nome:'VGM',                un:'µ³'},
+    {re:/H\.G\.M[\s.]+(\d+)\s*p/i,                                                nome:'HGM',                un:'pg'},
+    {re:/C\.H\.G\.M[\s.]+(\d+)\s*%/i,                                             nome:'CHGM',               un:'%'},
+    {re:/R\.D\.W[\s.]+(\d+[,.]\d+)\s*%/i,                                         nome:'RDW',                un:'%'},
+    {re:/[Ll]eucocitos[\s.]+(\d[\d.]+)\s/,                                         nome:'Leucócitos',         un:'/mm³'},
+    {re:/[Cc]ontagem de plaquetas[\s.]+(\d[\d.,]+)/i,                             nome:'Plaquetas',          un:'mm³'},
+    {re:/[Vv]olume plaquetario[\s\S]{0,20}(\d+[,.]\d+)/i,                         nome:'VPM',                un:'fL'},
+    {re:/[Ss]egmentados\s+\d+\s+(\d[\d.]+)/,                                      nome:'Segmentados',        un:'/mm³'},
+    {re:/[Ee]osinof\w+\s+\d+\s+(\d[\d.]+)/,                                      nome:'Eosinófilos',        un:'/mm³'},
+    {re:/[Ll]infocitos\s+\d+\s+(\d[\d.]+)/,                                       nome:'Linfócitos',         un:'/mm³'},
+    {re:/[Mm]onocitos\s+\d+\s+(\d[\d.]+)/,                                        nome:'Monócitos',          un:'/mm³'},
+    // Outros
+    {re:/[Bb]ilirrubina [Tt]otal[:\s.]+(\d+[,.]\d+)\s*mg/,                       nome:'Bilirrubina Total',  un:'mg/dL'},
+    {re:/[Bb]ilirrubina [Dd]ireta[:\s.]+(\d+[,.]\d+)\s*mg/,                      nome:'Bilirrubina Direta', un:'mg/dL'},
+    {re:/[Bb]ilirrubina [Ii]ndireta[:\s.]+(\d+[,.]\d+)\s*mg/,                    nome:'Bilirrubina Indireta',un:'mg/dL'},
+    {re:/[Cc]olesterol [Tt]otal[:\s.]+(\d+[,.]?\d*)\s*mg/,                       nome:'Colesterol Total',   un:'mg/dL'},
+    {re:/HDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                           nome:'HDL',                un:'mg/dL'},
+    {re:/LDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                           nome:'LDL',                un:'mg/dL'},
+    {re:/VLDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                          nome:'VLDL',               un:'mg/dL'},
+    {re:/[Tt]riglice\w+[:\s.]+(\d+[,.]?\d*)\s*mg/,                               nome:'Triglicerídeos',     un:'mg/dL'},
+    {re:/TSH[:\s.]+(\d+[,.]\d+)/,                                                  nome:'TSH',                un:'mUI/L'},
+    {re:/[Tt]4 [Ll]ivre[:\s.]+(\d+[,.]\d+)/,                                      nome:'T4 Livre',           un:'ng/dL'},
+    {re:/[Cc]reatinina[:\s.]+(\d+[,.]\d+)\s*mg/,                                  nome:'Creatinina',         un:'mg/dL'},
+    {re:/[Uu]reia[:\s.]+(\d+[,.]?\d*)\s*mg/,                                      nome:'Ureia',              un:'mg/dL'},
+    {re:/[Ff]erritina[:\s.]+(\d+[,.]?\d*)/,                                        nome:'Ferritina',          un:'ng/mL'},
+    {re:/[Vv]itamina D[\s\S]{0,20}(\d+[,.]\d+)/,                                  nome:'Vitamina D',         un:'ng/mL'},
+    {re:/[Vv]itamina B12[:\s.]+(\d+[,.]?\d*)/,                                    nome:'Vitamina B12',       un:'pg/mL'},
+    {re:/[Aa]cido [Uu]rico[:\s.]+(\d+[,.]\d+)/,                                   nome:'Ácido Úrico',        un:'mg/dL'},
+    {re:/[Hh]emoglobina [Gg]licada[\s\S]{0,60}(\d+[,.]\d+)\s*%/,                 nome:'HbA1c',              un:'%'},
+    {re:/[Ii]nsulina[:\s.]+(\d+[,.]\d+)/,                                          nome:'Insulina',           un:'µUI/mL'}
   ];
 
   var rows = [];
@@ -3341,6 +3340,355 @@ function salvarDoPDF() {
   db.collection('users').doc(getMedUid()).collection('resultados').add(docData)
     .then(function() { toast('Laudo importado! \u2705','success'); loadProntuarioExames(); })
     .catch(function() { toast('Erro ao salvar','error'); });
+}
+
+
+// ============================================================
+// PRONTUÁRIO — AGENDA (MÉDICO)
+// ============================================================
+function loadProntuarioAgenda() {
+  var el = document.getElementById('pron-agenda');
+  if (!el) return;
+  el.innerHTML = 'Carregando...';
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('agendamentos').where('pacienteId','==',prontuarioPacId).get().then(function(snap) {
+    var ags = [];
+    snap.forEach(function(d) { ags.push(Object.assign({}, d.data(), {id: d.id})); });
+    ags.sort(function(a,b) { return (a.data||'') > (b.data||'') ? 1 : -1; });
+    var hoje = todayISO();
+    var rows = '';
+    for (var i = 0; i < ags.length; i++) {
+      var a = ags[i];
+      var past = (a.data||'') < hoje;
+      var dataFmt = a.data ? a.data.substr(8,2)+'/'+a.data.substr(5,2)+'/'+a.data.substr(0,4) : '';
+      rows += '<tr style="opacity:' + (past?'0.6':'1') + '"><td>' + dataFmt + '</td><td>' + (a.hora||'') + '</td><td>' + (a.tipo||'') + '</td><td>' + (a.local||'') + '</td><td>' + (a.obs||'') + '</td>' +
+        '<td>' + (past ? '<span class="badge badge-blue">Done</span>' : '<span class="badge badge-success">OK</span>') + '</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="excluirAg(\'' + a.id + '\')">X</button></td></tr>';
+    }
+    el.innerHTML = '<div class="flex gap-1 mb-2"><button class="btn btn-primary" onclick="modalNovoAg()">Agendar Consulta</button></div>' +
+      (rows ? '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Obs</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' :
+        '<div class="card" style="color:var(--gray);text-align:center;padding:32px">Nenhuma consulta agendada ainda.</div>');
+  });
+}
+function modalNovoAg() {
+  var nomePac = prontuarioPac ? (prontuarioPac.nome||'') : '';
+  openModal('<div class="modal"><div class="modal-header"><h3>Agendar Consulta</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">X</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">Paciente: <strong>' + nomePac + '</strong></div>' +
+    '<div class="form-grid">' +
+    '<div><label>Data *</label><input type="date" id="ag-data" value="' + todayISO() + '"></div>' +
+    '<div><label>Hora</label><input type="time" id="ag-hora" value="08:00"></div>' +
+    '<div><label>Tipo</label><input id="ag-tipo" value="Consulta" placeholder="Consulta, Retorno..."></div>' +
+    '<div><label>Local</label><input id="ag-local" value="NOC Clinica"></div>' +
+    '</div><div class="mt-2"><label>Obs</label><textarea id="ag-obs" rows="2"></textarea></div>' +
+    '</div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAg()">Salvar</button></div></div>');
+}
+function salvarAg() {
+  var data = document.getElementById('ag-data').value;
+  if (!data) { toast('Informe a data','error'); return; }
+  var doc = { pacienteId: prontuarioPacId, pacienteNome: prontuarioPac?(prontuarioPac.nome||''):'',
+    data: data, hora: document.getElementById('ag-hora').value||'',
+    tipo: document.getElementById('ag-tipo').value.trim()||'Consulta',
+    local: document.getElementById('ag-local').value.trim()||'NOC Clinica',
+    obs: document.getElementById('ag-obs').value.trim()||'' };
+  db.collection('users').doc(getMedUid()).collection('agendamentos').add(doc)
+    .then(function() { toast('Agendado!','success'); closeModal(); loadProntuarioAgenda(); })
+    .catch(function() { toast('Erro','error'); });
+}
+function excluirAg(agId) {
+  if (!confirm('Excluir?')) return;
+  db.collection('users').doc(getMedUid()).collection('agendamentos').doc(agId).delete()
+    .then(function() { toast('Excluido','success'); loadProntuarioAgenda(); });
+}
+
+// ============================================================
+// MÉDICO — AGENDA GERAL
+// ============================================================
+function renderMedicoAgenda(filtroData) {
+  navTo_setActive('medico-agenda');
+  var uid = getMedUid();
+  setMainContent(
+    '<div class="page-header"><h2>Agenda</h2></div>' +
+    '<div class="card mb-2"><div class="flex gap-2 align-center wrap">' +
+    '<div><label>Data</label><input type="date" id="ag-filtro" value="' + (filtroData||todayISO()) + '" onchange="renderMedicoAgenda(this.value)"></div>' +
+    '<button class="btn btn-gray" onclick="renderMedicoAgenda(null)">Todos</button>' +
+    '<button class="btn btn-primary" onclick="modalNovoAgGeral()">+ Novo Agendamento</button>' +
+    '</div></div><div id="agenda-geral-wrap">Carregando...</div>'
+  );
+  db.collection('users').doc(uid).collection('agendamentos').get().then(function(snap) {
+    var ags = [];
+    snap.forEach(function(d) {
+      var ag = Object.assign({}, d.data(), {id: d.id});
+      if (!filtroData || ag.data === filtroData) ags.push(ag);
+    });
+    ags.sort(function(a,b) { return (a.data||'') > (b.data||'') ? 1 : (a.data||'') < (b.data||'') ? -1 : (a.hora||'') > (b.hora||'') ? 1 : -1; });
+    var wrap = document.getElementById('agenda-geral-wrap');
+    if (!wrap) return;
+    if (!ags.length) { wrap.innerHTML = '<div class="card" style="color:var(--gray);text-align:center;padding:40px">Nenhum agendamento.</div>'; return; }
+    var rows = '';
+    for (var i = 0; i < ags.length; i++) {
+      var a = ags[i];
+      var dataFmt = a.data ? a.data.substr(8,2)+'/'+a.data.substr(5,2)+'/'+a.data.substr(0,4) : '';
+      rows += '<tr><td>' + dataFmt + '</td><td>' + (a.hora||'') + '</td><td><strong>' + (a.pacienteNome||'') + '</strong></td><td>' + (a.tipo||'') + '</td><td>' + (a.local||'') + '</td><td>' + (a.obs||'') + '</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="excluirAgGeral(\'' + a.id + '\',\'' + (filtroData||'') + '\')">X</button></td></tr>';
+    }
+    wrap.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Paciente</th><th>Tipo</th><th>Local</th><th>Obs</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  });
+}
+function excluirAgGeral(id, fd) {
+  if (!confirm('Excluir?')) return;
+  db.collection('users').doc(getMedUid()).collection('agendamentos').doc(id).delete()
+    .then(function() { toast('Excluido','success'); renderMedicoAgenda(fd||null); });
+}
+function modalNovoAgGeral() {
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('pacientes').get().then(function(snap) {
+    var opts = '<option value="">-- Selecione --</option>';
+    snap.forEach(function(d) { opts += '<option value="' + d.id + '">' + (d.data().nome||'') + '</option>'; });
+    openModal('<div class="modal"><div class="modal-header"><h3>Novo Agendamento</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">X</button></div>' +
+      '<div class="modal-body"><div class="form-grid">' +
+      '<div style="grid-column:1/-1"><label>Paciente *</label><select id="nag-pac-id">' + opts + '</select></div>' +
+      '<div><label>Data *</label><input type="date" id="nag-data" value="' + todayISO() + '"></div>' +
+      '<div><label>Hora</label><input type="time" id="nag-hora" value="08:00"></div>' +
+      '<div><label>Tipo</label><input id="nag-tipo" value="Consulta"></div>' +
+      '<div><label>Local</label><input id="nag-local" value="NOC Clinica"></div>' +
+      '</div><div class="mt-2"><label>Obs</label><textarea id="nag-obs" rows="2"></textarea></div></div>' +
+      '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarAgGeral()">Salvar</button></div></div>');
+  });
+}
+function salvarAgGeral() {
+  var data = document.getElementById('nag-data').value;
+  if (!data) { toast('Informe a data','error'); return; }
+  var sel = document.getElementById('nag-pac-id');
+  var pacId = sel ? sel.value : '';
+  var pacNome = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+  if (!pacNome) { toast('Selecione o paciente','error'); return; }
+  var doc = { pacienteId: pacId, pacienteNome: pacNome, data: data,
+    hora: document.getElementById('nag-hora').value||'',
+    tipo: document.getElementById('nag-tipo').value.trim()||'Consulta',
+    local: document.getElementById('nag-local').value.trim()||'NOC Clinica',
+    obs: document.getElementById('nag-obs').value.trim()||'' };
+  db.collection('users').doc(getMedUid()).collection('agendamentos').add(doc)
+    .then(function() { toast('Agendado!','success'); closeModal(); renderMedicoAgenda(data); });
+}
+
+// ============================================================
+// MÉDICO — AREAS DE EXAME
+// ============================================================
+function renderMedicoAreas() {
+  navTo_setActive('medico-areas');
+  var uid = getMedUid();
+  setMainContent('<div class="page-header"><h2>Areas de Exame</h2></div><div class="card" id="areas-wrap">Carregando...</div>');
+  db.collection('users').doc(uid).collection('areas').get().then(function(snap) {
+    areasCache = [];
+    snap.forEach(function(d) { areasCache.push(Object.assign({}, d.data(), {id: d.id})); });
+    var wrap = document.getElementById('areas-wrap');
+    if (!wrap) return;
+    if (!areasCache.length) { wrap.innerHTML = '<p style="color:var(--gray)">Nenhuma area. Sao criadas automaticamente ao adicionar resultados.</p>'; return; }
+    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">';
+    for (var i = 0; i < areasCache.length; i++) {
+      var a = areasCache[i];
+      html += '<div class="card" style="border-left:3px solid ' + (a.cor||'var(--primary)') + '">' +
+        '<div>' + (a.ico||'') + ' <strong>' + a.nome + '</strong></div>' +
+        '<div style="font-size:.75rem;color:var(--gray)">' + ((a.params||[]).length) + ' parametros</div></div>';
+    }
+    wrap.innerHTML = html + '</div>';
+  });
+}
+
+// ============================================================
+// VER COMO PACIENTE (do prontuario medico)
+// ============================================================
+function verComoPaciente(pacId) {
+  pacienteMedUid = getMedUid();
+  pacientePacId = pacId;
+  db.collection('users').doc(getMedUid()).collection('pacientes').doc(pacId).get()
+    .then(function(doc) {
+      var pac = doc.exists ? Object.assign({}, doc.data(), {id:pacId}) : {nome:'Paciente',id:pacId};
+      db.collection('users').doc(getMedUid()).collection('resultados').where('pacienteId','==',pacId).get()
+        .then(function(snap) {
+          var res = [];
+          snap.forEach(function(d) { res.push(Object.assign({}, d.data(), {id:d.id})); });
+          renderVisaoPaciente(res, true, pacId, pac);
+        });
+    });
+}
+
+// ============================================================
+// PACIENTE — DASHBOARD (Minha Saude)
+// ============================================================
+function renderPacienteDash() {
+  navTo_setActive('pac-dash');
+  if (pacienteMedUid && pacientePacId) {
+    Promise.all([
+      db.collection('users').doc(pacienteMedUid).collection('pacientes').doc(pacientePacId).get(),
+      db.collection('users').doc(pacienteMedUid).collection('resultados').where('pacienteId','==',pacientePacId).get()
+    ]).then(function(results) {
+      var pacData = results[0].exists ? results[0].data() : {};
+      var res = [];
+      results[1].forEach(function(d) { res.push(Object.assign({}, d.data(), {id:d.id})); });
+      renderVisaoPaciente(res, false, null, pacData);
+    }).catch(function(e) {
+      setMainContent('<div class="card" style="color:var(--danger);padding:20px">Erro: ' + (e&&e.message?e.message:'') + '</div>');
+    });
+    return;
+  }
+  setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessao invalida. Saia e entre novamente.</div>');
+}
+
+// ============================================================
+// PACIENTE — MEUS EXAMES
+// ============================================================
+function renderPacienteExames() {
+  navTo_setActive('pac-exames');
+  var uid = pacienteMedUid; var pid = pacientePacId;
+  if (!uid || !pid) { setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessao invalida.</div>'); return; }
+  _loadPacExames(uid, pid);
+}
+function _loadPacExames(uid, pid) {
+  db.collection('users').doc(uid).collection('resultados').where('pacienteId','==',pid).get().then(function(snap) {
+    var res = [];
+    snap.forEach(function(d) { res.push(Object.assign({}, d.data(), {id:d.id})); });
+    res.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
+    var html = '<div class="page-header"><h2>Meus Exames</h2></div>';
+    if (!res.length) { html += '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum exame ainda.</div>'; }
+    else {
+      for (var i = 0; i < res.length; i++) {
+        var r = res[i];
+        var vals = r.valores||{}; var vkeys = Object.keys(vals);
+        var badge = r.temAlteracao ? '<span class="badge badge-danger">Alterado</span>' : '<span class="badge badge-success">Normal</span>';
+        html += '<div class="card mb-2"><div class="flex justify-between align-center mb-2"><div><span>' + (r.areaIco||'') + '</span> <strong>' + (r.areaNome||'') + '</strong> <span style="color:var(--gray);font-size:.82rem">'+r.data+' '+r.lab+'</span></div>' + badge + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+        for (var j = 0; j < vkeys.length; j++) {
+          var k = vkeys[j]; var v = vals[k];
+          var s = getStatus(v.valor, v.refMin, v.refMax, 'numero');
+          html += '<div style="background:var(--gray-light);border-radius:8px;padding:8px"><div style="font-size:.75rem;font-weight:600;color:var(--gray)">' + k + '</div>' +
+            '<div style="font-size:1.1rem;font-weight:800;color:' + statusColor(s) + '">' + v.valor + '</div>' +
+            '<div style="font-size:.7rem;color:var(--gray)">' + (v.unidade||'') + '</div></div>';
+        }
+        html += '</div></div>';
+      }
+    }
+    setMainContent(html);
+  }).catch(function(e) { setMainContent('<div class="card" style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'')+'</div>'); });
+}
+
+// ============================================================
+// PACIENTE — AGENDA
+// ============================================================
+function renderPacienteAgenda() {
+  navTo_setActive('pac-agenda');
+  var uid = pacienteMedUid; var pid = pacientePacId;
+  if (!uid || !pid) { setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessao invalida.</div>'); return; }
+  setMainContent('<div class="page-header"><h2>Minha Agenda</h2></div><div class="card" id="pac-agenda-wrap"><p>Carregando...</p></div>');
+  db.collection('users').doc(uid).collection('agendamentos').where('pacienteId','==',pid).get()
+    .then(function(snap) {
+      var ags = [];
+      snap.forEach(function(d) { ags.push(Object.assign({}, d.data(), {id:d.id})); });
+      ags.sort(function(a,b) { return (a.data||'') > (b.data||'') ? 1 : -1; });
+      var hoje = todayISO();
+      var prox = [], pass = [];
+      for (var i = 0; i < ags.length; i++) { if ((ags[i].data||'') >= hoje) prox.push(ags[i]); else pass.push(ags[i]); }
+      function card(a, past) {
+        var dataFmt = a.data ? a.data.substr(8,2)+'/'+a.data.substr(5,2)+'/'+a.data.substr(0,4) : '';
+        return '<div class="card flex gap-2 align-center mb-2" style="border-left:4px solid ' + (past?'var(--gray-200)':'var(--primary)') + ';opacity:' + (past?'0.6':'1') + '">' +
+          '<div style="background:' + (past?'var(--gray-light)':'var(--primary-light)') + ';border-radius:10px;padding:10px 12px;text-align:center;min-width:56px">' +
+          '<div style="font-size:1.2rem">📅</div><div style="font-size:.7rem;font-weight:700;color:var(--primary)">' + (a.hora||'') + '</div></div>' +
+          '<div style="flex:1"><div style="font-weight:700">' + (a.tipo||'Consulta') + '</div>' +
+          '<div style="font-size:.82rem;color:var(--gray)">' + dataFmt + (a.local?' · '+a.local:'') + '</div>' +
+          (a.obs?'<div style="font-size:.78rem;color:var(--text-soft)">'+a.obs+'</div>':'') + '</div>' +
+          (past ? '<span class="badge badge-blue">Realizado</span>' : '<span class="badge badge-success">Agendado</span>') + '</div>';
+      }
+      var html = '';
+      if (!prox.length && !pass.length) { html = '<div style="text-align:center;padding:40px;color:var(--gray)">Nenhuma consulta agendada ainda.</div>'; }
+      else {
+        if (prox.length) { html += '<div class="section-title">Proximas consultas</div>'; for (var i=0;i<prox.length;i++) html+=card(prox[i],false); }
+        if (pass.length) { html += '<div class="section-title" style="margin-top:16px">Consultas anteriores</div>'; for (var i=0;i<pass.length;i++) html+=card(pass[i],true); }
+      }
+      var wrap = document.getElementById('pac-agenda-wrap');
+      if (wrap) wrap.innerHTML = html;
+    }).catch(function(e) {
+      var wrap = document.getElementById('pac-agenda-wrap');
+      if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'permissao negada')+'</p>';
+    });
+}
+
+// ============================================================
+// PACIENTE — PEDIDOS DE EXAME
+// ============================================================
+function renderPacientePedidos() {
+  navTo_setActive('pac-pedidos');
+  var uid = pacienteMedUid; var pid = pacientePacId;
+  if (!uid || !pid) { setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessao invalida.</div>'); return; }
+  setMainContent('<div class="page-header"><h2>Pedidos de Exame</h2></div><div class="card" id="pac-pedidos-wrap"><p>Carregando...</p></div>');
+  db.collection('users').doc(uid).collection('pedidos').where('pacienteId','==',pid).get()
+    .then(function(snap) {
+      var peds = [];
+      snap.forEach(function(d) { peds.push(Object.assign({}, d.data(), {id:d.id})); });
+      peds.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
+      var wrap = document.getElementById('pac-pedidos-wrap');
+      if (!wrap) return;
+      if (!peds.length) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray)">Nenhum pedido emitido ainda.</div>'; return; }
+      var html = '';
+      for (var i = 0; i < peds.length; i++) {
+        var pd = peds[i];
+        var dataFmt = pd.data ? pd.data.substr(8,2)+'/'+pd.data.substr(5,2)+'/'+pd.data.substr(0,4) : '';
+        html += '<div class="card mb-2" style="border-left:4px solid ' + (pd.realizado?'var(--success)':'var(--warn)') + '">' +
+          '<div class="flex justify-between align-center mb-2"><div><strong>' + (pd.tipo||'Exames') + '</strong><br><span style="font-size:.75rem;color:var(--gray)">' + dataFmt + (pd.medicoNome?' · '+pd.medicoNome:'') + '</span></div>' +
+          (pd.realizado ? '<span class="badge badge-success">Realizado</span>' : '<span class="badge" style="background:#FEF9C3;color:#854D0E">Pendente</span>') + '</div>' +
+          '<div style="background:var(--gray-light);border-radius:8px;padding:10px;font-size:.85rem;white-space:pre-wrap">' + (pd.exames||'') + '</div>' +
+          (pd.obs ? '<div style="font-size:.8rem;margin-top:8px;background:var(--warn-light);padding:8px;border-radius:6px">'+pd.obs+'</div>' : '') + '</div>';
+      }
+      wrap.innerHTML = html;
+    }).catch(function(e) {
+      var wrap = document.getElementById('pac-pedidos-wrap');
+      if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'')+'</p>';
+    });
+}
+
+// ============================================================
+// PACIENTE — MEDICAMENTOS
+// ============================================================
+function renderPacienteRemedios() {
+  navTo_setActive('pac-remedios');
+  var uid = pacienteMedUid; var pid = pacientePacId;
+  if (!uid || !pid) { setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessao invalida.</div>'); return; }
+  setMainContent('<div class="page-header"><h2>Meus Medicamentos</h2></div><div id="pac-remedios-wrap"><p style="padding:20px;color:var(--gray)">Carregando...</p></div>');
+  db.collection('users').doc(uid).collection('prescricoes').where('pacienteId','==',pid).get()
+    .then(function(snap) {
+      var prs = [];
+      snap.forEach(function(d) { prs.push(Object.assign({}, d.data(), {id:d.id})); });
+      var wrap = document.getElementById('pac-remedios-wrap');
+      if (!wrap) return;
+      if (!prs.length) { wrap.innerHTML = '<div style="text-align:center;padding:48px;color:var(--gray)"><div style="font-size:3rem;margin-bottom:12px">💊</div><p>Nenhum medicamento prescrito ainda.</p></div>'; return; }
+      var ativos = [], enc = [];
+      var hoje = todayISO();
+      for (var i = 0; i < prs.length; i++) { if (!prs[i].dataFim || prs[i].dataFim >= hoje) ativos.push(prs[i]); else enc.push(prs[i]); }
+      function medCard(p) {
+        var ativa = !p.dataFim || p.dataFim >= hoje;
+        var horasHtml = '';
+        if (p.horarios && p.horarios.length) {
+          for (var hi = 0; hi < p.horarios.length; hi++) {
+            horasHtml += '<div style="background:' + (ativa?'var(--primary-light)':'var(--gray-light)') + ';border-radius:10px;padding:8px 14px;text-align:center;display:inline-block;margin:4px">' +
+              '<div style="font-size:1rem;font-weight:800;color:' + (ativa?'var(--primary)':'var(--gray)') + '">' + p.horarios[hi].hora + '</div>' +
+              (p.horarios[hi].obs?'<div style="font-size:.68rem;color:var(--gray)">'+p.horarios[hi].obs+'</div>':'') + '</div>';
+          }
+        }
+        return '<div class="card mb-2" style="border-left:4px solid ' + (ativa?'var(--success)':'var(--gray-200)') + ';opacity:' + (ativa?1:0.65) + '">' +
+          '<div class="flex justify-between align-center mb-2"><div><div style="font-size:1rem;font-weight:800">💊 ' + p.medicamento + '</div><div style="font-size:.82rem;color:var(--text-soft)">' + (p.dose||'') + (p.via?' · '+p.via:'') + '</div></div>' +
+          (ativa?'<span class="badge badge-success">Ativo</span>':'<span class="badge" style="background:var(--gray-light);color:var(--gray)">Encerrado</span>') + '</div>' +
+          (horasHtml?'<div style="margin-bottom:8px">' + horasHtml + '</div>':'') +
+          (p.instrucoes?'<div style="font-size:.8rem;background:var(--warn-light);padding:8px;border-radius:8px">'+p.instrucoes+'</div>':'') +
+          '<div style="font-size:.7rem;color:var(--gray);margin-top:6px">Prescrito por: ' + (p.medicoNome||'Seu medico') + '</div></div>';
+      }
+      var html = '';
+      if (ativos.length) { html += '<div class="section-title">Em uso atual</div>'; for (var i=0;i<ativos.length;i++) html+=medCard(ativos[i]); }
+      if (enc.length) { html += '<div class="section-title" style="margin-top:16px">Historico</div>'; for (var i=0;i<enc.length;i++) html+=medCard(enc[i]); }
+      wrap.innerHTML = html;
+    }).catch(function(e) {
+      var wrap = document.getElementById('pac-remedios-wrap');
+      if (wrap) wrap.innerHTML = '<p style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'')+'</p>';
+    });
 }
 
 // ============================================================
