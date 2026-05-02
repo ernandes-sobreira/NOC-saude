@@ -3155,16 +3155,28 @@ function enviarTextoParaIA(textoLaudo) {
   var WORKER_URL = window._nocWorkerUrl || 'https://noc-clinic.ernandes-sobreira.workers.dev';
 
   var prompt = 'Texto extraído de laudo laboratorial brasileiro:\n\n' +
-    textoLaudo.substring(0, 8000) +
+    textoLaudo.substring(0, 20000) +
     '\n\n---\nRetorne SOMENTE JSON válido sem markdown:\n' +
     '{"lab":"Nome lab","data":"YYYY-MM-DD","solicitante":"Nome medico","exames":[{"nome":"Nome padronizado","valor":"numero","unidade":"unidade"}]}\n\n' +
     'REGRAS:\n' +
-    '1. Extraia APENAS o valor apos "Resultado:", NUNCA valores de referencia\n' +
-    '2. Hemograma: resultado vem ANTES das colunas de ref. "Hemácias 5,51 milh/mm3 4,50 a 6,00" → 5.51\n' +
-    '3. Virgula decimal: 5,51→5.51. Ponto milhar: 5.250→5250, 210.000→210000\n' +
-    '4. Valores com "a" sao referencia — ignore. "40 a 56" = faixa\n' +
-    '5. Nomes: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Linfócitos, Monócitos, TGO (AST), TGP (ALT), GGT, Fosfatase Alcalina, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, Colesterol Total, HDL, LDL, VLDL, Triglicerídeos, Glicose, HbA1c, TSH, T4 Livre, Creatinina, Ureia, PSA Total, PSA Livre, Calprotectina, Testosterona Total, Testosterona Livre, SHBG, Vitamina D, Vitamina B12, Ferritina, Insulina\n' +
-    '6. Lab: cabecalho. Solicitante: "Solicitante NOME". Data: "Data de Entrada:"';
+    '1. Extraia TODOS os exames do PDF, sem exceção\n' +
+    '2. Para "Resultado: X": use o valor X\n' +
+    '3. Hemograma São Matheus (sem Resultado:): resultado vem ANTES das colunas de referência\n' +
+    '   "Hemácias 4,94 milh/mm3 4,50 a 6,00" → valor=4.94\n' +
+    '   "Hemoglobina 15,00 g/dl" → valor=15.00\n' +
+    '   "Leucócitos 6.110 4.500 a 10.000" → valor=6110\n' +
+    '   "Contagem de plaquetas 226,000 mm³" → valor=226000\n' +
+    '   "Segmentados 70 4.277" → nome=Segmentados, valor=4277 (usar valor absoluto /mm³)\n' +
+    '4. Colesterol São Matheus (sem Resultado:):\n' +
+    '   "Colesterol Total: 156 mg/dL" → valor=156\n' +
+    '   "Colesterol H D L: 53 mg/dL" → nome=HDL, valor=53\n' +
+    '   "Colesterol L D L: 91 mg/dL" → nome=LDL, valor=91\n' +
+    '   "Colesterol V L D L: 12 mg/dL" → nome=VLDL, valor=12\n' +
+    '   "Triglicérides: 62 mg/dL" → nome=Triglicerídeos, valor=62\n' +
+    '5. Vírgula decimal: 4,94→4.94. Ponto milhar: 6.110→6110, 226.000→226000\n' +
+    '6. IGNORE valores seguidos de "a" — são referências. "40 a 56" = faixa de referência\n' +
+    '7. Nomes padronizados: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Basófilos, Linfócitos, Monócitos, Colesterol Total, HDL, LDL, VLDL, Triglicerídeos, Colesterol Não-HDL, Ferro Sérico, Glicose, Ferritina, LH, FSH, Testosterona Total, DHT, Prolactina, Vitamina B12, Vitamina D, Zinco, TGO (AST), TGP (ALT), GGT, Fosfatase Alcalina, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, TSH, T4 Livre, SHBG, Estradiol, Cortisol Basal, Insulina, Creatinina, Ureia, Ferritina, Ácido Úrico, Magnésio, PSA Total, PSA Livre, Calprotectina, HbA1c\n' +
+    '8. Lab: cabeçalho. Solicitante: linha "Solicitante NOME". Data: "Data de Entrada:"';
 
   fetch(WORKER_URL, {
     method: 'POST',
