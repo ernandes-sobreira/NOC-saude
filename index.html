@@ -3481,22 +3481,205 @@ function salvarAgGeral() {
 function renderMedicoAreas() {
   navTo_setActive('medico-areas');
   var uid = getMedUid();
-  setMainContent('<div class="page-header"><h2>Areas de Exame</h2></div><div class="card" id="areas-wrap">Carregando...</div>');
+  setMainContent(
+    '<div class="page-header"><h2>⚗️ Áreas de Exame</h2></div>' +
+    '<div class="card mb-2">' +
+    '<button class="btn btn-primary" onclick="modalNovaArea()">+ Nova Área</button>' +
+    '</div>' +
+    '<div id="areas-wrap">Carregando...</div>'
+  );
+  carregarAreas(uid);
+}
+
+function carregarAreas(uid) {
   db.collection('users').doc(uid).collection('areas').get().then(function(snap) {
     areasCache = [];
-    snap.forEach(function(d) { areasCache.push(Object.assign({}, d.data(), {id: d.id})); });
+    snap.forEach(function(d) { areasCache.push(Object.assign({}, d.data(), {id:d.id})); });
+    areasCache.sort(function(a,b) { return (a.nome||'') > (b.nome||'') ? 1 : -1; });
     var wrap = document.getElementById('areas-wrap');
     if (!wrap) return;
-    if (!areasCache.length) { wrap.innerHTML = '<p style="color:var(--gray)">Nenhuma area. Sao criadas automaticamente ao adicionar resultados.</p>'; return; }
-    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">';
+    if (!areasCache.length) {
+      wrap.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhuma área cadastrada ainda.</div>';
+      return;
+    }
+    var html = '';
     for (var i = 0; i < areasCache.length; i++) {
       var a = areasCache[i];
-      html += '<div class="card" style="border-left:3px solid ' + (a.cor||'var(--primary)') + '">' +
-        '<div>' + (a.ico||'') + ' <strong>' + a.nome + '</strong></div>' +
-        '<div style="font-size:.75rem;color:var(--gray)">' + ((a.params||[]).length) + ' parametros</div></div>';
+      var params = a.params || [];
+      html += '<div class="card mb-2">' +
+        '<div class="flex justify-between align-center mb-2">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:1.3rem">' + (a.ico||'🔬') + '</span>' +
+        '<div><div style="font-weight:700">' + a.nome + '</div>' +
+        '<div style="font-size:.75rem;color:var(--gray)">' + params.length + ' parâmetro(s)</div></div>' +
+        '</div>' +
+        '<div class="flex gap-1">' +
+        '<button class="btn btn-outline btn-sm" onclick="modalEditarArea(\'' + a.id + '\')">✏️ Editar</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="excluirArea(\'' + a.id + '\')">🗑️</button>' +
+        '</div></div>' +
+        // Params list
+        (params.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">' +
+        params.map(function(p) {
+          return '<div style="background:var(--gray-light);border-radius:8px;padding:6px 10px;font-size:.78rem">' +
+            '<div style="font-weight:600">' + p.nome + '</div>' +
+            '<div style="color:var(--gray)">' + (p.unidade||'') + (p.tipoCampo&&p.tipoCampo!=='numero' ? ' · '+p.tipoCampo : '') + '</div>' +
+            '</div>';
+        }).join('') + '</div>' : '<p style="font-size:.8rem;color:var(--gray)">Nenhum parâmetro. Clique em Editar para adicionar.</p>') +
+        '</div>';
     }
-    wrap.innerHTML = html + '</div>';
+    wrap.innerHTML = html;
   });
+}
+
+function modalNovaArea() {
+  openModal(
+    '<div class="modal"><div class="modal-header"><h3>+ Nova Área de Exame</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div class="form-grid mb-2">' +
+    '<div><label>Nome da Área *</label><input id="na-nome" placeholder="Ex: Perfil Lipídico, Tireoide..."></div>' +
+    '<div><label>Ícone (emoji)</label><input id="na-ico" placeholder="🔬" maxlength="4" style="font-size:1.5rem;text-align:center"></div>' +
+    '<div><label>Cor de destaque</label><input type="color" id="na-cor" value="#3B82F6" style="height:40px;padding:4px"></div>' +
+    '</div>' +
+    '<div class="section-title">Parâmetros</div>' +
+    '<div id="na-params-wrap"></div>' +
+    '<button type="button" class="btn btn-gray btn-sm mt-1" onclick="adicionarParamNova()">+ Parâmetro</button>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarNovaArea()">Salvar</button></div></div>'
+  );
+  adicionarParamNova();
+}
+
+var _paramCount = 0;
+function adicionarParamNova() {
+  _paramCount++;
+  var wrap = document.getElementById('na-params-wrap');
+  if (!wrap) return;
+  var id = 'np-' + _paramCount;
+  var div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML =
+    '<input id="' + id + '-nome" placeholder="Nome do parâmetro" style="font-size:.85rem">' +
+    '<input id="' + id + '-un" placeholder="Unidade" style="width:80px;font-size:.82rem">' +
+    '<select id="' + id + '-tipo" style="width:90px;font-size:.8rem">' +
+    '<option value="numero">Número</option><option value="texto">Texto</option><option value="data">Data</option></select>' +
+    '<button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById(\'' + id + '\').remove()">✕</button>';
+  wrap.appendChild(div);
+}
+
+function salvarNovaArea() {
+  var nome = (document.getElementById('na-nome').value||'').trim();
+  if (!nome) { toast('Nome obrigatório','error'); return; }
+  var params = [];
+  var rows = document.querySelectorAll('#na-params-wrap > div');
+  for (var i = 0; i < rows.length; i++) {
+    var id = rows[i].id;
+    var nEl = document.getElementById(id+'-nome');
+    var uEl = document.getElementById(id+'-un');
+    var tEl = document.getElementById(id+'-tipo');
+    if (nEl && nEl.value.trim()) {
+      params.push({nome:nEl.value.trim(), unidade:uEl?uEl.value.trim():'', tipoCampo:tEl?tEl.value:'numero', refMin:0, refMax:0});
+    }
+  }
+  var area = {
+    nome: nome,
+    ico: (document.getElementById('na-ico').value||'🔬').trim()||'🔬',
+    cor: document.getElementById('na-cor').value||'#3B82F6',
+    tipo: 'custom',
+    params: params
+  };
+  db.collection('users').doc(getMedUid()).collection('areas').add(area)
+    .then(function() { toast('Área criada! ✅','success'); closeModal(); renderMedicoAreas(); })
+    .catch(function() { toast('Erro ao salvar','error'); });
+}
+
+function modalEditarArea(areaId) {
+  var area = null;
+  for (var i = 0; i < areasCache.length; i++) { if (areasCache[i].id === areaId) { area = areasCache[i]; break; } }
+  if (!area) { toast('Área não encontrada','error'); return; }
+  var params = area.params || [];
+  var paramsHtml = '';
+  for (var j = 0; j < params.length; j++) {
+    var p = params[j];
+    var pid = 'ep-' + j;
+    paramsHtml += '<div id="' + pid + '" style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px">' +
+      '<input id="' + pid + '-nome" value="' + (p.nome||'').replace(/"/g,'&quot;') + '" placeholder="Nome" style="font-size:.85rem">' +
+      '<input id="' + pid + '-un" value="' + (p.unidade||'') + '" placeholder="Unidade" style="width:80px;font-size:.82rem">' +
+      '<select id="' + pid + '-tipo" style="width:90px;font-size:.8rem">' +
+      '<option value="numero"' + (p.tipoCampo==='numero'?' selected':'') + '>Número</option>' +
+      '<option value="texto"' + (p.tipoCampo==='texto'?' selected':'') + '>Texto</option>' +
+      '<option value="data"' + (p.tipoCampo==='data'?' selected':'') + '>Data</option></select>' +
+      '<button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById(\'' + pid + '\').remove()">✕</button>' +
+      '</div>';
+  }
+  openModal(
+    '<div class="modal" style="max-width:600px"><div class="modal-header"><h3>✏️ Editar Área</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div class="form-grid mb-2">' +
+    '<div><label>Nome *</label><input id="ea-nome" value="' + area.nome.replace(/"/g,'&quot;') + '"></div>' +
+    '<div><label>Ícone</label><input id="ea-ico" value="' + (area.ico||'🔬') + '" maxlength="4" style="font-size:1.5rem;text-align:center"></div>' +
+    '<div><label>Cor</label><input type="color" id="ea-cor" value="' + (area.cor||'#3B82F6') + '" style="height:40px;padding:4px"></div>' +
+    '</div>' +
+    '<div class="section-title">Parâmetros</div>' +
+    '<div id="ea-params-wrap">' + paramsHtml + '</div>' +
+    '<button type="button" class="btn btn-gray btn-sm mt-1" onclick="adicionarParamEdicao()">+ Parâmetro</button>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarEdicaoArea(\'' + areaId + '\')">Salvar</button></div></div>'
+  );
+}
+
+var _editParamCount = 100;
+function adicionarParamEdicao() {
+  _editParamCount++;
+  var wrap = document.getElementById('ea-params-wrap');
+  if (!wrap) return;
+  var id = 'ep-' + _editParamCount;
+  var div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML =
+    '<input id="' + id + '-nome" placeholder="Nome do parâmetro" style="font-size:.85rem">' +
+    '<input id="' + id + '-un" placeholder="Unidade" style="width:80px;font-size:.82rem">' +
+    '<select id="' + id + '-tipo" style="width:90px;font-size:.8rem">' +
+    '<option value="numero">Número</option><option value="texto">Texto</option><option value="data">Data</option></select>' +
+    '<button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById(\'' + id + '\').remove()">✕</button>';
+  wrap.appendChild(div);
+}
+
+function salvarEdicaoArea(areaId) {
+  var nome = (document.getElementById('ea-nome').value||'').trim();
+  if (!nome) { toast('Nome obrigatório','error'); return; }
+  var params = [];
+  var rows = document.querySelectorAll('#ea-params-wrap > div');
+  for (var i = 0; i < rows.length; i++) {
+    var id = rows[i].id;
+    var nEl = document.getElementById(id+'-nome');
+    var uEl = document.getElementById(id+'-un');
+    var tEl = document.getElementById(id+'-tipo');
+    if (nEl && nEl.value.trim()) {
+      params.push({nome:nEl.value.trim(), unidade:uEl?uEl.value.trim():'', tipoCampo:tEl?tEl.value:'numero', refMin:0, refMax:0});
+    }
+  }
+  db.collection('users').doc(getMedUid()).collection('areas').doc(areaId).update({
+    nome: nome,
+    ico: (document.getElementById('ea-ico').value||'🔬').trim()||'🔬',
+    cor: document.getElementById('ea-cor').value||'#3B82F6',
+    params: params
+  }).then(function() {
+    toast('Área atualizada! ✅','success');
+    closeModal();
+    renderMedicoAreas();
+  }).catch(function() { toast('Erro ao salvar','error'); });
+}
+
+function excluirArea(areaId) {
+  if (!confirm('Excluir esta área? Os resultados já cadastrados não serão afetados.')) return;
+  db.collection('users').doc(getMedUid()).collection('areas').doc(areaId).delete()
+    .then(function() { toast('Área excluída','success'); renderMedicoAreas(); });
 }
 
 // ============================================================
