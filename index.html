@@ -2270,7 +2270,7 @@ function renderListaPacientes(pacs) {
       '<div style="flex:1;min-width:0">' +
       '<div style="font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(p.nome||'')+'</div>' +
       '<div style="font-size:.75rem;color:var(--gray);margin-top:2px">'+(p.especialidade||'')+(p.cidade?' · '+p.cidade:'')+'</div>' +
-      (p.codigoAcesso?'<div style="margin-top:4px"><span style="font-family:monospace;font-size:.8rem;font-weight:700;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:4px">🔑 '+p.codigoAcesso+'</span></div>':'') +
+      (p.codigoAcesso?'<div style="margin-top:4px"><span onclick="copiarCodigo(\''+p.codigoAcesso+'\')" title="Clique para copiar" style="font-family:monospace;font-size:.8rem;font-weight:700;color:var(--primary);background:var(--primary-light);padding:4px 10px;border-radius:4px;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px">🔑 '+p.codigoAcesso+' <span style="font-size:.7rem;opacity:.7">📋</span></span></div>':'') +
       '</div>' +
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">' +
       (alt?'<span class="badge badge-danger">⚠️ Alterado</span>':'<span class="badge badge-success">✅ Normal</span>') +
@@ -3967,7 +3967,13 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
   // ── HERO
   var html = '<div class="health-hero" style="position:relative">'+backBtn+
     '<div style="font-size:.85rem;opacity:.75;margin-bottom:2px">'+saudacao+', <strong>'+primeiroNome+'</strong>! 👋</div>'+
-    '<div style="font-size:.72rem;opacity:.6;margin-bottom:18px">NOC Clínica · '+(pacData.especialidade||'Acompanhamento')+'</div>'+
+    '<div style="font-size:.72rem;opacity:.6;margin-bottom:10px">NOC Clínica · '+(pacData.especialidade||'Acompanhamento')+'</div>'+
+    // Access code
+    (pacData.codigoAcesso ? '<div onclick="copiarCodigo(\''+pacData.codigoAcesso+'\')" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:5px 14px;margin-bottom:14px;cursor:pointer" title="Clique para copiar">'+
+      '<span style="font-size:.72rem;opacity:.8">🔑 Seu código:</span>'+
+      '<span style="font-family:monospace;font-size:1rem;font-weight:800;letter-spacing:2px">'+pacData.codigoAcesso+'</span>'+
+      '<span style="font-size:.7rem;opacity:.7">📋</span>'+
+      '</div><br>' : '')+
     '<div class="health-score" style="color:'+cor+'">'+score+'%</div>'+
     '<div style="font-size:.8rem;opacity:.8;margin-bottom:8px">Índice de Saúde</div>'+
     '<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+score+'%;background:linear-gradient(90deg,'+cor+','+cor+'aa)"></div></div>'+
@@ -4213,6 +4219,32 @@ function verComoPaciente(pacId) {
 // ============================================================
 // PACIENTE — DASHBOARD (Minha Saude)
 // ============================================================
+function copiarCodigo(codigo) {
+  if (!codigo) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(codigo).then(function() {
+      toast('Código ' + codigo + ' copiado! ✅', 'success');
+    }).catch(function() {
+      // fallback
+      var el = document.createElement('input');
+      el.value = codigo;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      toast('Código ' + codigo + ' copiado! ✅', 'success');
+    });
+  } else {
+    var el = document.createElement('input');
+    el.value = codigo;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    toast('Código ' + codigo + ' copiado! ✅', 'success');
+  }
+}
+
 function renderPacienteDash() {
   navTo_setActive('pac-dash');
   if (pacienteMedUid && pacientePacId) {
