@@ -1803,73 +1803,81 @@ function adminCriarMedico() {
   var senha = (document.getElementById('nm-senha').value||'');
   if (!nome || !email || !senha) { toast('Preencha nome, e-mail e senha','error'); return; }
   if (senha.length < 6) { toast('Senha mínimo 6 caracteres','error'); return; }
+
   var btn = document.querySelector('[onclick="adminCriarMedico()"]');
   if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
-  adminLoginInProgress = true;
-
   function resetBtn() { if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; } }
 
-  function salvarMedico(uid) {
+  function salvarPerfil(uid) {
     var perfil = {nome:nome, tipo:'medico', email:email, crm:crm,
-                  especialidade:esps[0], especialidades:esps, clinica:clinica};
+      especialidade:esps[0], especialidades:esps, clinica:clinica};
     return db.collection('users').doc(uid).collection('perfil').doc('dados').set(perfil)
-      .then(function() { return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome}); })
-      .then(function() { return seedAreasMedico(uid, esps); })
       .then(function() {
-        return auth.signOut().then(function() {
-          var ae = window._adminEmail||'';
-          var as = window._adminSenha||'';
-          if (ae && as) return auth.signInWithEmailAndPassword(ae, as).catch(function(){});
-        });
-      });
+        return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome});
+      })
+      .then(function() { return seedAreasMedico(uid, esps); });
   }
 
-  auth.createUserWithEmailAndPassword(email, senha)
-    .then(function(cred) { return salvarMedico(cred.user.uid); })
+  // Use secondary Firebase app so admin session is NOT replaced
+  var secondaryApp;
+  try {
+    secondaryApp = firebase.app('secondary');
+  } catch(e) {
+    secondaryApp = firebase.initializeApp(firebase.app().options, 'secondary');
+  }
+  var secondaryAuth = secondaryApp.auth();
+
+  secondaryAuth.createUserWithEmailAndPassword(email, senha)
+    .then(function(cred) {
+      var uid = cred.user.uid;
+      return salvarPerfil(uid).then(function() {
+        secondaryAuth.signOut();
+        return uid;
+      });
+    })
     .then(function() {
-      adminLoginInProgress = false;
       resetBtn();
-      toast('Médico criado! ✅','success');
-      // Clear form
+      toast('Médico ' + nome + ' criado! ✅', 'success');
       var flds = ['nm-nome','nm-email','nm-crm','nm-senha'];
-      for (var fi = 0; fi < flds.length; fi++) {
-        var fe = document.getElementById(flds[fi]); if (fe) fe.value = '';
-      }
+      for (var fi=0;fi<flds.length;fi++) { var fe=document.getElementById(flds[fi]); if(fe) fe.value=''; }
       var cks = document.querySelectorAll('#nm-esp-checks input');
-      for (var ci = 0; ci < cks.length; ci++) cks[ci].checked = false;
+      for (var ci=0;ci<cks.length;ci++) cks[ci].checked = false;
       adminLoadMedicos();
     })
     .catch(function(e) {
       var msg = e.message||'';
+      // Se já existe, tenta logar com a senha e completar o perfil
       if (msg.indexOf('email-already-in-use') >= 0) {
-        // Account exists — try to sign in and complete profile
-        if (btn) btn.textContent = 'Recuperando...';
-        auth.signInWithEmailAndPassword(email, senha)
-          .then(function(cred) { return salvarMedico(cred.user.uid); })
+        if (btn) btn.textContent = 'Atualizando...';
+        secondaryAuth.signInWithEmailAndPassword(email, senha)
+          .then(function(cred) {
+            return salvarPerfil(cred.user.uid).then(function() {
+              secondaryAuth.signOut();
+            });
+          })
           .then(function() {
-            adminLoginInProgress = false;
             resetBtn();
-            toast('Conta existente atualizada! ✅','success');
+            toast('Perfil do médico atualizado! ✅','success');
             adminLoadMedicos();
           })
           .catch(function(e2) {
-            adminLoginInProgress = false;
             resetBtn();
-            auth.signOut().catch(function(){});
-            if (e2.message && (e2.message.indexOf('wrong-password') >= 0 || e2.message.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0)) {
-              toast('E-mail já cadastrado com senha diferente. Tente outra senha.','error');
+            secondaryAuth.signOut();
+            if (e2.message && (e2.message.indexOf('wrong-password')>=0 || e2.message.indexOf('INVALID_LOGIN_CREDENTIALS')>=0)) {
+              toast('E-mail já cadastrado com senha diferente.','error');
             } else {
               toast(traduzirErroFirebase(e2.message),'error');
             }
           });
       } else {
-        adminLoginInProgress = false;
         resetBtn();
-        auth.signOut().catch(function(){});
         toast(traduzirErroFirebase(msg),'error');
       }
     });
 }
+
+  function resetBtn() { if (btn) { btn.textContent = 'Criar Conta'; btn.disabled = false; } }
+
 function adminRemoverMedico(uid) {
   if (!confirm('Remover este médico? Isso não apaga os dados de pacientes já cadastrados.')) return;
   db.collection('adminIndex').doc(uid).delete()
