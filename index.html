@@ -3833,16 +3833,45 @@ function calcHealthScore(resultados) {
 
 function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
   var pacData = pacDataArg || prontuarioPac || {};
+  var pacCtx = {sexo:pacData.sexo||'M', dataNasc:pacData.dataNasc||null};
+
+  // Collect all unique exam dates
+  var datasDisp = {};
+  for (var i=0;i<resultados.length;i++) {
+    if (resultados[i].data) datasDisp[resultados[i].data] = true;
+  }
+  var datasOrdenadas = Object.keys(datasDisp).sort(function(a,b){return b>a?1:-1;});
+
+  // Default: only the most recent date checked
+  var datasSelecionadas = {};
+  if (datasOrdenadas.length > 0) datasSelecionadas[datasOrdenadas[0]] = true;
+
+  // Store globally for recalc
+  window._visaoPacData = {resultados:resultados, isDoctor:isDoctor, pacId:pacId, pacData:pacData, pacCtx:pacCtx};
+
+  _renderVisaoPacienteComDatas(datasSelecionadas);
+}
+
+function _renderVisaoPacienteComDatas(datasSelecionadas) {
+  var ctx = window._visaoPacData;
+  if (!ctx) return;
+  var resultados = ctx.resultados;
+  var isDoctor = ctx.isDoctor;
+  var pacData = ctx.pacData;
+  var pacCtx = ctx.pacCtx;
+
   var nomePac = pacData.nome || (currentPerfil?currentPerfil.nome:'') || 'Paciente';
   var primeiroNome = nomePac.split(' ')[0];
   var h = new Date().getHours();
   var saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
-  var pacCtx = {sexo:pacData.sexo||'M', dataNasc:pacData.dataNasc||null};
 
-  // Gather all params
+  // Filter resultados by selected dates
+  var resFiltrados = resultados.filter(function(r) { return datasSelecionadas[r.data]; });
+
+  // Gather all params from filtered results
   var allP = {};
-  for (var i=0;i<resultados.length;i++) {
-    var r=resultados[i]; var vals=r.valores||{};
+  for (var i=0;i<resFiltrados.length;i++) {
+    var r=resFiltrados[i]; var vals=r.valores||{};
     Object.keys(vals).forEach(function(k) {
       if (!allP[k]) allP[k]=[];
       allP[k].push(Object.assign({},vals[k],{data:r.data,areaNome:r.areaNome}));
@@ -3850,7 +3879,7 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
   }
   var pkeys = Object.keys(allP);
 
-  var sc = calcHealthScore(resultados);
+  var sc = calcHealthScore(resFiltrados);
   var score=sc.score, normal=sc.normal, warn=sc.warn, alt=sc.alt, total=sc.total;
 
   var badge,emoji,cor;
@@ -3864,16 +3893,16 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
     score>=40?'Alguns pontos precisam de atenção. Siga as orientações.':
     'Cuide-se! Siga as orientações do seu médico.';
 
-  var backBtn = isDoctor?'<button onclick="renderProntuario()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:.8rem;margin-bottom:12px;cursor:pointer">← Voltar ao Prontuário</button><br>':'';
+  var backBtn = isDoctor?'<button id="btn-voltar-pron" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:.8rem;margin-bottom:12px;cursor:pointer">← Voltar ao Prontuário</button><br>':'';
 
-  // ── HERO ──────────────────────────────────────────────────
+  // ── HERO
   var html = '<div class="health-hero" style="position:relative">'+backBtn+
     '<div style="font-size:.85rem;opacity:.75;margin-bottom:2px">'+saudacao+', <strong>'+primeiroNome+'</strong>! 👋</div>'+
     '<div style="font-size:.72rem;opacity:.6;margin-bottom:18px">NOC Clínica · '+(pacData.especialidade||'Acompanhamento')+'</div>'+
     '<div class="health-score" style="color:'+cor+'">'+score+'%</div>'+
     '<div style="font-size:.8rem;opacity:.8;margin-bottom:8px">Índice de Saúde</div>'+
     '<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+score+'%;background:linear-gradient(90deg,'+cor+','+cor+'aa)"></div></div>'+
-    '<div style="margin-top:14px;background:rgba(255,255,255,.15);display:inline-block;padding:7px 24px;border-radius:99px;font-weight:800;font-size:1.05rem">'+emoji+' '+badge+'</div>'+
+    '<div style="margin-top:12px;background:rgba(255,255,255,.15);display:inline-block;padding:7px 24px;border-radius:99px;font-weight:800;font-size:1.05rem">'+emoji+' '+badge+'</div>'+
     '<div style="display:flex;justify-content:center;gap:24px;margin-top:18px">'+
     '<div style="text-align:center"><div style="font-size:1.7rem;font-weight:900">'+normal+'</div><div style="font-size:.7rem;opacity:.8">🟢 Normais</div></div>'+
     '<div style="width:1px;background:rgba(255,255,255,.15)"></div>'+
@@ -3882,42 +3911,67 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
     '<div style="text-align:center"><div style="font-size:1.7rem;font-weight:900">'+alt+'</div><div style="font-size:.7rem;opacity:.8">🔴 Alterados</div></div>'+
     '</div></div>';
 
-  // ── COMO É CALCULADO ──────────────────────────────────────
-  html += '<div class="card" style="border-radius:0 0 16px 16px;border-top:none;margin-bottom:16px;padding:16px 20px">' +
-    '<p style="font-size:.9rem;color:var(--text-soft);text-align:center;margin-bottom:10px">'+motivMsg+'</p>'+
+  // ── CÁLCULO + SELETOR DE DATAS
+  var datasDisp = {};
+  for (var i=0;i<resultados.length;i++) { if(resultados[i].data) datasDisp[resultados[i].data]=true; }
+  var datasOrdenadas = Object.keys(datasDisp).sort(function(a,b){return b>a?1:-1;});
+
+  var datasHtml = '';
+  for (var di=0;di<datasOrdenadas.length;di++) {
+    var d = datasOrdenadas[di];
+    var checked = datasSelecionadas[d] ? 'checked' : '';
+    var dataFmt = d.substr(8,2)+'/'+d.substr(5,2)+'/'+d.substr(0,4);
+    var isMaisRecente = di===0;
+    datasHtml += '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;background:'+(checked?'var(--primary-light)':'var(--gray-light)')+';border:1.5px solid '+(checked?'var(--primary)':'var(--gray-200)')+';transition:all .2s" id="lbl-data-'+di+'">' +
+      '<input type="checkbox" '+ checked +' value="'+d+'" onchange="toggleDataExame(\''+d+'\', this.checked)" style="width:16px;height:16px;accent-color:var(--primary)">' +
+      '<div><div style="font-weight:700;font-size:.88rem">'+dataFmt+'</div>' +
+      (isMaisRecente ? '<div style="font-size:.7rem;color:var(--primary);font-weight:600">⭐ Mais recente</div>' : '<div style="font-size:.7rem;color:var(--gray)">Exame anterior</div>') +
+      '</div></label>';
+  }
+
+  html += '<div style="background:#fff;border-radius:0 0 16px 16px;padding:14px 20px;margin-bottom:16px;border:1px solid var(--gray-200);border-top:none">' +
+    '<p style="font-size:.88rem;color:var(--text-soft);text-align:center;margin-bottom:12px">'+motivMsg+'</p>' +
+
+    // Date selector
+    '<div style="background:var(--gray-light);border-radius:10px;padding:12px;margin-bottom:12px">' +
+    '<div style="font-size:.8rem;font-weight:700;color:var(--text-soft);margin-bottom:8px">📅 Exames considerados no cálculo:</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">' + datasHtml + '</div>' +
+    (datasOrdenadas.length > 1 ? '<div style="font-size:.72rem;color:var(--gray);margin-top:8px">Selecione os exames que deseja incluir no Índice de Saúde.</div>' : '') +
+    '</div>' +
+
+    // Score breakdown
     '<div style="background:var(--gray-light);border-radius:10px;padding:12px;font-size:.78rem;color:var(--gray)">' +
     '<div style="font-weight:700;color:var(--text-soft);margin-bottom:6px">📊 Como é calculado?</div>'+
     (total>0 ?
       '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px">'+
-      '<span>🟢 Normais:</span><span><strong>'+normal+'</strong> × 1,0 ponto = '+normal.toFixed(1)+'</span>'+
-      '<span>🟡 Atenção:</span><span><strong>'+warn+'</strong> × 0,5 ponto = '+(warn*0.5).toFixed(1)+'</span>'+
-      '<span>🔴 Alterados:</span><span><strong>'+alt+'</strong> × 0 ponto = 0,0</span>'+
+      '<span>🟢 Normais:</span><span><strong>'+normal+'</strong> × 1,0 = '+normal.toFixed(1)+'</span>'+
+      '<span>🟡 Atenção:</span><span><strong>'+warn+'</strong> × 0,5 = '+(warn*0.5).toFixed(1)+'</span>'+
+      '<span>🔴 Alterados:</span><span><strong>'+alt+'</strong> × 0 = 0,0</span>'+
       '<span style="border-top:1px solid var(--gray-200);padding-top:4px">Total:</span>'+
       '<span style="border-top:1px solid var(--gray-200);padding-top:4px"><strong>'+(normal+warn*0.5).toFixed(1)+' / '+total+'</strong> = <strong style="color:var(--primary)">'+score+'%</strong></span>'+
       '</div>' :
-      '<span>Nenhum exame com referência cadastrada ainda.</span>'
+      '<span>Nenhum exame selecionado com referência cadastrada.</span>'
     )+
     '</div></div>';
 
-  // ── METAS ─────────────────────────────────────────────────
+  // ── METAS
   var uid = pacienteMedUid || getMedUid();
-  var pid = pacientePacId || pacId;
-  if (uid && pid) {
-    html += '<div id="metas-wrap" style="margin-bottom:16px"><div class="card" style="color:var(--gray);padding:12px;text-align:center;font-size:.82rem">Carregando metas...</div></div>';
-  }
+  var pid = pacientePacId || ctx.pacId;
+  if (uid && pid) html += '<div id="metas-wrap" style="margin-bottom:16px"></div>';
 
-  // ── SISTEMAS ──────────────────────────────────────────────
+  // ── SISTEMAS
   var SISTEMAS=[
     {ico:'🩸',label:'Sangue',keys:['Hemoglobina','Hematócrito','Leucócitos','Plaquetas','Hemácias','VGM','HGM','CHGM','RDW','VPM','Segmentados','Eosinófilos','Linfócitos','Monócitos']},
-    {ico:'❤️',label:'Coração e Vasos',keys:['Colesterol Total','HDL','LDL','VLDL','Triglicerídeos','PCR Ultrassensível','Homocisteína']},
+    {ico:'❤️',label:'Coração e Vasos',keys:['Colesterol Total','HDL','LDL','VLDL','Triglicerídeos','PCR Ultrassensível','Homocisteína','Colesterol Não-HDL']},
     {ico:'🟤',label:'Fígado',keys:['TGO (AST)','TGP (ALT)','GGT','Fosfatase Alcalina','Bilirrubina Total','Bilirrubina Direta','Bilirrubina Indireta']},
     {ico:'🦋',label:'Tireoide',keys:['TSH','T4 Livre','T3 Livre','Anti-TPO']},
-    {ico:'⚗️',label:'Hormônios',keys:['Testosterona Total','Testosterona Livre','SHBG','LH','FSH','Estradiol','Prolactina','DHEA-S','Cortisol Basal','IGF-1']},
+    {ico:'⚗️',label:'Hormônios',keys:['Testosterona Total','Testosterona Livre','SHBG','LH','FSH','Estradiol','Prolactina','DHEA-S','Cortisol Basal','IGF-1','DHT']},
     {ico:'🍬',label:'Glicemia',keys:['Glicose','HbA1c','Insulina','Peptídeo C']},
     {ico:'💧',label:'Rins',keys:['Creatinina','Ureia','Ácido Úrico']},
     {ico:'💊',label:'Vitaminas e Minerais',keys:['Vitamina D','Vitamina B12','Ácido Fólico','Ferritina','Ferro Sérico','Zinco','Magnésio']},
     {ico:'🔬',label:'Outros',keys:['PSA Total','PSA Livre','Calprotectina','VHS','IgE Total']}
   ];
+
   var sysCount=0;
   for (var si=0;si<SISTEMAS.length;si++) {
     var sys=SISTEMAS[si]; var sysParams=[];
@@ -3962,16 +4016,38 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
       '</span></div>'+
       '<div class="body-system-body" style="display:none">'+bodyHtml+'</div></div>';
   }
-  if (!resultados.length||sysCount===0) {
-    html+='<div class="card" style="text-align:center;color:var(--gray);padding:48px"><div style="font-size:3rem;margin-bottom:12px">🔬</div><p>Seus exames aparecerão aqui quando seu médico os cadastrar.</p></div>';
+
+  if (!resFiltrados.length||sysCount===0) {
+    html+='<div class="card" style="text-align:center;color:var(--gray);padding:48px"><div style="font-size:3rem;margin-bottom:12px">🔬</div><p>'+(resultados.length?'Selecione pelo menos uma data acima.':'Seus exames aparecerão aqui quando seu médico os cadastrar.')+'</p></div>';
   }
+
   setMainContent(html);
 
-  // Load metas after rendering
-  if (uid && pid) {
-    setTimeout(function() { renderMetasPaciente(uid, pid, allP, pacCtx); }, 100);
-  }
+  setTimeout(function() {
+    var btnVoltar = document.getElementById('btn-voltar-pron');
+    if (btnVoltar) btnVoltar.addEventListener('click', function() { renderProntuario(); });
+    if (uid && pid) renderMetasPaciente(uid, pid, allP, pacCtx);
+  }, 50);
 }
+
+function toggleDataExame(data, checked) {
+  if (!window._visaoPacData) return;
+  // Rebuild selected dates from all checkboxes
+  var checkboxes = document.querySelectorAll('[onchange*="toggleDataExame"]');
+  var selecionadas = {};
+  for (var i=0;i<checkboxes.length;i++) {
+    if (checkboxes[i].checked) selecionadas[checkboxes[i].value] = true;
+  }
+  // Need at least one date
+  if (Object.keys(selecionadas).length === 0) {
+    // Recheck the one that was just unchecked
+    for (var i=0;i<checkboxes.length;i++) {
+      if (checkboxes[i].value === data) { checkboxes[i].checked = true; selecionadas[data]=true; break; }
+    }
+  }
+  _renderVisaoPacienteComDatas(selecionadas);
+}
+
 
 // ── METAS ─────────────────────────────────────────────────────
 function renderMetasPaciente(uid, pid, allP, pacCtx) {
