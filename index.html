@@ -130,7 +130,7 @@ tr:hover td{background:var(--primary-light)}
 .exam-value{font-size:1.8rem;font-weight:800}
 .exam-bar{height:10px;border-radius:99px;background:var(--gray-200);position:relative;margin:10px 0}
 .exam-bar-fill{height:100%;border-radius:99px;transition:width .5s}
-.exam-bar-marker{position:absolute;top:-6px;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translateX(-50%);transition:left .5s}
+.exam-bar-marker{position:absolute;top:-8px;width:26px;height:26px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.4);transform:translateX(-50%);transition:left .5s;z-index:2}
 .trend-up{color:var(--danger)}.trend-down{color:var(--success)}.trend-flat{color:var(--gray)}
 /* TABS */
 .tabs{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-bottom:20px}
@@ -2493,11 +2493,80 @@ function loadProntuarioResumo() {
     snap.forEach(function(d) { resultados.push(Object.assign({}, d.data(), {id: d.id})); });
     resultados.sort(function(a,b) { return (b.data||'') > (a.data||'') ? 1 : -1; });
     if (!resultados.length) {
-      el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum resultado cadastrado para este paciente.<br><button class="btn btn-primary mt-2" onclick="switchPronTab(\'exames\', document.querySelectorAll(\'.tab\')[1])">+ Adicionar Exame</button></div>';
+      el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum resultado cadastrado.<br><button class="btn btn-primary mt-2" onclick="switchPronTab(\'exames\', document.querySelectorAll(\'.tab\')[1])">+ Adicionar Exame</button></div>';
       return;
     }
-    renderResumoCards(resultados, el);
+    // Store all results globally for filter
+    window._resumoTodosResultados = resultados;
+
+    // Collect unique dates
+    var datasDisp = {};
+    for (var i=0;i<resultados.length;i++) { if(resultados[i].data) datasDisp[resultados[i].data]=true; }
+    var datasOrdenadas = Object.keys(datasDisp).sort(function(a,b){return b>a?1:-1;});
+
+    // Build date selector
+    var selectorHtml = '<div style="background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px">' +
+      '<div style="font-size:.82rem;font-weight:700;color:var(--text-soft);margin-bottom:10px">📅 Filtrar por data de exame:</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px" id="resumo-datas-wrap">';
+
+    for (var di=0;di<datasOrdenadas.length;di++) {
+      var d = datasOrdenadas[di];
+      var dataFmt = d.substr(8,2)+'/'+d.substr(5,2)+'/'+d.substr(0,4);
+      var isMaisRecente = di===0;
+      // Count exams on this date
+      var countExames = 0;
+      for (var ri=0;ri<resultados.length;ri++) { if(resultados[ri].data===d) countExames++; }
+      // Default: all dates selected
+      selectorHtml += '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;background:var(--primary-light);border:1.5px solid var(--primary);font-size:.82rem" id="lbl-res-'+di+'">' +
+        '<input type="checkbox" checked value="'+d+'" onchange="filtrarResumoMedico()" class="resumo-data-chk" style="width:15px;height:15px;accent-color:var(--primary)">' +
+        '<div><strong>'+dataFmt+'</strong>' +
+        (isMaisRecente?'<span style="margin-left:4px;font-size:.68rem;color:var(--primary);font-weight:700">⭐ recente</span>':'') +
+        '<div style="font-size:.68rem;color:var(--gray)">'+countExames+' resultado(s)</div>' +
+        '</div></label>';
+    }
+
+    selectorHtml += '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+      '<button class="btn btn-gray btn-sm" onclick="selecionarTodasDatasResumo(true)">Selecionar todas</button>' +
+      '<button class="btn btn-gray btn-sm" onclick="selecionarTodasDatasResumo(false)">Só a mais recente</button>' +
+      '</div></div>';
+
+    el.innerHTML = selectorHtml + '<div id="resumo-cards-wrap"></div>';
+    renderResumoCards(resultados, document.getElementById('resumo-cards-wrap'));
   });
+}
+
+function filtrarResumoMedico() {
+  var chks = document.querySelectorAll('.resumo-data-chk');
+  var selecionadas = {};
+  var alguma = false;
+  for (var i=0;i<chks.length;i++) {
+    if (chks[i].checked) { selecionadas[chks[i].value] = true; alguma = true; }
+  }
+  // Must keep at least one
+  if (!alguma) {
+    for (var i=0;i<chks.length;i++) { chks[i].checked = true; selecionadas[chks[i].value] = true; }
+  }
+  // Update label styles
+  for (var i=0;i<chks.length;i++) {
+    var lbl = chks[i].closest('label');
+    if (lbl) {
+      lbl.style.background = chks[i].checked ? 'var(--primary-light)' : 'var(--gray-light)';
+      lbl.style.borderColor = chks[i].checked ? 'var(--primary)' : 'var(--gray-200)';
+    }
+  }
+  var todos = window._resumoTodosResultados || [];
+  var filtrados = todos.filter(function(r) { return selecionadas[r.data]; });
+  var wrap = document.getElementById('resumo-cards-wrap');
+  if (wrap) renderResumoCards(filtrados, wrap);
+}
+
+function selecionarTodasDatasResumo(todas) {
+  var chks = document.querySelectorAll('.resumo-data-chk');
+  for (var i=0;i<chks.length;i++) {
+    chks[i].checked = todas ? true : (i===0);
+  }
+  filtrarResumoMedico();
 }
 // Formata valor numérico para exibição: 211000 → "211.000", 5.48 → "5.48"
 function formatarValorDisplay(v) {
