@@ -2501,13 +2501,16 @@ function loadProntuarioResumo() {
 }
 // Formata valor numérico para exibição: 211000 → "211.000", 5.48 → "5.48"
 function formatarValorDisplay(v) {
-  // Strip trailing non-numeric text like " a", " mg/dL"
-  var s = String(v||'').trim().replace(/\s+[a-zA-ZµµU\/].*$/, '').trim();
-  var n = normalizarValorNumerico(s);
-  if (isNaN(n)) return String(v);
+  if (v === null || v === undefined) return '—';
+  var s = String(v).trim();
+  // Extract only the leading numeric part — ignore EVERYTHING after
+  var match = s.match(/^([\d]+[.,]?[\d]*)/);
+  if (!match) return s;
+  var n = normalizarValorNumerico(match[1]);
+  if (isNaN(n)) return match[1];
   if (n >= 1000 && n === Math.floor(n)) return n.toLocaleString('pt-BR');
   if (n === Math.floor(n)) return String(Math.floor(n));
-  return String(n).replace('.', ',');
+  return String(Math.round(n * 100) / 100).replace('.', ',');
 }
 function normalizarNomeExame(nome) {
   if (!nome) return '';
@@ -2522,25 +2525,16 @@ function normalizarNomeExame(nome) {
 function normalizarValorNumerico(v) {
   if (v === null || v === undefined) return NaN;
   var s = String(v).trim();
-  // Remove trailing text like " a", " mg/dL", " U/L" — keep only the number part
-  s = s.replace(/\s*[a-zA-Z\/µ%].*$/, '').trim();
-  if (!s) return NaN;
-  // Se tem ponto E vírgula: formato "1.234,56" → remover ponto, trocar vírgula
-  var reAmbos = new RegExp('[0-9]+\\.[0-9]{3},[0-9]');
-  if (reAmbos.test(s)) {
-    return parseFloat(s.replace(new RegExp('\\.','g'),'').replace(',','.'));
-  }
-  // Se tem apenas vírgula como separador decimal: "5,48" → 5.48
-  var reVirgula = new RegExp('^[0-9]+,[0-9]+$');
-  if (reVirgula.test(s)) {
-    return parseFloat(s.replace(',','.'));
-  }
-  // Se tem ponto como separador de milhar (3 dígitos depois): "211.000" → 211000
-  var reMilhar = new RegExp('^[0-9]+\\.[0-9]{3}$');
-  if (reMilhar.test(s)) {
-    return parseFloat(s.replace('.',''));
-  }
-  // Padrão: ponto como decimal
+  // Extract only leading numeric part — drop " a", units, etc.
+  var match = s.match(/^([\d.,]+)/);
+  if (!match) return NaN;
+  s = match[1];
+  // Formato "1.234,56" — ponto como milhar, vírgula como decimal
+  if (/\d\.\d{3},\d/.test(s)) return parseFloat(s.replace(/\./g,'').replace(',','.'));
+  // Formato "5,48" — vírgula como decimal
+  if (/^\d+,\d+$/.test(s)) return parseFloat(s.replace(',','.'));
+  // Formato "211.000" — ponto como milhar (3 dígitos)
+  if (/^\d+\.\d{3}$/.test(s)) return parseFloat(s.replace('.',''));
   return parseFloat(s);
 }
 
@@ -3138,7 +3132,11 @@ function processarPDFcomIA() {
                 if (line) allLines.push(line);
               }
               loaded++;
-              if (loaded === total) extrairExames(allLines);
+              if (loaded === total) {
+                window._pdfLinhas = allLines;
+                var fullText = allLines.join('\n');
+                enviarTextoParaIA(fullText);
+              }
             });
           });
         })(pg);
@@ -3150,103 +3148,202 @@ function processarPDFcomIA() {
   reader.readAsArrayBuffer(file);
 }
 
+function enviarTextoParaIA(textoLaudo) {
+  var st = document.getElementById('pdf-status');
+  if (st) st.innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:var(--primary)"><span>🤖</span><span>IA interpretando o laudo...</span></div>';
+
+  var WORKER_URL = window._nocWorkerUrl || 'https://noc-clinic.ernandes-sobreira.workers.dev';
+
+  var prompt = 'Texto extraído de laudo laboratorial brasileiro:\n\n' +
+    textoLaudo.substring(0, 8000) +
+    '\n\n---\nRetorne SOMENTE JSON válido sem markdown:\n' +
+    '{"lab":"Nome lab","data":"YYYY-MM-DD","solicitante":"Nome medico","exames":[{"nome":"Nome padronizado","valor":"numero","unidade":"unidade"}]}\n\n' +
+    'REGRAS:\n' +
+    '1. Extraia APENAS o valor apos "Resultado:", NUNCA valores de referencia\n' +
+    '2. Hemograma: resultado vem ANTES das colunas de ref. "Hemácias 5,51 milh/mm3 4,50 a 6,00" → 5.51\n' +
+    '3. Virgula decimal: 5,51→5.51. Ponto milhar: 5.250→5250, 210.000→210000\n' +
+    '4. Valores com "a" sao referencia — ignore. "40 a 56" = faixa\n' +
+    '5. Nomes: Hemácias, Hemoglobina, Hematócrito, VGM, HGM, CHGM, RDW, Leucócitos, Plaquetas, VPM, Segmentados, Eosinófilos, Linfócitos, Monócitos, TGO (AST), TGP (ALT), GGT, Fosfatase Alcalina, Bilirrubina Total, Bilirrubina Direta, Bilirrubina Indireta, Colesterol Total, HDL, LDL, VLDL, Triglicerídeos, Glicose, HbA1c, TSH, T4 Livre, Creatinina, Ureia, PSA Total, PSA Livre, Calprotectina, Testosterona Total, Testosterona Livre, SHBG, Vitamina D, Vitamina B12, Ferritina, Insulina\n' +
+    '6. Lab: cabecalho. Solicitante: "Solicitante NOME". Data: "Data de Entrada:"';
+
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var text = '';
+    if (data.content && data.content[0]) text = data.content[0].text || '';
+    text = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    var result;
+    try { result = JSON.parse(text); }
+    catch(e) { var mx=text.match(/\{[\s\S]*\}/); if(mx){try{result=JSON.parse(mx[0]);}catch(e2){}} }
+    if (!result || !result.exames || !result.exames.length) {
+      if (st) st.innerHTML = '<span style="color:var(--warn)">IA sem resultado. Usando extrator local...</span>';
+      extrairExames(window._pdfLinhas || []);
+      return;
+    }
+    var labNome = result.lab || 'Desconhecido';
+    var solicit = result.solicitante || '';
+    if (st) st.innerHTML =
+      '<div style="background:var(--success-light);border-radius:8px;padding:10px 14px;font-size:.85rem">' +
+      '<div style="font-weight:700;color:var(--success)">✅ ' + result.exames.length + ' parâmetros — lidos por IA</div>' +
+      '<div style="color:var(--text-soft)">🏥 <strong>' + labNome + '</strong>' +
+      (solicit?' · 👨‍⚕️ <strong>'+solicit+'</strong>':'') +
+      (result.data?' · 📅 '+result.data:'') + '</div></div>';
+    pdfExtracted = result.exames.map(function(e) {
+      return {nome:e.nome, valor:String(e.valor), unidade:e.unidade||'', _removed:false};
+    });
+    window._pdfSolicitante = solicit;
+    renderPdfTable(pdfExtracted, labNome, result.data||todayISO());
+  })
+  .catch(function() {
+    if (st) st.innerHTML = '<span style="color:var(--gray);font-size:.82rem">Usando extrator local...</span>';
+    extrairExames(window._pdfLinhas || []);
+  });
+}
+
 function extrairExames(linhas) {
   var st = document.getElementById('pdf-status');
   var texto = linhas.join('\n');
 
-  // Detect lab
+  // ── Lab, Data, Solicitante ──────────────────────────────
   var lab = 'Desconhecido';
-  var labsConhecidos = ['São Matheus','Saomatheus','Fleury','Delboni','Hermes Pardini','Sabin','CERNE','Synlab','Labclin','Lavoisier','Einstein','DASA'];
+  var labsConhecidos = ['São Matheus','Fleury','Delboni','Hermes Pardini','Sabin','CERNE','Synlab','Labclin','Lavoisier','Einstein','DASA'];
   for (var li = 0; li < labsConhecidos.length; li++) {
     if (texto.toLowerCase().indexOf(labsConhecidos[li].toLowerCase()) >= 0) { lab = labsConhecidos[li]; break; }
   }
-
-  // Detect date
   var dataColeta = '';
-  var dmatch = texto.match(/[Cc]oleta[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
+  var dmatch = texto.match(/[Ee]ntrada[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
   if (dmatch) dataColeta = dmatch[3]+'-'+dmatch[2]+'-'+dmatch[1];
-  if (!dataColeta) {
-    var dmatch2 = texto.match(/[Ee]ntrada[:\s]+(\d{2})\/(\d{2})\/(\d{4})/);
-    if (dmatch2) dataColeta = dmatch2[3]+'-'+dmatch2[2]+'-'+dmatch2[1];
-  }
-
-  // Detect solicitante
   var solicitante = '';
-  var smatch = texto.match(/[Ss]olicitante[.\s]+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][A-ZÁÀÂÃÉÊÍÓÔÕÚÇa-záàâãéêíóôõúç\s]+?)(?:\n|RG|CPF|Data)/);
+  var smatch = texto.match(/[Ss]olicitante[.\s]+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][^\n\r]{3,50}?)(?:\n|\r|RG|CPF|Data)/);
   if (smatch) solicitante = smatch[1].trim().replace(/\s+/,' ');
 
-  // EXAM PATTERNS — map regex patterns to standard names
-  var PATTERNS = [
-    // Formato "Resultado: 62 U/L" ou "RESULTADO: 29,5 nmol/L"
-    {re:/[Ff]osfatase [Aa]lcalina[\s\S]{0,5}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,    nome:'Fosfatase Alcalina', un:'U/L'},
-    {re:/GGT[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'GGT',                un:'U/L'},
-    {re:/TGO[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'TGO (AST)',          un:'U/L'},
-    {re:/TGP[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,                         nome:'TGP (ALT)',          un:'U/L'},
-    {re:/PSA [Ll]ivre[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,               nome:'PSA Livre',          un:'ng/mL'},
-    {re:/PSA [Tt]otal[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,               nome:'PSA Total',          un:'ng/mL'},
-    {re:/[Cc]alprotectina[\s\S]{0,80}[Rr]esultado[:\s]+(\d+[,.]?\d*)/,           nome:'Calprotectina',      un:'mcg/g'},
-    {re:/[Gg]licose[\s\S]{0,80}[Rr]esultado[.:]+[\s]+(\d+[,.]?\d*)/,             nome:'Glicose',            un:'mg/dL'},
-    // Formato "RESULTADO: 29,5 nmol/L" (hormônios)
-    {re:/SHBG[\s\S]{0,30}RESULTADO[:\s]+(\d+[,.]?\d*)/i,                          nome:'SHBG',               un:'nmol/L'},
-    {re:/TESTOSTERONA TOTAL[\s\S]{0,30}RESULTADO[:\s]+([\d.,]+)/i,                 nome:'Testosterona Total', un:'ng/dL'},
-    {re:/TESTOSTERONA LIVRE[\s\S]{0,30}RESULTADO[:\s]+([\d.,]+)/i,                 nome:'Testosterona Livre', un:'ng/dL'},
-    // Hemograma — formato tabular São Matheus
-    {re:/[Hh]em[áa]cias[\s.]+(\d+[,.]\d+)\s*milh/,                               nome:'Hemácias',           un:'milh/mm³'},
-    {re:/[Hh]emoglobina[\s.]+(\d+[,.]\d+)\s*g/,                                   nome:'Hemoglobina',        un:'g/dL'},
-    {re:/[Hh]ematocrito[\s.]+(\d+[,.]\d+)\s*%/,                                   nome:'Hematócrito',        un:'%'},
-    {re:/V\.G\.M[\s.]+(\d+)\s*u/i,                                                nome:'VGM',                un:'µ³'},
-    {re:/H\.G\.M[\s.]+(\d+)\s*p/i,                                                nome:'HGM',                un:'pg'},
-    {re:/C\.H\.G\.M[\s.]+(\d+)\s*%/i,                                             nome:'CHGM',               un:'%'},
-    {re:/R\.D\.W[\s.]+(\d+[,.]\d+)\s*%/i,                                         nome:'RDW',                un:'%'},
-    {re:/[Ll]eucocitos[\s.]+(\d[\d.]+)\s/,                                         nome:'Leucócitos',         un:'/mm³'},
-    {re:/[Cc]ontagem de plaquetas[\s.]+(\d[\d.,]+)/i,                             nome:'Plaquetas',          un:'mm³'},
-    {re:/[Vv]olume plaquetario[\s\S]{0,20}(\d+[,.]\d+)/i,                         nome:'VPM',                un:'fL'},
-    {re:/[Ss]egmentados\s+\d+\s+(\d[\d.]+)/,                                      nome:'Segmentados',        un:'/mm³'},
-    {re:/[Ee]osinof\w+\s+\d+\s+(\d[\d.]+)/,                                      nome:'Eosinófilos',        un:'/mm³'},
-    {re:/[Ll]infocitos\s+\d+\s+(\d[\d.]+)/,                                       nome:'Linfócitos',         un:'/mm³'},
-    {re:/[Mm]onocitos\s+\d+\s+(\d[\d.]+)/,                                        nome:'Monócitos',          un:'/mm³'},
-    // Outros
-    {re:/[Bb]ilirrubina [Tt]otal[:\s.]+(\d+[,.]\d+)\s*mg/,                       nome:'Bilirrubina Total',  un:'mg/dL'},
-    {re:/[Bb]ilirrubina [Dd]ireta[:\s.]+(\d+[,.]\d+)\s*mg/,                      nome:'Bilirrubina Direta', un:'mg/dL'},
-    {re:/[Bb]ilirrubina [Ii]ndireta[:\s.]+(\d+[,.]\d+)\s*mg/,                    nome:'Bilirrubina Indireta',un:'mg/dL'},
-    {re:/[Cc]olesterol [Tt]otal[:\s.]+(\d+[,.]?\d*)\s*mg/,                       nome:'Colesterol Total',   un:'mg/dL'},
-    {re:/HDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                           nome:'HDL',                un:'mg/dL'},
-    {re:/LDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                           nome:'LDL',                un:'mg/dL'},
-    {re:/VLDL[:\s.]+(\d+[,.]?\d*)\s*mg/,                                          nome:'VLDL',               un:'mg/dL'},
-    {re:/[Tt]riglice\w+[:\s.]+(\d+[,.]?\d*)\s*mg/,                               nome:'Triglicerídeos',     un:'mg/dL'},
-    {re:/TSH[:\s.]+(\d+[,.]\d+)/,                                                  nome:'TSH',                un:'mUI/L'},
-    {re:/[Tt]4 [Ll]ivre[:\s.]+(\d+[,.]\d+)/,                                      nome:'T4 Livre',           un:'ng/dL'},
-    {re:/[Cc]reatinina[:\s.]+(\d+[,.]\d+)\s*mg/,                                  nome:'Creatinina',         un:'mg/dL'},
-    {re:/[Uu]reia[:\s.]+(\d+[,.]?\d*)\s*mg/,                                      nome:'Ureia',              un:'mg/dL'},
-    {re:/[Ff]erritina[:\s.]+(\d+[,.]?\d*)/,                                        nome:'Ferritina',          un:'ng/mL'},
-    {re:/[Vv]itamina D[\s\S]{0,20}(\d+[,.]\d+)/,                                  nome:'Vitamina D',         un:'ng/mL'},
-    {re:/[Vv]itamina B12[:\s.]+(\d+[,.]?\d*)/,                                    nome:'Vitamina B12',       un:'pg/mL'},
-    {re:/[Aa]cido [Uu]rico[:\s.]+(\d+[,.]\d+)/,                                   nome:'Ácido Úrico',        un:'mg/dL'},
-    {re:/[Hh]emoglobina [Gg]licada[\s\S]{0,60}(\d+[,.]\d+)\s*%/,                 nome:'HbA1c',              un:'%'},
-    {re:/[Ii]nsulina[:\s.]+(\d+[,.]\d+)/,                                          nome:'Insulina',           un:'µUI/mL'}
+  // ── MAPA: título do exame → nome padronizado + unidade ──
+  var EXAM_MAP = [
+    // São Matheus: título antes do Resultado
+    {titulo:/[Ff]osfatase [Aa]lcalina/,            nome:'Fosfatase Alcalina',    un:'U/L'},
+    {titulo:/[Gg]ama [Gg]lutamil|GGT/,             nome:'GGT',                   un:'U/L'},
+    {titulo:/TGO|[Tt]ransaminase [Oo]xalac/,       nome:'TGO (AST)',              un:'U/L'},
+    {titulo:/TGP|[Tt]ransaminase [Pp]ir/,          nome:'TGP (ALT)',              un:'U/L'},
+    {titulo:/PSA [Ll]ivre/,                         nome:'PSA Livre',              un:'ng/mL'},
+    {titulo:/PSA [Tt]otal/,                         nome:'PSA Total',              un:'ng/mL'},
+    {titulo:/[Cc]alprotectina/,                     nome:'Calprotectina',          un:'mcg/g'},
+    {titulo:/[Gg]licose/,                           nome:'Glicose',                un:'mg/dL'},
+    {titulo:/[Hh]emoglobina [Gg]licada|HbA1c/,     nome:'HbA1c',                  un:'%'},
+    {titulo:/[Cc]olesterol [Tt]otal/,               nome:'Colesterol Total',       un:'mg/dL'},
+    {titulo:/[Cc]olesterol HDL|HDL/,                nome:'HDL',                    un:'mg/dL'},
+    {titulo:/[Cc]olesterol LDL|LDL/,                nome:'LDL',                    un:'mg/dL'},
+    {titulo:/[Cc]olesterol VLDL|VLDL/,              nome:'VLDL',                   un:'mg/dL'},
+    {titulo:/[Tt]riglice/,                          nome:'Triglicerídeos',         un:'mg/dL'},
+    {titulo:/[Cc]reatinina/,                        nome:'Creatinina',             un:'mg/dL'},
+    {titulo:/[Uu]reia/,                             nome:'Ureia',                  un:'mg/dL'},
+    {titulo:/[Áa]cido [Úú]rico/,                    nome:'Ácido Úrico',            un:'mg/dL'},
+    {titulo:/[Ff]erritina/,                         nome:'Ferritina',              un:'ng/mL'},
+    {titulo:/[Vv]itamina D/,                        nome:'Vitamina D',             un:'ng/mL'},
+    {titulo:/[Vv]itamina B12/,                      nome:'Vitamina B12',           un:'pg/mL'},
+    {titulo:/[Áa]cido [Ff][oó]lico|[Ff]olato/,     nome:'Ácido Fólico',           un:'ng/mL'},
+    {titulo:/TSH/,                                  nome:'TSH',                    un:'mUI/L'},
+    {titulo:/T4 [Ll]ivre|T4L/,                      nome:'T4 Livre',               un:'ng/dL'},
+    {titulo:/T3 [Ll]ivre|T3L/,                      nome:'T3 Livre',               un:'pg/mL'},
+    {titulo:/[Pp]rolactina/,                        nome:'Prolactina',             un:'ng/mL'},
+    {titulo:/[Tt]estosterona [Ll]ivre/,             nome:'Testosterona Livre',     un:'ng/dL'},
+    {titulo:/[Tt]estosterona [Tt]otal/,             nome:'Testosterona Total',     un:'ng/dL'},
+    {titulo:/SHBG|[Gg]lobulina [Ll]igadora/,        nome:'SHBG',                   un:'nmol/L'},
+    {titulo:/[Ee]stradiol/,                         nome:'Estradiol',              un:'pg/mL'},
+    {titulo:/FSH/,                                  nome:'FSH',                    un:'mUI/mL'},
+    {titulo:/\bLH\b/,                               nome:'LH',                     un:'mUI/mL'},
+    {titulo:/DHEA/,                                 nome:'DHEA-S',                 un:'µg/dL'},
+    {titulo:/[Cc]ortisol/,                          nome:'Cortisol Basal',         un:'µg/dL'},
+    {titulo:/[Ii]nsulina/,                          nome:'Insulina',               un:'µUI/mL'},
+    {titulo:/IGF[\s-]*1/,                           nome:'IGF-1',                  un:'ng/mL'},
+    {titulo:/[Bb]ilirrubina [Tt]otal/,              nome:'Bilirrubina Total',      un:'mg/dL'},
+    {titulo:/[Bb]ilirrubina [Dd]ireta/,             nome:'Bilirrubina Direta',     un:'mg/dL'},
+    {titulo:/[Bb]ilirrubina [Ii]ndireta/,           nome:'Bilirrubina Indireta',   un:'mg/dL'},
+    {titulo:/[Zz]inco/,                             nome:'Zinco',                  un:'µg/dL'},
+    {titulo:/[Mm]agn/,                              nome:'Magnésio',               un:'mg/dL'},
+    {titulo:/PCR|[Pp]roteína [Cc] [Rr]eativa/,     nome:'PCR Ultrassensível',     un:'mg/L'}
   ];
 
+  // ── ESTRATÉGIA 1: extração por seção (São Matheus padrão) ──
+  // Divide o texto em seções por título de exame + busca "Resultado:" na seção
   var rows = [];
   var seen = {};
-  for (var pi = 0; pi < PATTERNS.length; pi++) {
-    var p = PATTERNS[pi];
-    var m = p.re.exec(texto);
-    if (!m) continue;
-    if (seen[p.nome]) continue;
-    var valStr = m[1].replace(',','.');
+
+  // Encontra todas as posições de "Resultado:" no texto
+  var reResult = /[Rr]esultado[:\s.]+([0-9][0-9,.\s]*[0-9]|[0-9])/g;
+  var resultMatches = [];
+  var rm;
+  while ((rm = reResult.exec(texto)) !== null) {
+    var valStr = rm[1].replace(/\s+/g,'').replace(',','.');
     var val = parseFloat(valStr);
-    if (isNaN(val) || val <= 0) continue;
-    seen[p.nome] = true;
-    rows.push({nome: p.nome, valor: String(val), unidade: p.un, _removed: false});
+    if (!isNaN(val) && val > 0) {
+      resultMatches.push({pos: rm.index, val: val, raw: rm[1].trim()});
+    }
+  }
+
+  // Para cada resultado encontrado, olha para trás no texto para identificar qual exame é
+  for (var ri = 0; ri < resultMatches.length; ri++) {
+    var rm2 = resultMatches[ri];
+    // Pega o contexto antes (até 300 chars) para identificar o nome do exame
+    var antes = texto.substring(Math.max(0, rm2.pos - 300), rm2.pos);
+    // Pega a última linha não vazia antes de "Resultado:"
+    var linhasAntes = antes.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length > 2;});
+    var nomeEncontrado = null;
+    var unEncontrada = 'U/L';
+    // Tenta casar com EXAM_MAP
+    for (var ei = 0; ei < EXAM_MAP.length; ei++) {
+      // Verifica nas últimas 5 linhas antes do resultado
+      var checkLines = linhasAntes.slice(-5).join(' ');
+      if (EXAM_MAP[ei].titulo.test(checkLines) && !seen[EXAM_MAP[ei].nome]) {
+        nomeEncontrado = EXAM_MAP[ei].nome;
+        unEncontrada = EXAM_MAP[ei].un;
+        break;
+      }
+    }
+    if (nomeEncontrado) {
+      seen[nomeEncontrado] = true;
+      rows.push({nome: nomeEncontrado, valor: String(rm2.val), unidade: unEncontrada, _removed: false});
+    }
+  }
+
+  // ── ESTRATÉGIA 2: hemograma tabular (sem "Resultado:") ──
+  var HEMO = [
+    {re:/[Hh]em[áa]cias[\s.]+(\d+[,.]\d+)\s*milh/,          nome:'Hemácias',     un:'milh/mm³'},
+    {re:/[Hh]emoglobina[\s.]+(\d+[,.]\d+)\s*g/,              nome:'Hemoglobina',   un:'g/dL'},
+    {re:/[Hh]ematocrito[\s.]+(\d+[,.]\d+)\s*%/,              nome:'Hematócrito',   un:'%'},
+    {re:/V\.G\.M[\s.]+(\d+)\s*u/i,                           nome:'VGM',           un:'µ³'},
+    {re:/H\.G\.M[\s.]+(\d+)\s*p/i,                           nome:'HGM',           un:'pg'},
+    {re:/C\.H\.G\.M[\s.]+(\d+)\s*%/i,                        nome:'CHGM',          un:'%'},
+    {re:/R\.D\.W[\s.]+(\d+[,.]\d+)\s*%/i,                    nome:'RDW',           un:'%'},
+    {re:/[Ll]eucocitos[\s.]+(\d[\d.]+)/,                      nome:'Leucócitos',    un:'/mm³'},
+    {re:/[Cc]ontagem de plaquetas[\s.]+(\d[\d.,]+)/i,         nome:'Plaquetas',     un:'mm³'},
+    {re:/[Vv]olume plaquetario[\s\S]{0,20}(\d+[,.]\d+)/i,    nome:'VPM',           un:'fL'},
+    {re:/[Ss]egmentados\s+\d+\s+(\d[\d.]+)/,                 nome:'Segmentados',   un:'/mm³'},
+    {re:/[Ee]osinof\w+\s+\d+\s+(\d[\d.]+)/,                  nome:'Eosinófilos',   un:'/mm³'},
+    {re:/[Ll]infocitos\s+\d+\s+(\d[\d.]+)/,                  nome:'Linfócitos',    un:'/mm³'},
+    {re:/[Mm]onocitos\s+\d+\s+(\d[\d.]+)/,                   nome:'Monócitos',     un:'/mm³'}
+  ];
+  for (var hi = 0; hi < HEMO.length; hi++) {
+    if (seen[HEMO[hi].nome]) continue;
+    var hm = HEMO[hi].re.exec(texto);
+    if (!hm) continue;
+    var hval = parseFloat(hm[1].replace(',','.'));
+    if (isNaN(hval) || hval <= 0) continue;
+    seen[HEMO[hi].nome] = true;
+    rows.push({nome: HEMO[hi].nome, valor: String(hval), unidade: HEMO[hi].un, _removed: false});
   }
 
   pdfExtracted = rows;
   window._pdfSolicitante = solicitante;
 
   if (st) st.innerHTML = rows.length
-    ? '<div style="background:var(--success-light);border-radius:8px;padding:10px;font-size:.85rem"><strong style="color:var(--success)">✅ ' + rows.length + ' parâmetros encontrados</strong><br>' +
+    ? '<div style="background:var(--success-light);border-radius:8px;padding:10px;font-size:.85rem">' +
+      '<strong style="color:var(--success)">✅ ' + rows.length + ' parâmetros encontrados</strong><br>' +
       '🏥 ' + lab + (solicitante?' &nbsp;·&nbsp; 👨‍⚕️ '+solicitante:'') + (dataColeta?' &nbsp;·&nbsp; 📅 '+dataColeta:'') + '</div>'
-    : '<span style="color:var(--warn)">⚠️ Nenhum parâmetro reconhecido. Adicione manualmente abaixo.</span>';
+    : '<span style="color:var(--warn)">⚠️ Nenhum parâmetro encontrado. Adicione manualmente.</span>';
 
   renderPdfTable(rows, lab, dataColeta||todayISO());
 }
@@ -3835,7 +3932,7 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
       bodyHtml+='<div style="padding:12px;border-left:3px solid '+statusColor(s2)+';margin-bottom:8px;border-radius:0 10px 10px 0;background:'+(s2==='normal'?'var(--success-light)':s2==='warn'?'var(--warn-light)':'var(--danger-light)')+'">'+
         '<div style="display:flex;justify-content:space-between;align-items:center">'+
         '<span style="font-weight:700;font-size:.9rem">'+nm+'</span>'+
-        '<span style="font-size:1.15rem;font-weight:900;color:'+statusColor(s2)+'">'+formatarValorDisplay(lat2.valor)+' <span style="font-size:.72rem;font-weight:400;color:var(--gray)">'+(lat2.unidade||'')+'</span></span>'+
+        '<span style="font-size:1.15rem;font-weight:900;color:'+statusColor(s2)+'">'+formatarValorDisplay(lat2.valor)+'</span>'+
         '</div>'+
         '<div class="exam-bar" style="margin:6px 0"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>'+
         '<div class="exam-bar-marker" style="left:'+pos2+'%;background:'+statusColor(s2)+'"></div></div>'+
@@ -3916,11 +4013,15 @@ function renderMetasPaciente(uid, pid, allP, pacCtx) {
 }
 
 function verComoPaciente(pacId) {
+  // Save current prontuario context so Voltar works
   pacienteMedUid = getMedUid();
   pacientePacId = pacId;
+  // prontuarioPacId and prontuarioPac must stay set for renderProntuario() to work on back
   db.collection('users').doc(getMedUid()).collection('pacientes').doc(pacId).get()
     .then(function(doc) {
       var pac = doc.exists ? Object.assign({}, doc.data(), {id:pacId}) : {nome:'Paciente',id:pacId};
+      prontuarioPac = pac;
+      prontuarioPacId = pacId;
       db.collection('users').doc(getMedUid()).collection('resultados').where('pacienteId','==',pacId).get()
         .then(function(snap) {
           var res = [];
