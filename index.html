@@ -2005,42 +2005,82 @@ function renderAdminMedicos() {
 }
 function adminLoadMedicos() {
   var listEl = document.getElementById('admin-lista-medicos');
-  db.collection('adminIndex').where('tipo','==','medico').get().then(function(snap) {
-    var uids = [];
-    snap.forEach(function(d) { uids.push(d.id); });
-    if (!uids.length) {
-      if (listEl) listEl.innerHTML = '<p style="color:var(--gray);padding:8px 0">Nenhum m\u00e9dico cadastrado ainda.</p>';
-      return;
-    }
-    var promises = [];
-    for (var i = 0; i < uids.length; i++) {
-      (function(uid) {
-        promises.push(db.collection('users').doc(uid).collection('perfil').doc('dados').get()
-          .then(function(d) { return d.exists ? Object.assign({}, d.data(), {uid:uid}) : {uid:uid,nome:'\u2014',email:'\u2014'}; })
-          .catch(function() { return {uid:uid,nome:'\u2014',email:'\u2014'}; }));
-      })(uids[i]);
-    }
-    Promise.all(promises).then(function(perfis) {
-      var rows = '';
-      for (var ri = 0; ri < perfis.length; ri++) {
-        var p = perfis[ri];
-        var espsArr = p.especialidades || (p.especialidade ? [p.especialidade] : []);
-        rows += '<tr>' +
-          '<td><div style="font-weight:600">' + (p.nome||'—') + '</div>' +
-          '<div style="font-size:.75rem;color:var(--gray)">' + (p.email||'') + (p.crm ? ' · CRM ' + p.crm : '') + '</div></td>' +
-          '<td style="font-size:.8rem;color:var(--primary)">' + (espsArr.join(', ')||'—') + '</td>' +
-          '<td class="flex gap-1">' +
-          '<button class="btn btn-outline btn-sm" onclick="adminEditarMedico(\'' + p.uid + '\')">✏️</button>' +
-          '<button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️</button>' +
-          '</td>' +
-          '</tr>';
+  if (listEl) listEl.innerHTML = '<p style="color:var(--gray)">Carregando...</p>';
+
+  // Busca médicos de DUAS fontes: adminIndex + collectionGroup nos perfis
+  var medicos = {};
+
+  // Fonte 1: adminIndex
+  db.collection('adminIndex').where('tipo','==','medico').get()
+    .then(function(snap) {
+      snap.forEach(function(d) {
+        medicos[d.id] = Object.assign({uid: d.id}, d.data());
+      });
+      // Fonte 2: busca direta nos perfis de todos os users
+      return db.collectionGroup('perfil').where('tipo','==','medico').get()
+        .catch(function() {
+          // collectionGroup pode não estar indexado — tenta busca manual
+          return null;
+        });
+    })
+    .then(function(snap2) {
+      if (snap2) {
+        snap2.forEach(function(d) {
+          var uid = d.ref.parent.parent.id;
+          if (!medicos[uid]) {
+            medicos[uid] = Object.assign({uid: uid}, d.data());
+          }
+        });
       }
-      if (listEl) listEl.innerHTML = rows
-        ? '<div class="section-title">Médicos cadastrados (' + perfis.length + ')</div><div class="table-wrap"><table><thead><tr><th>Médico</th><th>Especialidades</th><th>Ações</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-        : '<p style="color:var(--gray)">Nenhum perfil encontrado.</p>';
+      renderListaMedicos(medicos, listEl);
+    })
+    .catch(function() {
+      renderListaMedicos(medicos, listEl);
     });
-  }).catch(function(e) {
-    if (listEl) listEl.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e && e.message ? e.message : '') + '</p>';
+}
+
+function renderListaMedicos(medicos, listEl) {
+  if (!listEl) return;
+  var uids = Object.keys(medicos);
+  if (!uids.length) {
+    listEl.innerHTML = '<p style="color:var(--gray);padding:8px 0">Nenhum médico encontrado.</p>';
+    return;
+  }
+  // Load full perfil for each
+  var promises = uids.map(function(uid) {
+    return db.collection('users').doc(uid).collection('perfil').doc('dados').get()
+      .then(function(doc) {
+        return { uid: uid, perfil: doc.exists ? doc.data() : medicos[uid] };
+      }).catch(function() {
+        return { uid: uid, perfil: medicos[uid] || {} };
+      });
+  });
+  Promise.all(promises).then(function(results) {
+    var html = '<div class="section-title">' + results.length + ' médico(s) cadastrado(s)</div>';
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var p = r.perfil || {};
+      var esp = p.especialidades ? p.especialidades.join(', ') : (p.especialidade||'');
+      html += '<div class="card mb-2 flex justify-between align-center wrap gap-2">' +
+        '<div>' +
+        '<div style="font-weight:700">👨‍⚕️ ' + (p.nome||'Sem nome') + '</div>' +
+        '<div style="font-size:.82rem;color:var(--gray)">' + (p.email||'') + (p.crm?' · CRM '+p.crm:'') + '</div>' +
+        '<div style="font-size:.78rem;color:var(--text-soft)">' + esp + '</div>' +
+        '<div style="font-size:.72rem;color:var(--gray);font-family:monospace">UID: ' + r.uid + '</div>' +
+        '</div>' +
+        '<div class="flex gap-1">' +
+        '<button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + r.uid + '\')">🗑️ Remover</button>' +
+        '</div></div>';
+    }
+    listEl.innerHTML = html;
+    // Registra todos no adminIndex para próximas buscas
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var p = r.perfil || {};
+      db.collection('adminIndex').doc(r.uid).set({
+        tipo: 'medico', email: p.email||'', nome: p.nome||''
+      }, {merge: true}).catch(function(){});
+    }
   });
 }
 function renderAdminPacientes() {
