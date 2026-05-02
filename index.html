@@ -4098,8 +4098,24 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
 }
 
 function voltarAoProntuario() {
-  if (prontuarioPac && prontuarioPacId) {
-    renderProntuario();
+  var ctx = window._visaoPacData;
+  // Restore prontuario context from saved visao data
+  if (ctx && ctx.pacId) {
+    prontuarioPacId = ctx.pacId;
+    prontuarioPac = ctx.pacData || prontuarioPac;
+  }
+  if (prontuarioPacId) {
+    // If prontuarioPac missing, reload it then render
+    if (!prontuarioPac || !prontuarioPac.nome) {
+      var uid = getMedUid();
+      db.collection('users').doc(uid).collection('pacientes').doc(prontuarioPacId).get()
+        .then(function(doc) {
+          if (doc.exists) prontuarioPac = Object.assign({}, doc.data(), {id: prontuarioPacId});
+          renderProntuario();
+        }).catch(function() { renderProntuario(); });
+    } else {
+      renderProntuario();
+    }
   } else {
     renderMedicoPacientes();
   }
