@@ -4132,7 +4132,9 @@ function loadProntuarioPrescricoes() {
             (p.duracao?'<div style="font-size:.75rem;color:var(--gray)">⏱ '+p.duracao+'</div>':'') +
             (p.instrucoes?'<div style="font-size:.78rem;background:var(--warn-light);padding:6px 10px;border-radius:6px;margin-top:6px">ℹ️ '+p.instrucoes+'</div>':'') +
             '<div style="font-size:.7rem;color:var(--gray);margin-top:6px">'+p.dataInicio+(p.dataFim?' → '+p.dataFim:'')+'</div>' +
-            '<div class="flex gap-1 mt-2"><button class="btn btn-danger btn-sm" onclick="excluirPrescricao(\''+p.id+'\')">🗑️ Remover</button></div>' +
+            '<div class="flex gap-1 mt-2"><button class="btn btn-danger btn-sm" onclick="excluirPrescricao(\''+p.id+'\')">🗑️ Remover</button>' +
+            '<button class="btn btn-outline btn-sm" onclick=\'imprimirPrescricao('+JSON.stringify(p).replace(/'/g,"&#39;")+')\'">🖨️ Imprimir Receita</button>' +
+            '</div>' +
             '</div>';
         }
       }
@@ -4246,6 +4248,7 @@ function loadProntuarioPedidos() {
             '<div class="flex gap-1 mt-2">' +
             '<button class="btn btn-outline btn-sm" onclick="togglePedidoRealizado(\''+pd.id+'\','+(pd.realizado?'true':'false')+')">'+
             (pd.realizado?'↩ Marcar pendente':'✅ Marcar realizado')+'</button>' +
+            '<button class="btn btn-primary btn-sm" onclick=\'imprimirPedido('+JSON.stringify(pd).replace(/'/g,"&#39;")+')\'">🖨️ Imprimir</button>' +
             '<button class="btn btn-danger btn-sm" onclick="excluirPedido(\''+pd.id+'\')">🗑️</button>' +
             '</div></div>';
         }
@@ -4315,6 +4318,121 @@ function excluirPedido(pedId) {
   if (!confirm('Excluir este pedido?')) return;
   db.collection('users').doc(getMedUid()).collection('pedidos').doc(pedId).delete()
     .then(function() { toast('Excluído','success'); loadProntuarioPedidos(); });
+}
+
+// ============================================================
+// IMPRESSÃO — RECEITA E PEDIDO
+// ============================================================
+function imprimirPrescricao(p) {
+  var pac = prontuarioPac || {};
+  var med = currentPerfil || {};
+  var horasHtml = '';
+  if (p.horarios && p.horarios.length) {
+    horasHtml = '<table style="width:100%;border-collapse:collapse;margin-top:6px">' +
+      '<tr style="background:#f0f4ea"><th style="padding:6px;text-align:left;border:1px solid #ccc;font-size:12px">Horário</th><th style="padding:6px;text-align:left;border:1px solid #ccc;font-size:12px">Observação</th></tr>';
+    for (var i=0;i<p.horarios.length;i++) {
+      horasHtml += '<tr><td style="padding:6px;border:1px solid #ccc;font-size:12px">'+p.horarios[i].hora+'</td><td style="padding:6px;border:1px solid #ccc;font-size:12px">'+(p.horarios[i].obs||'—')+'</td></tr>';
+    }
+    horasHtml += '</table>';
+  }
+  var html = gerarCabecalhoImpressao(pac, med, 'RECEITA MÉDICA') +
+    '<div style="border:2px solid #2D5016;border-radius:8px;padding:20px;margin-bottom:20px">' +
+    '<div style="font-size:14px;font-weight:700;color:#2D5016;margin-bottom:12px">Medicamento:</div>' +
+    '<div style="font-size:18px;font-weight:800;color:#1C2412;margin-bottom:8px">' + (p.medicamento||'') + '</div>' +
+    '<div style="font-size:13px;color:#3D4A2E;margin-bottom:8px"><strong>Posologia:</strong> ' + (p.dose||'') + '</div>' +
+    '<div style="font-size:13px;color:#3D4A2E;margin-bottom:8px"><strong>Via:</strong> ' + (p.via||'Oral') + '</div>' +
+    (p.duracao?'<div style="font-size:13px;color:#3D4A2E;margin-bottom:8px"><strong>Duração:</strong> ' + p.duracao + '</div>':'') +
+    (p.horarios&&p.horarios.length?'<div style="font-size:13px;color:#3D4A2E;margin-bottom:6px"><strong>Horários:</strong></div>' + horasHtml:'') +
+    (p.instrucoes?'<div style="background:#FFF8E7;border-left:4px solid #B07D2A;padding:10px;margin-top:12px;font-size:13px"><strong>Instruções especiais:</strong><br>' + p.instrucoes + '</div>':'') +
+    '</div>' +
+    gerarRodapeImpressao(med);
+  abrirJanelaImpressao(html, 'Receita — ' + (p.medicamento||''));
+}
+
+function imprimirPedido(pd) {
+  var pac = prontuarioPac || {};
+  var med = currentPerfil || {};
+  var dataFmt = pd.data ? pd.data.substr(8,2)+'/'+pd.data.substr(5,2)+'/'+pd.data.substr(0,4) : '';
+  var examesList = (pd.exames||'').split('\n').filter(function(e){return e.trim();});
+  var examesHtml = '<table style="width:100%;border-collapse:collapse;margin-top:8px">';
+  for (var i=0;i<examesList.length;i++) {
+    var bg = i%2===0?'#f9faf7':'#ffffff';
+    examesHtml += '<tr style="background:'+bg+'"><td style="padding:8px 12px;border:1px solid #ddd;font-size:13px">' + examesList[i].replace(/^•\s*/,'') + '</td></tr>';
+  }
+  examesHtml += '</table>';
+  var html = gerarCabecalhoImpressao(pac, med, 'PEDIDO DE EXAME') +
+    '<div style="border:2px solid #2D5016;border-radius:8px;padding:20px;margin-bottom:20px">' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:12px">' +
+    '<div style="font-size:13px"><strong>Tipo:</strong> ' + (pd.tipo||'Exames Laboratoriais') + '</div>' +
+    '<div style="font-size:13px"><strong>Data:</strong> ' + dataFmt + '</div>' +
+    '</div>' +
+    '<div style="font-size:14px;font-weight:700;color:#2D5016;margin-bottom:8px">Exames Solicitados:</div>' +
+    examesHtml +
+    (pd.obs?'<div style="background:#FFF8E7;border-left:4px solid #B07D2A;padding:10px;margin-top:16px;font-size:13px"><strong>Indicação clínica / Observações:</strong><br>' + pd.obs + '</div>':'') +
+    '</div>' +
+    '<div style="background:#f0f4ea;border-radius:8px;padding:12px;font-size:12px;color:#3D4A2E;margin-bottom:20px">' +
+    'Este pedido tem validade de 90 dias a partir da data de emissão.' +
+    '</div>' +
+    gerarRodapeImpressao(med);
+  abrirJanelaImpressao(html, 'Pedido — ' + (pd.tipo||'Exames'));
+}
+
+function gerarCabecalhoImpressao(pac, med, titulo) {
+  var dataBR = new Date().toLocaleDateString('pt-BR');
+  var pacNasc = pac.dataNasc ? pac.dataNasc.substr(8,2)+'/'+pac.dataNasc.substr(5,2)+'/'+pac.dataNasc.substr(0,4) : '';
+  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+    '<title>' + titulo + '</title>' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1C2412;background:#fff;padding:0}' +
+    '@media print{body{padding:0}button{display:none!important}.no-print{display:none!important}}' +
+    '.print-btn{position:fixed;top:16px;right:16px;background:#2D5016;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;z-index:999}' +
+    '</style></head><body>' +
+    '<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>' +
+    '<div style="max-width:700px;margin:0 auto;padding:30px">' +
+    // Header
+    '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #2D5016;padding-bottom:16px;margin-bottom:16px">' +
+    '<div>' +
+    '<div style="font-size:26px;font-weight:900;color:#2D5016;letter-spacing:-1px">noc</div>' +
+    '<div style="font-size:11px;font-weight:700;letter-spacing:4px;color:#4A7C2F">CLINIC</div>' +
+    '<div style="font-size:11px;color:#6B7280;margin-top:4px">Av. Bosque da Saúde, 173 · Cuiabá-MT</div>' +
+    '<div style="font-size:11px;color:#6B7280">(65) 99360-5857</div>' +
+    '</div>' +
+    '<div style="text-align:right">' +
+    '<div style="font-size:18px;font-weight:800;color:#2D5016;border:2px solid #2D5016;padding:6px 14px;border-radius:8px">' + titulo + '</div>' +
+    '<div style="font-size:11px;color:#6B7280;margin-top:8px">Data: ' + dataBR + '</div>' +
+    '</div></div>' +
+    // Patient info
+    '<div style="background:#f0f4ea;border-radius:8px;padding:14px;margin-bottom:20px">' +
+    '<div style="font-size:11px;font-weight:700;color:#4A7C2F;margin-bottom:8px;letter-spacing:1px">DADOS DO PACIENTE</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+    '<div><span style="font-size:11px;color:#6B7280">Nome:</span><br><span style="font-size:13px;font-weight:700">' + (pac.nome||'—') + '</span></div>' +
+    '<div><span style="font-size:11px;color:#6B7280">CPF:</span><br><span style="font-size:13px;font-weight:700">' + (pac.cpf||'—') + '</span></div>' +
+    '<div><span style="font-size:11px;color:#6B7280">Data de Nasc.:</span><br><span style="font-size:13px">' + (pacNasc||'—') + '</span></div>' +
+    '<div><span style="font-size:11px;color:#6B7280">Telefone:</span><br><span style="font-size:13px">' + (pac.telefone||'—') + '</span></div>' +
+    '</div></div>';
+}
+
+function gerarRodapeImpressao(med) {
+  return '<div style="border-top:2px solid #2D5016;padding-top:20px;margin-top:20px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end">' +
+    '<div style="font-size:11px;color:#6B7280">' +
+    'Documento gerado em ' + new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) +
+    '</div>' +
+    '<div style="text-align:center">' +
+    '<div style="border-top:1px solid #333;width:220px;margin:0 auto 6px"></div>' +
+    '<div style="font-size:13px;font-weight:700">' + (med.nome||'') + '</div>' +
+    (med.crm?'<div style="font-size:12px;color:#4A7C2F">CRM ' + med.crm + '</div>':'') +
+    (med.especialidade?'<div style="font-size:11px;color:#6B7280">' + med.especialidade + '</div>':'') +
+    '<div style="font-size:11px;color:#6B7280">NOC Clínica · Cuiabá-MT</div>' +
+    '</div></div></div>' +
+    '</div></body></html>';
+}
+
+function abrirJanelaImpressao(html, titulo) {
+  var win = window.open('', '_blank', 'width=800,height=900');
+  if (!win) { toast('Permita pop-ups para imprimir','error'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
 }
 
 // ============================================================
