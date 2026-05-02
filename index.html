@@ -3499,6 +3499,114 @@ function renderMedicoAreas() {
 // ============================================================
 // VER COMO PACIENTE (do prontuario medico)
 // ============================================================
+function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
+  var pacData = pacDataArg || prontuarioPac || {};
+  var nomePac = pacData.nome || currentPerfil.nome || 'Paciente';
+  var primeiroNome = nomePac.split(' ')[0];
+  var h = new Date().getHours();
+  var saudacao = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  var score = calcHealthScore(resultados);
+  var badge = score >= 85 ? 'ÓTIMO 🏆' : score >= 65 ? 'BOM 💪' : score >= 40 ? 'ATENÇÃO ⚠️' : 'CUIDE-SE ❤️';
+  var motivMsg = score >= 85 ? '🌟 Você está indo muito bem! Continue com seus hábitos saudáveis.' :
+    score >= 65 ? '💪 Bom trabalho! Pequenos ajustes vão te levar ao ótimo.' :
+    score >= 40 ? '⚠️ Alguns itens precisam de atenção. Converse com seu médico.' :
+    '❤️ Cuide-se! Siga as orientações do seu médico.';
+  var allP = {};
+  for (var i = 0; i < resultados.length; i++) {
+    var r = resultados[i];
+    var vals = r.valores || {};
+    var ks = Object.keys(vals);
+    for (var j = 0; j < ks.length; j++) {
+      var k = ks[j];
+      if (!allP[k]) allP[k] = [];
+      allP[k].push(Object.assign({}, vals[k], {data: r.data, areaNome: r.areaNome}));
+    }
+  }
+  var pkeys = Object.keys(allP);
+  var normalCount = 0, warnCount = 0, altCount = 0;
+  var pacCtxV = {sexo: pacData.sexo||'M', dataNasc: pacData.dataNasc||null};
+  for (var pi = 0; pi < pkeys.length; pi++) {
+    var latest = allP[pkeys[pi]][0];
+    var refObjV = obterRef(latest, pkeys[pi], pacCtxV.sexo, pacCtxV.dataNasc);
+    var sV = refObjV ? getStatus(latest.valor, refObjV.min, refObjV.max, 'numero') : 'normal';
+    if (sV === 'normal') normalCount++; else if (sV === 'warn') warnCount++; else altCount++;
+  }
+  var backBtn = isDoctor ? '<button onclick="renderProntuario()" style="position:absolute;top:14px;left:14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:6px 14px;font-size:.8rem;cursor:pointer">← Voltar</button>' : '';
+  var html = '<div class="health-hero" style="border-radius:20px 20px 0 0">' + backBtn +
+    '<div style="font-size:.88rem;opacity:.8;margin-bottom:4px">' + saudacao + ', <strong>' + primeiroNome + '</strong>! 👋</div>' +
+    '<div style="font-size:.78rem;opacity:.7;margin-bottom:12px">NOC Clínica · ' + (pacData.especialidade||'Acompanhamento') + '</div>' +
+    '<div class="health-score">' + score + '%</div>' +
+    '<div style="font-size:.8rem;opacity:.75;margin-bottom:8px">Índice de Saúde</div>' +
+    '<div class="health-bar-bg"><div class="health-bar-fill" style="width:' + score + '%"></div></div>' +
+    '<div style="margin-top:10px;background:rgba(255,255,255,.15);display:inline-block;padding:6px 20px;border-radius:99px;font-weight:800;font-size:1rem">' + badge + '</div>' +
+    '<div style="display:flex;justify-content:center;gap:24px;margin-top:16px">' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + normalCount + '</div><div style="font-size:.72rem;opacity:.8">Normais</div></div>' +
+    '<div style="width:1px;background:rgba(255,255,255,.2)"></div>' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + warnCount + '</div><div style="font-size:.72rem;opacity:.8">Atenção</div></div>' +
+    '<div style="width:1px;background:rgba(255,255,255,.2)"></div>' +
+    '<div style="text-align:center"><div style="font-size:1.6rem;font-weight:800">' + altCount + '</div><div style="font-size:.72rem;opacity:.8">Alterados</div></div>' +
+    '</div></div>';
+  html += '<div style="background:#fff;border-radius:0 0 16px 16px;padding:14px 20px;margin-bottom:16px;border:1px solid var(--gray-200);border-top:none">' +
+    '<p style="font-size:.85rem;color:var(--text-soft);text-align:center">' + motivMsg + '</p></div>';
+  // Exam list sorted: altered → warn → normal
+  if (pkeys.length) {
+    var grouped = {danger:[], warn:[], normal:[]};
+    for (var pk = 0; pk < pkeys.length; pk++) {
+      var nm = pkeys[pk];
+      var hist0 = allP[nm];
+      hist0.sort(function(a,b){ return (b.data||'') > (a.data||'') ? 1:-1; });
+      var lat0 = hist0[0];
+      var numVal = normalizarValorNumerico(lat0.valor);
+      if (isNaN(numVal)) continue;
+      var rObj0 = obterRef(lat0, nm, pacCtxV.sexo, pacCtxV.dataNasc);
+      var s0 = rObj0 ? getStatus(lat0.valor, rObj0.min, rObj0.max, 'numero') : 'normal';
+      var icon0 = s0==='danger'?'🔴':s0==='warn'?'🟡':'🟢';
+      var dateStr = lat0.data ? lat0.data.substr(8,2)+'/'+lat0.data.substr(5,2)+'/'+lat0.data.substr(0,4) : '';
+      grouped[s0].push({nm:nm,lat:lat0,s:s0,icon:icon0,dateStr:dateStr,rObj:rObj0});
+    }
+    var allGroups = grouped.danger.concat(grouped.warn).concat(grouped.normal);
+    if (allGroups.length) {
+      var examRows = '';
+      for (var gi = 0; gi < allGroups.length; gi++) {
+        var g = allGroups[gi];
+        var refTxt = g.rObj ? 'Ref: '+g.rObj.min+'–'+g.rObj.max+' '+(g.rObj.un||g.lat.unidade||'') : '';
+        examRows += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)">' +
+          '<span style="font-size:1.1rem">' + g.icon + '</span>' +
+          '<div style="flex:1"><div style="font-weight:600;font-size:.88rem">' + g.nm + '</div>' +
+          '<div style="font-size:.72rem;color:var(--gray)">' + refTxt + (g.dateStr?' · '+g.dateStr:'') + '</div></div>' +
+          '<div style="font-weight:800;font-size:1.1rem;color:' + statusColor(g.s) + '">' + formatarValorDisplay(g.lat.valor) + '</div>' +
+          '<div style="font-size:.75rem;color:var(--gray);min-width:36px;text-align:right">' + (g.lat.unidade||'') + '</div></div>';
+      }
+      html += '<div class="card" style="margin-bottom:16px">' +
+        '<div style="font-weight:700;font-size:.95rem;margin-bottom:4px">📋 Seus Exames</div>' +
+        '<div style="font-size:.75rem;color:var(--gray);margin-bottom:12px">' + allGroups.length + ' parâmetros · 🔴 Alterado 🟡 Atenção 🟢 Normal</div>' +
+        examRows + '</div>';
+    }
+  }
+  if (!resultados.length) {
+    html += '<div class="card" style="text-align:center;color:var(--gray);padding:40px"><div style="font-size:2rem;margin-bottom:8px">🔬</div>Seus exames aparecerão aqui quando seu médico os cadastrar.</div>';
+  }
+  setMainContent(html);
+}
+
+function calcHealthScore(resultados) {
+  if (!resultados || !resultados.length) return 100;
+  var total = 0, alt = 0;
+  for (var i = 0; i < resultados.length; i++) {
+    var vals = resultados[i].valores || {};
+    var ks = Object.keys(vals);
+    for (var j = 0; j < ks.length; j++) {
+      var v = vals[ks[j]];
+      total++;
+      var s = getStatus(v.valor, v.refMin, v.refMax, 'numero');
+      if (s === 'danger') alt += 2;
+      else if (s === 'warn') alt += 1;
+    }
+  }
+  if (!total) return 100;
+  return Math.max(0, Math.round(100 - (alt / total) * 50));
+}
+
 function verComoPaciente(pacId) {
   pacienteMedUid = getMedUid();
   pacientePacId = pacId;
