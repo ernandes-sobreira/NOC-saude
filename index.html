@@ -4096,6 +4096,228 @@ function renderPacienteRemedios() {
 }
 
 // ============================================================
+// PRONTUÁRIO — PRESCRIÇÕES
+// ============================================================
+function loadProntuarioPrescricoes() {
+  var el = document.getElementById('pron-prescricoes');
+  if (!el) return;
+  el.innerHTML = 'Carregando...';
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('prescricoes')
+    .where('pacienteId','==',prontuarioPacId).get()
+    .then(function(snap) {
+      var presc = [];
+      snap.forEach(function(d) { presc.push(Object.assign({}, d.data(), {id:d.id})); });
+      presc.sort(function(a,b) { return (b.dataInicio||'')>(a.dataInicio||'')?1:-1; });
+      var html = '<div class="flex gap-1 mb-2"><button class="btn btn-primary" onclick="modalNovaPrescrição()">💊 Nova Prescrição</button></div>';
+      if (!presc.length) {
+        html += '<div class="card" style="color:var(--gray);text-align:center;padding:32px">Nenhuma prescrição cadastrada ainda.</div>';
+      } else {
+        for (var i=0;i<presc.length;i++) {
+          var p = presc[i];
+          var ativa = !p.dataFim || p.dataFim >= todayISO();
+          var horasHtml = '';
+          if (p.horarios && p.horarios.length) {
+            for (var hi=0;hi<p.horarios.length;hi++) {
+              horasHtml += '<span style="background:var(--primary-light);border-radius:6px;padding:3px 8px;font-size:.75rem;font-weight:700;color:var(--primary)">'+p.horarios[hi].hora+(p.horarios[hi].obs?' — '+p.horarios[hi].obs:'')+'</span> ';
+            }
+          }
+          html += '<div class="card mb-2" style="border-left:4px solid '+(ativa?'var(--success)':'var(--gray-200)')+';opacity:'+(ativa?1:0.65)+'">' +
+            '<div class="flex justify-between align-center mb-1">' +
+            '<div><div style="font-weight:700">💊 '+(p.medicamento||'')+'</div>' +
+            '<div style="font-size:.8rem;color:var(--text-soft)">'+(p.dose||'')+(p.via?' · '+p.via:'')+'</div></div>' +
+            (ativa?'<span class="badge badge-success">Ativo</span>':'<span class="badge" style="background:var(--gray-light);color:var(--gray)">Encerrado</span>') +
+            '</div>' +
+            (horasHtml?'<div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap">'+horasHtml+'</div>':'') +
+            (p.duracao?'<div style="font-size:.75rem;color:var(--gray)">⏱ '+p.duracao+'</div>':'') +
+            (p.instrucoes?'<div style="font-size:.78rem;background:var(--warn-light);padding:6px 10px;border-radius:6px;margin-top:6px">ℹ️ '+p.instrucoes+'</div>':'') +
+            '<div style="font-size:.7rem;color:var(--gray);margin-top:6px">'+p.dataInicio+(p.dataFim?' → '+p.dataFim:'')+'</div>' +
+            '<div class="flex gap-1 mt-2"><button class="btn btn-danger btn-sm" onclick="excluirPrescricao(\''+p.id+'\')">🗑️ Remover</button></div>' +
+            '</div>';
+        }
+      }
+      el.innerHTML = html;
+    }).catch(function(e) { el.innerHTML = '<p style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'')+'</p>'; });
+}
+
+function modalNovaPrescrição() {
+  openModal(
+    '<div class="modal" style="max-width:600px"><div class="modal-header"><h3>💊 Nova Prescrição</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:14px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
+    '<div class="form-grid mb-2">' +
+    '<div style="grid-column:1/-1"><label>Medicamento *</label><input id="pr-med" placeholder="Ex: Levotiroxina 50mcg"></div>' +
+    '<div><label>Dose / Posologia</label><input id="pr-dose" placeholder="1 comprimido em jejum"></div>' +
+    '<div><label>Via</label><input id="pr-via" value="Oral" placeholder="Oral, Tópica..."></div>' +
+    '<div><label>Início</label><input type="date" id="pr-inicio" value="'+todayISO()+'"></div>' +
+    '<div><label>Fim (opcional)</label><input type="date" id="pr-fim"></div>' +
+    '<div style="grid-column:1/-1"><label>Duração</label><input id="pr-dur" placeholder="Uso contínuo, 30 dias..."></div>' +
+    '</div>' +
+    '<div class="mb-2"><label>Horários</label>' +
+    '<div id="pr-horarios-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>' +
+    '<button type="button" class="btn btn-gray btn-sm" onclick="adicionarHorario(\'08:00\')">+ Horário</button></div>' +
+    '<div><label>Instruções especiais</label><textarea id="pr-instrucoes" rows="2" placeholder="Ex: Tomar em jejum 30min antes..."></textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarPrescricao()">Salvar</button></div></div>'
+  );
+  adicionarHorario('08:00');
+}
+
+var _prescHorCount = 0;
+function adicionarHorario(horaDefault) {
+  _prescHorCount++;
+  var id = 'ph-'+_prescHorCount;
+  var wrap = document.getElementById('pr-horarios-wrap');
+  if (!wrap) return;
+  var div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:flex;gap:8px;align-items:center';
+  div.innerHTML = '<input type="time" id="'+id+'-hora" value="'+(horaDefault||'08:00')+'" style="width:110px;flex-shrink:0">'+
+    '<input id="'+id+'-obs" placeholder="Obs: com água, em jejum..." style="flex:1">'+
+    '<button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById(\''+id+'\').remove()">✕</button>';
+  wrap.appendChild(div);
+}
+
+function salvarPrescricao() {
+  var med = (document.getElementById('pr-med').value||'').trim();
+  if (!med) { toast('Informe o medicamento','error'); return; }
+  var horarios = [];
+  var rows = document.querySelectorAll('#pr-horarios-wrap > div');
+  for (var i=0;i<rows.length;i++) {
+    var hId = rows[i].id;
+    var hEl = document.getElementById(hId+'-hora');
+    var oEl = document.getElementById(hId+'-obs');
+    if (hEl && hEl.value) horarios.push({hora:hEl.value, obs:oEl?oEl.value.trim():''});
+  }
+  var doc = {
+    pacienteId: prontuarioPacId,
+    pacienteNome: prontuarioPac?(prontuarioPac.nome||''):'',
+    medicamento: med,
+    dose: (document.getElementById('pr-dose').value||'').trim(),
+    via: (document.getElementById('pr-via').value||'Oral').trim(),
+    dataInicio: document.getElementById('pr-inicio').value||todayISO(),
+    dataFim: document.getElementById('pr-fim').value||'',
+    duracao: (document.getElementById('pr-dur').value||'').trim(),
+    horarios: horarios,
+    instrucoes: (document.getElementById('pr-instrucoes').value||'').trim(),
+    medicoNome: currentPerfil?(currentPerfil.nome||''):''
+  };
+  db.collection('users').doc(getMedUid()).collection('prescricoes').add(doc)
+    .then(function() { toast('Prescrição salva! ✅','success'); closeModal(); loadProntuarioPrescricoes(); })
+    .catch(function() { toast('Erro ao salvar','error'); });
+}
+
+function excluirPrescricao(pId) {
+  if (!confirm('Remover esta prescrição?')) return;
+  db.collection('users').doc(getMedUid()).collection('prescricoes').doc(pId).delete()
+    .then(function() { toast('Removido','success'); loadProntuarioPrescricoes(); });
+}
+
+// ============================================================
+// PRONTUÁRIO — PEDIDOS
+// ============================================================
+function loadProntuarioPedidos() {
+  var el = document.getElementById('pron-pedidos');
+  if (!el) return;
+  el.innerHTML = 'Carregando...';
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('pedidos')
+    .where('pacienteId','==',prontuarioPacId).get()
+    .then(function(snap) {
+      var peds = [];
+      snap.forEach(function(d) { peds.push(Object.assign({}, d.data(), {id:d.id})); });
+      peds.sort(function(a,b) { return (b.data||'')>(a.data||'')?1:-1; });
+      var html = '<div class="flex gap-1 mb-2"><button class="btn btn-primary" onclick="modalNovoPedido()">📝 Novo Pedido</button></div>';
+      if (!peds.length) {
+        html += '<div class="card" style="color:var(--gray);text-align:center;padding:32px">Nenhum pedido emitido ainda.</div>';
+      } else {
+        for (var i=0;i<peds.length;i++) {
+          var pd = peds[i];
+          var dataFmt = pd.data?pd.data.substr(8,2)+'/'+pd.data.substr(5,2)+'/'+pd.data.substr(0,4):'';
+          html += '<div class="card mb-2">' +
+            '<div class="flex justify-between align-center mb-2">' +
+            '<div><strong>'+(pd.tipo||'Exames')+'</strong><br><span style="font-size:.75rem;color:var(--gray)">'+dataFmt+'</span></div>' +
+            (pd.realizado?'<span class="badge badge-success">✅ Realizado</span>':'<span class="badge badge-blue">⏳ Pendente</span>') +
+            '</div>' +
+            '<div style="background:var(--gray-light);border-radius:8px;padding:10px;font-size:.85rem;white-space:pre-wrap">'+(pd.exames||'')+'</div>' +
+            (pd.obs?'<div style="font-size:.78rem;color:var(--text-soft);margin-top:6px;background:var(--warn-light);padding:6px;border-radius:6px">'+pd.obs+'</div>':'') +
+            '<div class="flex gap-1 mt-2">' +
+            '<button class="btn btn-outline btn-sm" onclick="togglePedidoRealizado(\''+pd.id+'\','+(pd.realizado?'true':'false')+')">'+
+            (pd.realizado?'↩ Marcar pendente':'✅ Marcar realizado')+'</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="excluirPedido(\''+pd.id+'\')">🗑️</button>' +
+            '</div></div>';
+        }
+      }
+      el.innerHTML = html;
+    }).catch(function(e) { el.innerHTML = '<p style="color:var(--danger)">Erro: '+(e&&e.message?e.message:'')+'</p>'; });
+}
+
+function modalNovoPedido() {
+  var EXAMES_COMUNS = ['Hemograma completo','Glicose','HbA1c','Colesterol Total','HDL','LDL','Triglicerídeos',
+    'TSH','T4 Livre','Vitamina D','Vitamina B12','Ferritina','PCR Ultrassensível',
+    'TGO (AST)','TGP (ALT)','GGT','Fosfatase Alcalina','Creatinina','Ureia','Ácido Úrico',
+    'Testosterona Total','Estradiol','DHEA-S','Prolactina','FSH','LH','Cortisol Basal',
+    'Insulina','IGF-1','SHBG','Zinco','Magnésio'];
+  var chks = '';
+  for (var i=0;i<EXAMES_COMUNS.length;i++) {
+    chks += '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;padding:3px 0;cursor:pointer">' +
+      '<input type="checkbox" value="'+EXAMES_COMUNS[i]+'" class="pedido-exame-chk" style="width:15px;height:15px"> '+EXAMES_COMUNS[i]+'</label>';
+  }
+  openModal('<div class="modal" style="max-width:600px"><div class="modal-header"><h3>📝 Pedido de Exame</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
+    '<div class="form-grid mb-2">' +
+    '<div><label>Tipo</label><input id="ped-tipo" value="Exames Laboratoriais"></div>' +
+    '<div><label>Data</label><input type="date" id="ped-data" value="'+todayISO()+'"></div>' +
+    '</div>' +
+    '<div class="mb-2"><label>Exames (marque ou escreva abaixo)</label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;max-height:200px;overflow-y:auto">'+chks+'</div></div>' +
+    '<div class="mb-2"><label>Ou escreva livremente</label><textarea id="ped-exames" rows="3" placeholder="Ex: Hemograma, Glicose..."></textarea></div>' +
+    '<div><label>Observações</label><textarea id="ped-obs" rows="2" placeholder="Indicação clínica..."></textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarPedido()">Emitir Pedido</button></div></div>');
+}
+
+function salvarPedido() {
+  var data = document.getElementById('ped-data').value;
+  var tipo = (document.getElementById('ped-tipo').value||'').trim();
+  var checks = document.querySelectorAll('.pedido-exame-chk:checked');
+  var examesList = [];
+  for (var i=0;i<checks.length;i++) examesList.push('• '+checks[i].value);
+  var livre = (document.getElementById('ped-exames').value||'').trim();
+  if (livre) examesList.push(livre);
+  if (!examesList.length) { toast('Selecione ou escreva os exames','error'); return; }
+  var doc = {
+    pacienteId: prontuarioPacId,
+    pacienteNome: prontuarioPac?(prontuarioPac.nome||''):'',
+    data: data, tipo: tipo||'Exames Laboratoriais',
+    exames: examesList.join('\n'),
+    obs: (document.getElementById('ped-obs').value||'').trim(),
+    medicoNome: currentPerfil?(currentPerfil.nome||''):'',
+    realizado: false
+  };
+  db.collection('users').doc(getMedUid()).collection('pedidos').add(doc)
+    .then(function() { toast('Pedido emitido! ✅','success'); closeModal(); loadProntuarioPedidos(); })
+    .catch(function() { toast('Erro ao salvar','error'); });
+}
+
+function togglePedidoRealizado(pedId, atual) {
+  db.collection('users').doc(getMedUid()).collection('pedidos').doc(pedId)
+    .update({realizado:!atual})
+    .then(function() { loadProntuarioPedidos(); });
+}
+
+function excluirPedido(pedId) {
+  if (!confirm('Excluir este pedido?')) return;
+  db.collection('users').doc(getMedUid()).collection('pedidos').doc(pedId).delete()
+    .then(function() { toast('Excluído','success'); loadProntuarioPedidos(); });
+}
+
+// ============================================================
 // PRONTUÁRIO — METAS
 // ============================================================
 function loadProntuarioMetas() {
