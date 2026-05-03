@@ -892,29 +892,28 @@ function buildSidebar() {
   // Logout button - always visible, big touch target
   var footer = document.getElementById('sidebar-footer');
   if (footer) {
-    var footerHtml = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>';
-    // Se admin está visualizando como médico, adiciona botão de retorno
-    if (window._adminBackup) {
-      footerHtml += '<button class="btn btn-primary w-100" style="margin-top:8px;background:#DC2626;font-size:.82rem" onclick="voltarParaAdmin()">🔙 Voltar ao Admin</button>';
-    }
-    footer.innerHTML = footerHtml;
+    footer.innerHTML = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>' +
+      '<button id="btn-voltar-admin" onclick="voltarParaAdmin()" style="display:none;width:100%;margin-top:8px;padding:10px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer">🔙 Voltar ao Admin</button>';
   }
-  // Banner de modo visualização
-  if (window._adminBackup) {
-    setTimeout(function() {
-      var existing = document.getElementById('admin-view-banner');
-      if (!existing) {
-        var header = document.querySelector('.sidebar-logo');
-        if (header) {
-          var banner = document.createElement('div');
-          banner.id = 'admin-view-banner';
-          banner.style.cssText = 'background:#FEF3C7;color:#92400E;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #FCD34D';
-          banner.textContent = '👁 ADMIN visualizando como médico';
-          header.parentNode.insertBefore(banner, header.nextSibling);
-        }
+  // Atualiza visibilidade do botão e banner conforme modo atual
+  setTimeout(function() {
+    var btnVoltar = document.getElementById('btn-voltar-admin');
+    if (btnVoltar) btnVoltar.style.display = window._adminBackup ? 'block' : 'none';
+    // Banner
+    var existing = document.getElementById('admin-view-banner');
+    if (window._adminBackup && !existing) {
+      var sidebarEl = document.querySelector('.sidebar');
+      if (sidebarEl) {
+        var banner = document.createElement('div');
+        banner.id = 'admin-view-banner';
+        banner.style.cssText = 'background:#FEF3C7;color:#92400E;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #FCD34D';
+        banner.textContent = '👁 ADMIN visualizando como médico';
+        sidebarEl.insertBefore(banner, sidebarEl.firstChild);
       }
-    }, 100);
-  }
+    } else if (!window._adminBackup && existing) {
+      existing.remove();
+    }
+  }, 50);
 }
 function navTo(pageId) {
   currentPage = pageId;
