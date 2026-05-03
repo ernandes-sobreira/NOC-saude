@@ -520,9 +520,17 @@ function doLogin() {
           .then(entrarComCred)
           .catch(function(e) {
             // Se nao existe ainda, cria a conta interna
-            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' ||
-                e.message.indexOf('user-not-found') >= 0 || e.message.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 ||
-                e.message.indexOf('invalid-credential') >= 0) {
+            var msg = (e.message||'') + (e.code||'');
+            var ehNaoExiste = msg.indexOf('user-not-found') >= 0 ||
+                msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 ||
+                msg.indexOf('invalid-login-credentials') >= 0 ||
+                msg.indexOf('invalid-credential') >= 0 ||
+                msg.indexOf('wrong-password') >= 0 ||
+                e.code === 'auth/user-not-found' ||
+                e.code === 'auth/invalid-credential' ||
+                e.code === 'auth/invalid-login-credentials' ||
+                e.code === 'auth/wrong-password';
+            if (ehNaoExiste) {
               auth.createUserWithEmailAndPassword(emailInterno, senhaInterna)
                 .then(entrarComCred)
                 .catch(function(e2) {
