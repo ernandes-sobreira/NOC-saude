@@ -4814,9 +4814,12 @@ function renderVisaoPaciente(resultados, isDoctor, pacId, pacDataArg) {
   }
   var datasOrdenadas = Object.keys(datasDisp).sort(function(a,b){return b>a?1:-1;});
 
-  // Default: only the most recent date checked
+  // Paciente vê TODAS as datas por padrão (para gráficos de evolução)
+  // Médico pode filtrar depois
   var datasSelecionadas = {};
-  if (datasOrdenadas.length > 0) datasSelecionadas[datasOrdenadas[0]] = true;
+  for (var di=0; di<datasOrdenadas.length; di++) {
+    datasSelecionadas[datasOrdenadas[di]] = true;
+  }
 
   // Store globally for recalc
   window._visaoPacData = {resultados:resultados, isDoctor:isDoctor, pacId:pacId, pacData:pacData, pacCtx:pacCtx};
@@ -5020,9 +5023,6 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
   if (!resFiltrados.length||sysCount===0) {
     html+='<div class="card" style="text-align:center;color:var(--gray);padding:48px"><div style="font-size:3rem;margin-bottom:12px">🔬</div><p>'+(resultados.length?'Selecione pelo menos uma data acima.':'Seus exames aparecerão aqui quando seu médico os cadastrar.')+'</p></div>';
   }
-  // Renderiza minigráficos após inserir no DOM
-  window._pacMiniCharts = [];
-
   if (currentRole === 'paciente' && pacienteMedUid && pacientePacId) {
     html += '<div class="card mb-3" style="text-align:center">' +
       '<div style="font-size:.85rem;color:var(--gray);margin-bottom:10px">Envie uma foto de acompanhamento para seu médico</div>' +
