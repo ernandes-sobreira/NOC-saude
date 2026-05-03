@@ -2514,10 +2514,17 @@ function adminEditarConvite(cod) {
 }
 
 function gerarCodigoSeguro() {
+  // A1: usa crypto.getRandomValues
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   function bloco(n) {
     var s = '';
-    for (var i=0;i<n;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    if (window.crypto && window.crypto.getRandomValues) {
+      var arr = new Uint8Array(n);
+      window.crypto.getRandomValues(arr);
+      for (var i=0;i<n;i++) s += chars[arr[i] % chars.length];
+    } else {
+      for (var i=0;i<n;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    }
     return s;
   }
   return 'NOC-' + bloco(4) + '-' + bloco(4);
@@ -3073,7 +3080,13 @@ function gerarCodigoAuto() {
   if (!el) return;
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var code = '';
-  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  if (window.crypto && window.crypto.getRandomValues) {
+    var _arr = new Uint8Array(6);
+    window.crypto.getRandomValues(_arr);
+    for (var i = 0; i < 6; i++) code += chars[_arr[i] % chars.length];
+  } else {
+    for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  }
   el.value = code;
 }
 function abrirModalNovoPaciente() {
@@ -3146,7 +3159,13 @@ function gerarCodigoEdicao() {
   if (!el) return;
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var code = '';
-  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  if (window.crypto && window.crypto.getRandomValues) {
+    var _arr = new Uint8Array(6);
+    window.crypto.getRandomValues(_arr);
+    for (var i = 0; i < 6; i++) code += chars[_arr[i] % chars.length];
+  } else {
+    for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  }
   el.value = code;
 }
 function modalEditarPaciente(pacId) {
@@ -6115,8 +6134,22 @@ function salvarFoto() {
     : 'users/' + _fisicoMedUid + '/pacientes/' + _fisicoPacId + '/fotos/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   var ref = storage.ref(path);
 
+  // C3: Validação de tipo e tamanho antes do upload
+  var TIPOS_PERMITIDOS = ['image/jpeg','image/jpg','image/png','image/webp','image/gif'];
+  var TAMANHO_MAX = 10 * 1024 * 1024; // 10MB
+  if (TIPOS_PERMITIDOS.indexOf(file.type) < 0) {
+    toast('Tipo de arquivo não permitido. Use JPG, PNG ou WEBP.', 'error');
+    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+    return;
+  }
+  if (file.size > TAMANHO_MAX) {
+    toast('Arquivo muito grande. Máximo 10MB.', 'error');
+    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+    return;
+  }
+
   var doUpload = function() {
-    ref.put(file).then(function(snap) {
+    ref.put(file, { contentType: file.type }).then(function(snap) {
       return snap.ref.getDownloadURL();
     }).then(function(url) {
       return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
@@ -7905,7 +7938,12 @@ function recSalvarNovoPaciente() {
   var medUid = (document.getElementById('rec-med-uid').value||'').trim();
   var nome = (document.getElementById('rec-pac-nome').value||'').trim();
   if (!medUid || !nome) { toast('Médico e nome são obrigatórios','error'); return; }
-  var codigo = 'PAC' + Math.random().toString(36).substr(2,6).toUpperCase();
+  // A1: código criptograficamente seguro
+  var _pacArr = new Uint8Array(6);
+  if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(_pacArr);
+  var _pacChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var codigo = 'PAC';
+  for (var _pi=0;_pi<6;_pi++) codigo += _pacChars[(_pacArr[_pi]||Math.floor(Math.random()*32)) % _pacChars.length];
   var dados = {
     nome: nome,
     dataNasc: document.getElementById('rec-pac-nasc').value||'',
