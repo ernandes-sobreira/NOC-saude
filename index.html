@@ -85,6 +85,33 @@ tr:hover td{background:var(--primary-light)}
 .senha-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:1.1rem;padding:4px;line-height:1}
 .senha-toggle:hover{color:var(--primary)}
 
+
+/* ── AVALIAÇÃO FÍSICA ─────────────────────────────────── */
+.fisico-upload-zone{border:2px dashed var(--gray-200);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:.2s;background:#fafafa}
+.fisico-upload-zone:hover{border-color:var(--primary);background:var(--primary-light)}
+.fisico-foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}
+.fisico-foto-card{border-radius:10px;overflow:hidden;box-shadow:var(--shadow);background:#fff;cursor:pointer;transition:.2s;position:relative}
+.fisico-foto-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.fisico-foto-card img{width:100%;height:160px;object-fit:cover;display:block}
+.fisico-foto-info{padding:8px 10px;font-size:.75rem}
+.fisico-foto-info .cat{font-weight:700;color:var(--primary);font-size:.78rem}
+.fisico-foto-info .data{color:var(--gray)}
+.fisico-foto-del{position:absolute;top:6px;right:6px;background:rgba(220,38,38,.85);color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:.8rem;cursor:pointer;display:none;align-items:center;justify-content:center}
+.fisico-foto-card:hover .fisico-foto-del{display:flex}
+/* Slider comparador */
+.comparador-wrap{position:relative;overflow:hidden;border-radius:12px;user-select:none;background:#000;max-height:500px}
+.comparador-wrap img{width:100%;height:100%;object-fit:contain;display:block;position:absolute;top:0;left:0}
+.comparador-wrap .img-depois{position:relative;z-index:1}
+.comparador-wrap .img-antes{z-index:2;clip-path:inset(0 50% 0 0)}
+.comparador-handle{position:absolute;top:0;left:50%;width:3px;background:#fff;height:100%;z-index:10;cursor:ew-resize;box-shadow:0 0 8px rgba(0,0,0,.5)}
+.comparador-handle::after{content:'◀ ▶';position:absolute;top:50%;transform:translate(-50%,-50%);background:#fff;color:#333;border-radius:99px;padding:4px 10px;font-size:.75rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+/* Bio cards */
+.bio-metric-card{background:#fff;border-radius:12px;padding:14px;text-align:center;box-shadow:var(--shadow);border-top:3px solid var(--primary)}
+.bio-metric-val{font-size:1.5rem;font-weight:800;color:var(--text)}
+.bio-metric-label{font-size:.72rem;color:var(--gray);margin-top:2px}
+.bio-metric-delta{font-size:.75rem;font-weight:700;margin-top:4px}
+.delta-up{color:var(--danger)}.delta-down{color:var(--success)}.delta-eq{color:var(--gray)}
+
 /* LOGIN */
 #login-screen{min-height:100vh;background:var(--noc-marble);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 #login-screen::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(45,80,22,.06) 0%,transparent 70%)}
@@ -3053,6 +3080,7 @@ function renderProntuario() {
     '<div class="tab" onclick="switchPronTab(\'pedidos\',this)">📝 Pedidos</div>' +
     '<div class="tab" onclick="switchPronTab(\'metas\',this)">🎯 Metas</div>' +
     '<div class="tab" onclick="switchPronTab(\'agenda\',this)">📅 Agenda</div>' +
+    '<div class="tab" onclick="switchPronTab(\'fisico\',this)">💪 Avaliação Física</div>' +
     '</div>' +
     '<div id="pron-resumo" class="tab-panel active"></div>' +
     '<div id="pron-exames" class="tab-panel"></div>' +
@@ -3060,7 +3088,8 @@ function renderProntuario() {
     '<div id="pron-prescricoes" class="tab-panel"></div>' +
     '<div id="pron-pedidos" class="tab-panel"></div>' +
     '<div id="pron-metas" class="tab-panel"></div>' +
-    '<div id="pron-agenda" class="tab-panel"></div>'
+    '<div id="pron-agenda" class="tab-panel"></div>' +
+    '<div id="pron-fisico" class="tab-panel"></div>'
   );
   loadProntuarioResumo();
 }
@@ -3068,7 +3097,7 @@ function switchPronTab(tab, el) {
   var tabs = document.querySelectorAll('.tab');
   for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
   el.classList.add('active');
-  var panels = ['resumo','exames','laudos','prescricoes','pedidos','metas','agenda'];
+  var panels = ['resumo','exames','laudos','prescricoes','pedidos','metas','agenda','fisico'];
   for (var j = 0; j < panels.length; j++) {
     var panel = document.getElementById('pron-' + panels[j]);
     if (panel) panel.classList.toggle('active', panels[j] === tab);
@@ -3080,6 +3109,7 @@ function switchPronTab(tab, el) {
   else if (tab === 'pedidos') loadProntuarioPedidos();
   else if (tab === 'metas') loadProntuarioMetas();
   else if (tab === 'agenda') loadProntuarioAgenda();
+  else if (tab === 'fisico') loadAvaliacaoFisica();
 }
 function loadProntuarioResumo() {
   var uid = currentUser.uid;
@@ -4286,31 +4316,49 @@ function renderMedicoAreas() {
     if (!grupos[esp]) grupos[esp] = [];
     grupos[esp].push(todasSugestoes[gi]);
   }
-  var sugestoesHtml = '<div class="card mb-2">' +
-    '<div class="section-title" style="margin-bottom:4px">✨ Sugestões por Especialidade</div>' +
-    '<p style="font-size:.82rem;color:var(--gray);margin-bottom:14px">Clique em <strong>+ Adicionar</strong> para ativar uma área. Você pode editar depois.</p>';
+  // Cores e icones por especialidade
+  var espMeta = {
+    'Endocrinologia':        { cor:'#166534', bg:'#F0FDF4', borda:'#86EFAC', ico:'🧪' },
+    'Dermatologia Clínica':  { cor:'#9D174D', bg:'#FDF2F8', borda:'#F9A8D4', ico:'🌸' },
+    'Procedimentos Estéticos':{ cor:'#6B21A8', bg:'#F5F3FF', borda:'#C4B5FD', ico:'✨' },
+    'Cardiologia':           { cor:'#991B1B', bg:'#FFF1F2', borda:'#FCA5A5', ico:'🫀' },
+    'Clínica Geral':         { cor:'#1E40AF', bg:'#EFF6FF', borda:'#93C5FD', ico:'🩺' },
+    'Nutrição':             { cor:'#065F46', bg:'#ECFDF5', borda:'#6EE7B7', ico:'🥗' },
+    'Ginecologia':           { cor:'#9D174D', bg:'#FFF1F2', borda:'#FBCFE8', ico:'💗' },
+    'Urologia':              { cor:'#1E3A5F', bg:'#EFF6FF', borda:'#BAE6FD', ico:'🫧' }
+  };
   var espOrder = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
+  var sugestoesHtml = '<div style="margin-bottom:8px"><div class="section-title">✨ Sugestões por Especialidade</div>' +
+    '<p style="font-size:.82rem;color:var(--gray);margin-top:4px">Clique em <strong>+ Adicionar</strong> para ativar uma área. Você pode editar depois.</p></div>';
   for (var oi = 0; oi < espOrder.length; oi++) {
     var esp = espOrder[oi];
     var grupo = grupos[esp];
     if (!grupo) continue;
-    sugestoesHtml += '<div style="margin-bottom:16px">' +
-      '<div style="font-size:.8rem;font-weight:700;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--primary-light)">' + esp + '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">';
+    var meta = espMeta[esp] || { cor:'var(--primary)', bg:'var(--primary-light)', borda:'var(--gray-200)', ico:'🔬' };
+    sugestoesHtml +=
+      '<div style="background:' + meta.bg + ';border:2px solid ' + meta.borda + ';border-radius:16px;padding:18px;margin-bottom:16px">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+      '<span style="font-size:1.6rem;background:#fff;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">' + meta.ico + '</span>' +
+      '<div>' +
+      '<div style="font-weight:800;font-size:1rem;color:' + meta.cor + '">' + esp + '</div>' +
+      '<div style="font-size:.75rem;color:' + meta.cor + ';opacity:.7">' + grupo.length + ' grupo(s) de exames disponíveis</div>' +
+      '</div></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px">';
     for (var gi2 = 0; gi2 < grupo.length; gi2++) {
       var idx = todasSugestoes.indexOf(grupo[gi2]);
       var s = grupo[gi2];
-      sugestoesHtml += '<div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:6px">' +
+      sugestoesHtml +=
+        '<div style="background:#fff;border:1.5px solid ' + meta.borda + ';border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.05)">' +
         '<div style="display:flex;align-items:center;gap:8px">' +
-        '<span style="font-size:1.3rem">' + (s.area.ico||'🔬') + '</span>' +
-        '<div><div style="font-weight:700;font-size:.88rem">' + s.area.nome + '</div>' +
-        '<div style="font-size:.73rem;color:var(--gray)">' + s.area.params.length + ' parâmetros</div></div></div>' +
-        '<button class="btn btn-outline btn-sm" style="width:100%" onclick="adicionarAreaSugerida(' + idx + ')">+ Adicionar</button>' +
+        '<span style="font-size:1.25rem">' + (s.area.ico||'🔬') + '</span>' +
+        '<div><div style="font-weight:700;font-size:.87rem;color:#111">' + s.area.nome + '</div>' +
+        '<div style="font-size:.72rem;color:' + meta.cor + ';opacity:.8">' + s.area.params.length + ' parâmetros</div>' +
+        '</div></div>' +
+        '<button class="btn btn-sm" style="width:100%;background:' + meta.cor + ';color:#fff;border-radius:7px;font-size:.8rem;font-weight:700;padding:6px" onclick="adicionarAreaSugerida(' + idx + ')">+ Adicionar</button>' +
         '</div>';
     }
     sugestoesHtml += '</div></div>';
   }
-  sugestoesHtml += '</div>';
   setMainContent(
     '<div class="page-header flex justify-between align-center wrap gap-1">' +
     '<h2>⚗️ Áreas de Exame</h2>' +
@@ -4623,6 +4671,11 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
     score>=40?'Alguns pontos precisam de atenção. Siga as orientações.':
     'Cuide-se! Siga as orientações do seu médico.';
 
+  // Botão envio de foto para paciente
+  var btnEnviarFoto = (currentRole === 'paciente') ?
+    '<div style="text-align:center;margin-bottom:16px">' +
+    '<button class="btn btn-outline btn-sm" onclick="pacEnviarFoto()">📷 Enviar foto ao médico</button>' +
+    '</div>' : '';
   var backBtn = '';
 
   // ── HERO
@@ -4691,7 +4744,8 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
     '</div></div>';
 
   // ── METAS
-  var uid = pacienteMedUid || getMedUid();
+  // Para paciente logado, uid DEVE ser o do medico dono dos dados
+  var uid = pacienteMedUid || (currentRole !== 'paciente' ? getMedUid() : null);
   var pid = pacientePacId || ctx.pacId;
   if (uid && pid) html += '<div id="metas-wrap" style="margin-bottom:16px"></div>';
 
@@ -4757,6 +4811,12 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
     html+='<div class="card" style="text-align:center;color:var(--gray);padding:48px"><div style="font-size:3rem;margin-bottom:12px">🔬</div><p>'+(resultados.length?'Selecione pelo menos uma data acima.':'Seus exames aparecerão aqui quando seu médico os cadastrar.')+'</p></div>';
   }
 
+  if (currentRole === 'paciente' && pacienteMedUid && pacientePacId) {
+    html += '<div class="card mb-3" style="text-align:center">' +
+      '<div style="font-size:.85rem;color:var(--gray);margin-bottom:10px">Envie uma foto de acompanhamento para seu médico</div>' +
+      '<button class="btn btn-outline" onclick="pacEnviarFoto()">📷 Enviar Foto ao Médico</button>' +
+      '</div>';
+  }
   setMainContent(html);
 
   setTimeout(function() {
@@ -4916,7 +4976,7 @@ function renderPacienteDash() {
       var pacData = results[0].exists ? results[0].data() : {};
       var res = [];
       results[1].forEach(function(d) { res.push(Object.assign({}, d.data(), {id:d.id})); });
-      renderVisaoPaciente(res, false, null, pacData);
+      renderVisaoPaciente(res, false, pacientePacId, pacData);
     }).catch(function(e) {
       setMainContent('<div class="card" style="color:var(--danger);padding:20px">Erro: ' + (e&&e.message?e.message:'') + '</div>');
     });
@@ -5528,6 +5588,476 @@ function excluirMeta(id) {
   db.collection('users').doc(getMedUid()).collection('metas').doc(id).delete()
     .then(function() { toast('Meta removida','success'); loadProntuarioMetas(); });
 }
+
+// ============================================================
+// AVALIAÇÃO FÍSICA — Fotos + Bioimpedância + Gráficos
+// ============================================================
+var _fisicoFotos = [];
+var _fisicoMedUid = null;
+var _fisicoPacId  = null;
+var _fisicoIsAdmin = false;
+var _fisicoChart = null;
+
+function loadAvaliacaoFisica() {
+  var el = document.getElementById('pron-fisico');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--gray)">Carregando...</div>';
+
+  _fisicoMedUid  = getMedUid();
+  _fisicoPacId   = prontuarioPacId;
+  _fisicoIsAdmin = (currentRole === 'admin');
+
+  // Carrega fotos e bio em paralelo
+  Promise.all([
+    db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+      .collection('fisicoFotos').orderBy('dataTs','desc').get().catch(function(){return{docs:[]};}),
+    db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+      .collection('fisicoMedidas').orderBy('dataTs','asc').get().catch(function(){return{docs:[]};})
+  ]).then(function(res) {
+    _fisicoFotos = res[0].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    var medidas   = res[1].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    _renderFisicoTab(el, medidas);
+  }).catch(function(e){
+    el.innerHTML = '<div class="card" style="color:var(--danger)">Erro: ' + e.message + '</div>';
+  });
+}
+
+function _renderFisicoTab(el, medidas) {
+  var podeEditar = (currentRole === 'medico' || currentRole === 'admin');
+  var html =
+    // ── CABEÇALHO
+    '<div class="flex justify-between align-center wrap gap-1 mb-3">' +
+    '<h3 style="font-size:1rem">💪 Avaliação Física</h3>' +
+    (podeEditar ?
+      '<div class="flex gap-1">' +
+      '<button class="btn btn-outline btn-sm" onclick="abrirUploadFoto()">📷 Adicionar Foto</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="abrirModalBio()">📊 Lançar Medidas</button>' +
+      '</div>' : '') +
+    '</div>' +
+
+    // ── SEÇÃO FOTOS
+    '<div class="card mb-3">' +
+    '<div class="section-title mb-2">📷 Fotos de Evolução</div>' +
+    _renderFotoControles() +
+    '<div id="fisico-fotos-grid" class="fisico-foto-grid">' +
+    _renderFotoCards(podeEditar) +
+    '</div></div>' +
+
+    // ── COMPARADOR
+    '<div class="card mb-3" id="comparador-section">' +
+    '<div class="section-title mb-2">🔄 Comparador Antes / Depois</div>' +
+    _renderComparador() +
+    '</div>' +
+
+    // ── BIOIMPEDÂNCIA ÚLTIMA MEDIDA
+    (medidas.length ?
+      '<div class="card mb-3">' +
+      '<div class="flex justify-between align-center mb-2">' +
+      '<div class="section-title">⚖️ Última Medição — ' + medidas[medidas.length-1].data + '</div>' +
+      (podeEditar ? '<button class="btn btn-danger btn-sm" onclick="excluirMedida(\"'+medidas[medidas.length-1].id+'\")">🗑️</button>' : '') +
+      '</div>' +
+      _renderBioCards(medidas[medidas.length-1], medidas.length>=2?medidas[medidas.length-2]:null) +
+      '</div>' : '') +
+
+    // ── GRÁFICOS
+    (medidas.length >= 2 ?
+      '<div class="card mb-3">' +
+      '<div class="section-title mb-2">📈 Evolução ao Longo do Tempo</div>' +
+      '<div class="flex gap-1 mb-2" style="flex-wrap:wrap" id="bio-chart-btns">' +
+      _renderGraficosBotoes() +
+      '</div>' +
+      '<canvas id="bio-chart" height="100"></canvas>' +
+      '</div>' : '') +
+
+    // ── HISTÓRICO TABELA
+    (medidas.length ?
+      '<div class="card">' +
+      '<div class="section-title mb-2">📋 Histórico de Medidas</div>' +
+      '<div class="table-wrap">' +
+      '<table><thead><tr>' +
+      '<th>Data</th><th>Peso</th><th>%Gord.</th><th>M.Musc.</th><th>Água</th><th>G.Visc.</th><th>IMC</th><th>M.Basal</th><th>I.Met.</th>' +
+      (podeEditar?'<th></th>':'') +
+      '</tr></thead><tbody>' +
+      medidas.slice().reverse().map(function(m){
+        return '<tr>' +
+          '<td>' + m.data + '</td>' +
+          '<td>' + (m.peso||'-') + ' kg</td>' +
+          '<td>' + (m.gordura||'-') + ' %</td>' +
+          '<td>' + (m.muscular||'-') + ' kg</td>' +
+          '<td>' + (m.agua||'-') + ' %</td>' +
+          '<td>' + (m.visceral||'-') + '</td>' +
+          '<td>' + (m.imc||'-') + '</td>' +
+          '<td>' + (m.basal||'-') + ' kcal</td>' +
+          '<td>' + (m.idadeMet||'-') + ' anos</td>' +
+          (podeEditar?'<td><button class="btn btn-danger btn-sm" onclick="excluirMedida(\"'+m.id+'\")">🗑️</button></td>':'') +
+          '</tr>';
+      }).join('') +
+      '</tbody></table></div></div>' : '');
+
+  el.innerHTML = html;
+
+  // Inicializa gráfico com primeiro indicador
+  if (medidas.length >= 2) {
+    setTimeout(function(){ _renderGrafico(medidas, 'peso', 'Peso (kg)'); }, 100);
+  }
+  // Inicializa comparador
+  setTimeout(function(){ _initComparador(); }, 150);
+}
+
+function _renderFotoControles() {
+  var cats = [];
+  var catMap = {};
+  for (var i=0;i<_fisicoFotos.length;i++) {
+    var c = _fisicoFotos[i].categoria||'Geral';
+    if (!catMap[c]) { catMap[c]=true; cats.push(c); }
+  }
+  if (!cats.length) return '';
+  var btns = '<div class="flex gap-1 mb-2" style="flex-wrap:wrap">' +
+    '<button class="btn btn-outline btn-sm active" onclick="filtrarFotos(\'todas\',this)">Todas</button>';
+  for (var ci=0;ci<cats.length;ci++) {
+    btns += '<button class="btn btn-outline btn-sm" onclick="filtrarFotos(\''+cats[ci]+'\',this)">'+cats[ci]+'</button>';
+  }
+  btns += '</div>';
+  return btns;
+}
+
+function filtrarFotos(cat, btn) {
+  var btns = document.querySelectorAll('#pron-fisico .btn-outline.btn-sm');
+  for (var i=0;i<btns.length;i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  var fotos = cat==='todas' ? _fisicoFotos : _fisicoFotos.filter(function(f){return f.categoria===cat;});
+  var podeEditar = (currentRole==='medico'||currentRole==='admin');
+  var grid = document.getElementById('fisico-fotos-grid');
+  if (grid) grid.innerHTML = _renderFotoCardsArr(fotos, podeEditar);
+}
+
+function _renderFotoCards(podeEditar) {
+  return _renderFotoCardsArr(_fisicoFotos, podeEditar);
+}
+
+function _renderFotoCardsArr(fotos, podeEditar) {
+  if (!fotos.length) return '<div style="grid-column:1/-1;text-align:center;color:var(--gray);padding:32px">Nenhuma foto cadastrada ainda.<br><small>Clique em "Adicionar Foto" para começar.</small></div>';
+  return fotos.map(function(f,i){
+    return '<div class="fisico-foto-card" onclick="verFotoGrande(\'' + f.url + '\',\'' + (f.categoria||'') + '\',\'' + f.data + '\')">' +
+      '<img src="' + f.url + '" alt="' + (f.categoria||'foto') + '" loading="lazy">' +
+      (podeEditar ? '<button class="fisico-foto-del" onclick="event.stopPropagation();deletarFoto(\'' + f.id + '\',\'' + (f.storagePath||'') + '\')">✕</button>' : '') +
+      '<div class="fisico-foto-info"><div class="cat">' + (f.categoria||'Geral') + '</div><div class="data">' + f.data + '</div>' +
+      (f.obs?'<div style="color:var(--text-soft);font-size:.72rem">'+f.obs+'</div>':'') +
+      '</div></div>';
+  }).join('');
+}
+
+function _renderComparador() {
+  if (_fisicoFotos.length < 2) {
+    return '<div style="text-align:center;color:var(--gray);padding:24px">Adicione pelo menos 2 fotos para usar o comparador.</div>';
+  }
+  var opts = _fisicoFotos.map(function(f,i){
+    return '<option value="'+i+'">'+f.data+' — '+(f.categoria||'Geral')+'</option>';
+  }).join('');
+  return '<div class="flex gap-2 mb-2 align-center wrap">' +
+    '<div style="flex:1"><label>Foto A (antes)</label><select id="comp-a" onchange="_initComparador()">' + opts + '</select></div>' +
+    '<div style="flex:1"><label>Foto B (depois)</label><select id="comp-b" onchange="_initComparador()">' +
+    _fisicoFotos.map(function(f,i){ return '<option value="'+i+'"'+(i===1?' selected':'')+'>'+f.data+' — '+(f.categoria||'Geral')+'</option>'; }).join('') +
+    '</select></div></div>' +
+    '<div class="comparador-wrap" id="comparador-wrap" style="height:360px">' +
+    '<img class="img-depois" id="comp-img-b" src="" alt="depois">' +
+    '<img class="img-antes" id="comp-img-a" src="" alt="antes" style="clip-path:inset(0 50% 0 0)">' +
+    '<div class="comparador-handle" id="comp-handle"></div>' +
+    '</div>';
+}
+
+function _initComparador() {
+  var wrap = document.getElementById('comparador-wrap');
+  if (!wrap || _fisicoFotos.length < 2) return;
+  var selA = document.getElementById('comp-a');
+  var selB = document.getElementById('comp-b');
+  var idxA = selA ? parseInt(selA.value)||0 : 0;
+  var idxB = selB ? parseInt(selB.value)||1 : 1;
+  var imgA = document.getElementById('comp-img-a');
+  var imgB = document.getElementById('comp-img-b');
+  if (!imgA || !imgB) return;
+  if (_fisicoFotos[idxA]) imgA.src = _fisicoFotos[idxA].url;
+  if (_fisicoFotos[idxB]) imgB.src = _fisicoFotos[idxB].url;
+
+  var handle = document.getElementById('comp-handle');
+  if (!handle) return;
+  var pct = 50;
+  function setPct(p) {
+    pct = Math.max(0, Math.min(100, p));
+    handle.style.left = pct + '%';
+    imgA.style.clipPath = 'inset(0 ' + (100-pct) + '% 0 0)';
+  }
+  setPct(50);
+
+  function onMove(x) {
+    var rect = wrap.getBoundingClientRect();
+    setPct(((x - rect.left) / rect.width) * 100);
+  }
+  handle.onmousedown = function(e) {
+    e.preventDefault();
+    document.onmousemove = function(ev){ onMove(ev.clientX); };
+    document.onmouseup   = function(){ document.onmousemove=null; document.onmouseup=null; };
+  };
+  handle.ontouchstart = function(e) {
+    e.preventDefault();
+    document.ontouchmove  = function(ev){ onMove(ev.touches[0].clientX); };
+    document.ontouchend   = function(){ document.ontouchmove=null; document.ontouchend=null; };
+  };
+}
+
+function _renderBioCards(m, prev) {
+  var fields = [
+    {k:'peso',    label:'Peso',          un:'kg',   cor:'#3B82F6', icoDelta:true},
+    {k:'gordura', label:'% Gordura',     un:'%',    cor:'#F59E0B', icoDelta:true},
+    {k:'muscular',label:'Massa Musc.',   un:'kg',   cor:'#10B981', icoDelta:false},
+    {k:'agua',    label:'Água Corporal', un:'%',    cor:'#06B6D4', icoDelta:false},
+    {k:'visceral',label:'Gord. Visceral',un:'',     cor:'#EF4444', icoDelta:true},
+    {k:'imc',     label:'IMC',           un:'',     cor:'#8B5CF6', icoDelta:true},
+    {k:'basal',   label:'Met. Basal',    un:'kcal', cor:'#F97316', icoDelta:false},
+    {k:'idadeMet',label:'Idade Met.',    un:'anos', cor:'#6B7280', icoDelta:true}
+  ];
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">';
+  for (var i=0;i<fields.length;i++) {
+    var f = fields[i];
+    var val = m[f.k];
+    if (val === undefined || val === '') continue;
+    var delta = '';
+    if (prev && prev[f.k] !== undefined && prev[f.k] !== '') {
+      var diff = parseFloat(val) - parseFloat(prev[f.k]);
+      if (!isNaN(diff) && diff !== 0) {
+        var cls = diff > 0 ? (f.icoDelta?'delta-up':'delta-down') : (f.icoDelta?'delta-down':'delta-up');
+        delta = '<div class="bio-metric-delta '+cls+'">'+(diff>0?'▲':'▼')+' '+Math.abs(diff).toFixed(1)+'</div>';
+      }
+    }
+    html += '<div class="bio-metric-card" style="border-top-color:'+f.cor+'">' +
+      '<div class="bio-metric-val">'+val+'<span style="font-size:.7rem;font-weight:400;color:var(--gray)"> '+f.un+'</span></div>' +
+      '<div class="bio-metric-label">'+f.label+'</div>' +
+      delta +
+      '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function _renderGraficosBotoes() {
+  var campos = [
+    {k:'peso',label:'Peso'},{k:'gordura',label:'% Gordura'},{k:'muscular',label:'Massa Musc.'},
+    {k:'agua',label:'Água'},{k:'visceral',label:'G. Visceral'},{k:'imc',label:'IMC'},
+    {k:'basal',label:'Met. Basal'},{k:'idadeMet',label:'Idade Met.'}
+  ];
+  return campos.map(function(c,i){
+    return '<button class="btn btn-sm '+(i===0?'btn-primary':'btn-outline')+'" onclick="_trocarGrafico(this,\"'+c.k+'\",\"'+c.label+'\")">'+c.label+'</button>';
+  }).join('');
+}
+
+function _trocarGrafico(btn, campo, label) {
+  var btns = document.querySelectorAll('#bio-chart-btns .btn');
+  for (var i=0;i<btns.length;i++) {
+    btns[i].className = btns[i].className.replace('btn-primary','btn-outline');
+  }
+  btn.className = btn.className.replace('btn-outline','btn-primary');
+  // Recarrega medidas e renderiza
+  db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+    .collection('fisicoMedidas').orderBy('dataTs','asc').get()
+    .then(function(snap){
+      var medidas = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+      _renderGrafico(medidas, campo, label);
+    });
+}
+
+function _renderGrafico(medidas, campo, label) {
+  var canvas = document.getElementById('bio-chart');
+  if (!canvas) return;
+  var labels = medidas.map(function(m){ return m.data; });
+  var dados  = medidas.map(function(m){ return parseFloat(m[campo])||null; });
+  if (_fisicoChart) { _fisicoChart.destroy(); _fisicoChart = null; }
+  _fisicoChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: dados,
+        borderColor: '#16A34A',
+        backgroundColor: 'rgba(22,163,74,.08)',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointBackgroundColor: '#16A34A',
+        tension: 0.3,
+        fill: true,
+        spanGaps: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend:{display:false} },
+      scales: {
+        y: { beginAtZero:false, grid:{color:'rgba(0,0,0,.05)'} },
+        x: { grid:{display:false} }
+      }
+    }
+  });
+}
+
+// ── UPLOAD DE FOTO ──────────────────────────────────────────
+function abrirUploadFoto() {
+  showModal(
+    '📷 Adicionar Foto',
+    '<div class="form-grid">' +
+    '<div><label>Data</label><input type="date" id="foto-data" value="'+new Date().toISOString().slice(0,10)+'"></div>' +
+    '<div><label>Categoria</label><input id="foto-cat" placeholder="Ex: Frente, Peeling D30, Anti-aging..." list="cat-sugestoes">' +
+    '<datalist id="cat-sugestoes"><option value="Frente"><option value="Lateral"><option value="Costas"><option value="Antes"><option value="Após 30 dias"><option value="Após 60 dias"><option value="Após 90 dias"><option value="Peeling"><option value="Anti-aging"><option value="Avaliação Muscular"><option value="Lesão"></datalist></div>' +
+    '<div style="grid-column:1/-1"><label>Observação (opcional)</label><input id="foto-obs" placeholder="Ex: Após 2ª sessão de peeling"></div>' +
+    '</div>' +
+    '<div class="fisico-upload-zone mt-2" onclick="document.getElementById(\'foto-input\').click()">' +
+    '<div style="font-size:2rem;margin-bottom:8px">📸</div>' +
+    '<div style="font-weight:600">Clique para selecionar a foto</div>' +
+    '<div style="font-size:.8rem;color:var(--gray);margin-top:4px">JPG, PNG ou WEBP — qualquer tamanho</div>' +
+    '</div>' +
+    '<input type="file" id="foto-input" accept="image/*" style="display:none" onchange="previewFoto(this)">' +
+    '<div id="foto-preview" style="margin-top:10px;text-align:center"></div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" id="btn-salvar-foto" onclick="salvarFoto()" disabled>Salvar</button>'
+  );
+}
+
+function previewFoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var prev = document.getElementById('foto-preview');
+    if (prev) prev.innerHTML = '<img src="'+e.target.result+'" style="max-height:200px;border-radius:8px;max-width:100%">';
+    var btn = document.getElementById('btn-salvar-foto');
+    if (btn) btn.disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarFoto() {
+  var input = document.getElementById('foto-input');
+  if (!input || !input.files || !input.files[0]) { toast('Selecione uma foto','error'); return; }
+  var file  = input.files[0];
+  var data  = document.getElementById('foto-data').value;
+  var cat   = (document.getElementById('foto-cat').value||'Geral').trim();
+  var obs   = (document.getElementById('foto-obs').value||'').trim();
+  if (!data) { toast('Informe a data','error'); return; }
+
+  var btn = document.getElementById('btn-salvar-foto');
+  if (btn) { btn.textContent = 'Enviando...'; btn.disabled = true; }
+
+  var storage = firebase.storage();
+  var ts = Date.now();
+  var path = 'users/' + _fisicoMedUid + '/pacientes/' + _fisicoPacId + '/fotos/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  var ref = storage.ref(path);
+
+  ref.put(file).then(function(snap) {
+    return snap.ref.getDownloadURL();
+  }).then(function(url) {
+    return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+      .collection('fisicoFotos').add({
+        url: url, storagePath: path,
+        data: data, dataTs: new Date(data).getTime(),
+        categoria: cat, obs: obs,
+        enviadoPor: currentRole, uid: currentUser.uid
+      });
+  }).then(function() {
+    toast('Foto salva! ✅', 'success');
+    closeModal();
+    loadAvaliacaoFisica();
+  }).catch(function(e) {
+    toast('Erro ao enviar: ' + e.message, 'error');
+    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+  });
+}
+
+function deletarFoto(id, path) {
+  if (!confirm('Excluir esta foto?')) return;
+  var ops = [
+    db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+      .collection('fisicoFotos').doc(id).delete()
+  ];
+  if (path) ops.push(firebase.storage().ref(path).delete().catch(function(){}));
+  Promise.all(ops).then(function() {
+    toast('Foto removida','success');
+    loadAvaliacaoFisica();
+  }).catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function verFotoGrande(url, cat, data) {
+  openModal(
+    '<div class="modal" style="max-width:90vw">' +
+    '<div class="modal-header"><h3>'+cat+' — '+data+'</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body" style="text-align:center;padding:12px">' +
+    '<img src="'+url+'" style="max-width:100%;max-height:75vh;border-radius:8px;object-fit:contain">' +
+    '</div></div>'
+  );
+}
+
+// ── BIOIMPEDÂNCIA ───────────────────────────────────────────
+function abrirModalBio() {
+  var hoje = new Date().toISOString().slice(0,10);
+  showModal(
+    '⚖️ Lançar Medidas de Bioimpedância',
+    '<div class="form-grid">' +
+    '<div style="grid-column:1/-1"><label>Data da medição</label><input type="date" id="bio-data" value="'+hoje+'"></div>' +
+    '<div><label>Peso (kg)</label><input type="number" step="0.1" id="bio-peso" placeholder="Ex: 72.5"></div>' +
+    '<div><label>% Gordura</label><input type="number" step="0.1" id="bio-gordura" placeholder="Ex: 24.3"></div>' +
+    '<div><label>Massa Muscular (kg)</label><input type="number" step="0.1" id="bio-muscular" placeholder="Ex: 48.2"></div>' +
+    '<div><label>Água Corporal (%)</label><input type="number" step="0.1" id="bio-agua" placeholder="Ex: 55.1"></div>' +
+    '<div><label>Gordura Visceral</label><input type="number" step="1" id="bio-visceral" placeholder="Ex: 8"></div>' +
+    '<div><label>IMC</label><input type="number" step="0.1" id="bio-imc" placeholder="Ex: 23.4"></div>' +
+    '<div><label>Metabolismo Basal (kcal)</label><input type="number" step="1" id="bio-basal" placeholder="Ex: 1680"></div>' +
+    '<div><label>Idade Metabólica (anos)</label><input type="number" step="1" id="bio-idademet" placeholder="Ex: 32"></div>' +
+    '</div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarBio()">Salvar Medidas</button>'
+  );
+}
+
+function salvarBio() {
+  var data = document.getElementById('bio-data').value;
+  if (!data) { toast('Informe a data','error'); return; }
+  var m = {
+    data: data,
+    dataTs: new Date(data).getTime(),
+    peso:     document.getElementById('bio-peso').value,
+    gordura:  document.getElementById('bio-gordura').value,
+    muscular: document.getElementById('bio-muscular').value,
+    agua:     document.getElementById('bio-agua').value,
+    visceral: document.getElementById('bio-visceral').value,
+    imc:      document.getElementById('bio-imc').value,
+    basal:    document.getElementById('bio-basal').value,
+    idadeMet: document.getElementById('bio-idademet').value
+  };
+  // Remove campos vazios
+  Object.keys(m).forEach(function(k){ if (m[k]===''||m[k]===null||m[k]===undefined) delete m[k]; });
+  db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+    .collection('fisicoMedidas').add(m)
+    .then(function(){
+      toast('Medidas salvas! ✅','success');
+      closeModal();
+      loadAvaliacaoFisica();
+    })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function excluirMedida(id) {
+  if (!confirm('Excluir esta medição?')) return;
+  db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+    .collection('fisicoMedidas').doc(id).delete()
+    .then(function(){ toast('Medição removida','success'); loadAvaliacaoFisica(); })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+// ── PACIENTE ENVIA FOTO ─────────────────────────────────────
+function pacEnviarFoto() {
+  _fisicoMedUid = pacienteMedUid;
+  _fisicoPacId  = pacientePacId;
+  abrirUploadFoto();
+}
+
 
 // ============================================================
 // INIT
