@@ -485,11 +485,16 @@ function doLogin() {
         return;
       }
       var dados = doc.data();
-      // Login anônimo para ter sessão Firebase válida
+      // cod_slot = codigo do slot no Firestore (pode diferir do codigo digitado se admin usou codigo antigo)
+      var cod_slot = dados.slotId || codigo;
       suppressAuthStateChange = true;
+      // Email e senha internos derivados do slot — fixos, nunca expostos ao medico
+      // Se o admin mudar o codigo, o emailInterno/senha do slot NAO mudam (uid preservado)
+      var emailInterno = dados.emailInterno || ('medico_' + cod_slot + '@noc.interno');
+      var senhaInterna = dados.senhaInterna || ('NOCmed#' + cod_slot + '#2025');
+      // cod_slot = codigo original do slot (pode ser diferente do codigo digitado se admin mudou)
       var doEntrar = function() {
-        auth.signInAnonymously().then(function(cred) {
-          // uid real do Firebase Auth anonimo — unico que passa nas regras Firestore
+        var entrarComCred = function(cred) {
           var realUid = cred.user.uid;
           currentRole = 'medico';
           currentUser = { uid: realUid, email: dados.email || codigo };
@@ -497,29 +502,40 @@ function doLogin() {
             especialidade: dados.especialidades ? dados.especialidades[0] : '',
             especialidades: dados.especialidades||[], clinica: dados.clinica||'NOC Clínica',
             codigoAcesso: codigo };
-          // Salva perfil com uid anonimo real + atualiza uid no convite para busca de pacientes
-          var batch = db.batch();
-          batch.set(
-            db.collection('users').doc(realUid).collection('perfil').doc('dados'),
-            currentPerfil, {merge:true}
-          );
-          batch.set(
-            db.collection('adminIndex').doc(realUid),
-            {tipo:'medico', email: dados.email||'', nome: dados.nome, codigoAcesso: codigo},
-            {merge:true}
-          );
-          batch.commit().catch(function(){});
-          // Atualiza uid no convite para que admin veja dados corretos
+          db.collection('users').doc(realUid).collection('perfil').doc('dados')
+            .set(currentPerfil, {merge:true}).catch(function(){});
+          db.collection('adminIndex').doc(realUid)
+            .set({tipo:'medico', email: dados.email||'', nome: dados.nome, codigoAcesso: codigo}, {merge:true})
+            .catch(function(){});
+          // Persiste uid no convite para que admin veja dados corretos
           db.collection('convitesMedico').doc(codigo)
-            .set({uid: realUid}, {merge:true}).catch(function(){});
+            .set({uid: realUid, emailInterno: emailInterno, senhaInterna: senhaInterna}, {merge:true})
+            .catch(function(){});
           resetBtn(); clearLoginError();
           suppressAuthStateChange = true;
           showApp();
-        }).catch(function(e) {
-          suppressAuthStateChange = false;
-          resetBtn();
-          showLoginError('Erro ao autenticar: ' + e.message);
-        });
+        };
+        // Tenta login com credenciais internas
+        auth.signInWithEmailAndPassword(emailInterno, senhaInterna)
+          .then(entrarComCred)
+          .catch(function(e) {
+            // Se nao existe ainda, cria a conta interna
+            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' ||
+                e.message.indexOf('user-not-found') >= 0 || e.message.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 ||
+                e.message.indexOf('invalid-credential') >= 0) {
+              auth.createUserWithEmailAndPassword(emailInterno, senhaInterna)
+                .then(entrarComCred)
+                .catch(function(e2) {
+                  suppressAuthStateChange = false;
+                  resetBtn();
+                  showLoginError('Erro ao criar acesso: ' + e2.message);
+                });
+            } else {
+              suppressAuthStateChange = false;
+              resetBtn();
+              showLoginError('Erro ao autenticar: ' + e.message);
+            }
+          });
       };
       if (auth.currentUser) {
         auth.signOut().then(doEntrar).catch(doEntrar);
@@ -2148,29 +2164,40 @@ function adminSalvarConvite(cod) {
   var esps = [];
   for (var i=0;i<chks.length;i++) esps.push(chks[i].value);
   if (!nome) { toast('Nome obrigat\u00f3rio','error'); return; }
-  // uid sera preenchido no primeiro login anonimo do medico
-  var dados = { nome:nome, email:email, crm:crm, clinica:clinica,
-    especialidade: esps[0]||'', especialidades:esps, codigo:cod };
-  db.collection('convitesMedico').doc(cod).set(dados)
-    // Perfil Firestore sera criado no primeiro login do medico
-    // adminIndex sera atualizado automaticamente
-    .then(function() {
-      closeModal();
-      toast('Slot ' + cod + ' salvo! \u2705','success');
-      adminLoadConvites();
-    })
-    .catch(function(e) { toast('Erro: ' + e.message,'error'); });
+  // Busca dados existentes para preservar emailInterno/senhaInterna/uid ja criados
+  db.collection('convitesMedico').doc(cod).get().then(function(docAtual) {
+    var atual = docAtual.exists ? docAtual.data() : {};
+    // emailInterno e senhaInterna sao fixos ao slot e NUNCA mudam, mesmo se admin editar o codigo
+    var emailInterno = atual.emailInterno || ('medico_' + cod.toLowerCase().replace(/-/g,'_') + '@noc.interno');
+    var senhaInterna = atual.senhaInterna || ('NOCmed#' + cod + '#2025');
+    var dados = { nome:nome, email:email, crm:crm, clinica:clinica,
+      especialidade: esps[0]||'', especialidades:esps, codigo:cod, slotId:cod,
+      emailInterno: emailInterno, senhaInterna: senhaInterna };
+    if (atual.uid) dados.uid = atual.uid;
+    return db.collection('convitesMedico').doc(cod).set(dados);
+  })
+  .then(function() {
+    closeModal();
+    toast('Slot ' + cod + ' salvo! \u2705','success');
+    adminLoadConvites();
+  })
+  .catch(function(e) { toast('Erro: ' + e.message,'error'); });
 }
-
 function adminLimparConvite(cod) {
-  if (!confirm('Limpar este slot? O m\u00e9dico perder\u00e1 acesso pelo c\u00f3digo ' + cod + '.')) return;
+  if (!confirm('Limpar este slot? O m\u00e9dico perder\u00e1 acesso. Os dados de pacientes ficam preservados no Firestore.')) return;
   db.collection('convitesMedico').doc(cod).get().then(function(doc) {
-    var uid = doc.exists && doc.data().uid ? doc.data().uid : null;
-    var ops = [db.collection('convitesMedico').doc(cod).delete()];
+    var atual = doc.exists ? doc.data() : {};
+    var uid = atual.uid || null;
+    // Preserva apenas as credenciais internas — limpa dados do medico
+    var stub = { slotId: cod };
+    if (atual.emailInterno) stub.emailInterno = atual.emailInterno;
+    if (atual.senhaInterna) stub.senhaInterna = atual.senhaInterna;
+    if (uid) stub.uid = uid; // preserva uid para nao perder dados
+    var ops = [db.collection('convitesMedico').doc(cod).set(stub)];
     if (uid) ops.push(db.collection('adminIndex').doc(uid).delete().catch(function(){}));
     return Promise.all(ops);
   }).then(function() {
-    toast('Slot limpo.','success');
+    toast('Slot limpo. Credenciais internas preservadas.','success');
     adminLoadConvites();
   }).catch(function(e) { toast('Erro: ' + e.message,'error'); });
 }
@@ -4998,7 +5025,10 @@ function loadProntuarioMetas() {
             '<div class="flex justify-between align-center mb-2">' +
             '<div><strong>'+m.titulo+'</strong>' +
             (m.exame?'<br><span style="font-size:.78rem;color:var(--gray)">Exame: '+m.exame+' '+m.direcao+(m.direcao==='menor'?' < ':' > ')+m.alvo+(m.unidade?' '+m.unidade:'')+'</span>':'')+'</div>' +
+            '<div class="flex gap-1">' +
+            '<button class="btn btn-outline btn-sm" onclick="editarMeta(\''+m.id+'\',this)" data-id="'+m.id+'">✏️ Editar</button>' +
             '<button class="btn btn-danger btn-sm" onclick="excluirMeta(\''+m.id+'\')">🗑️</button>' +
+            '</div>' +
             '</div>' +
             (m.descricao?'<div style="font-size:.82rem;color:var(--text-soft)">'+m.descricao+'</div>':'') +
             '</div>';
@@ -5037,6 +5067,40 @@ function salvarMeta() {
   db.collection('users').doc(getMedUid()).collection('metas').add(doc)
     .then(function() { toast('Meta criada! ✅','success'); closeModal(); loadProntuarioMetas(); })
     .catch(function() { toast('Erro ao salvar','error'); });
+}
+function editarMeta(id) {
+  var uid = getMedUid();
+  db.collection('users').doc(uid).collection('metas').doc(id).get().then(function(doc) {
+    if (!doc.exists) { toast('Meta não encontrada','error'); return; }
+    var m = doc.data();
+    openModal('<div class="modal"><div class="modal-header"><h3>✏️ Editar Meta</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+      '<div class="modal-body">' +
+      '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">Paciente: <strong>'+(prontuarioPac?prontuarioPac.nome:'')+'</strong></div>' +
+      '<div class="form-grid">' +
+      '<div style="grid-column:1/-1"><label>Título da Meta *</label><input id="mt-titulo" value="'+(m.titulo||'')+'"></div>' +
+      '<div style="grid-column:1/-1"><label>Descrição / Motivação</label><input id="mt-desc" value="'+(m.descricao||'')+'"></div>' +
+      '<div><label>Exame relacionado</label><input id="mt-exame" value="'+(m.exame||'')+'"></div>' +
+      '<div><label>Direção</label><select id="mt-direcao"><option value="menor"'+(m.direcao==='menor'?' selected':'')+'>Manter abaixo de (&lt;)</option><option value="maior"'+(m.direcao==='maior'?' selected':'')+'>Manter acima de (&gt;)</option></select></div>' +
+      '<div><label>Valor alvo</label><input type="number" id="mt-alvo" value="'+(m.alvo||0)+'"></div>' +
+      '<div><label>Unidade</label><input id="mt-unidade" value="'+(m.unidade||'')+'"></div>' +
+      '</div></div>' +
+      '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarEdicaoMeta(\'' + id + '\')">Salvar Alterações</button></div></div>');
+  }).catch(function(e) { toast('Erro: '+e.message,'error'); });
+}
+function salvarEdicaoMeta(id) {
+  var titulo = (document.getElementById('mt-titulo').value||'').trim();
+  if (!titulo) { toast('Título obrigatório','error'); return; }
+  var dados = {
+    titulo: titulo,
+    descricao: (document.getElementById('mt-desc').value||'').trim(),
+    exame: (document.getElementById('mt-exame').value||'').trim(),
+    direcao: document.getElementById('mt-direcao').value||'menor',
+    alvo: parseFloat(document.getElementById('mt-alvo').value)||0,
+    unidade: (document.getElementById('mt-unidade').value||'').trim()
+  };
+  db.collection('users').doc(getMedUid()).collection('metas').doc(id).update(dados)
+    .then(function() { toast('Meta atualizada! ✅','success'); closeModal(); loadProntuarioMetas(); })
+    .catch(function(e) { toast('Erro ao salvar: '+e.message,'error'); });
 }
 function excluirMeta(id) {
   if (!confirm('Excluir esta meta?')) return;
