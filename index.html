@@ -892,7 +892,28 @@ function buildSidebar() {
   // Logout button - always visible, big touch target
   var footer = document.getElementById('sidebar-footer');
   if (footer) {
-    footer.innerHTML = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>';
+    var footerHtml = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>';
+    // Se admin está visualizando como médico, adiciona botão de retorno
+    if (window._adminBackup) {
+      footerHtml += '<button class="btn btn-primary w-100" style="margin-top:8px;background:#DC2626;font-size:.82rem" onclick="voltarParaAdmin()">🔙 Voltar ao Admin</button>';
+    }
+    footer.innerHTML = footerHtml;
+  }
+  // Banner de modo visualização
+  if (window._adminBackup) {
+    setTimeout(function() {
+      var existing = document.getElementById('admin-view-banner');
+      if (!existing) {
+        var header = document.querySelector('.sidebar-logo');
+        if (header) {
+          var banner = document.createElement('div');
+          banner.id = 'admin-view-banner';
+          banner.style.cssText = 'background:#FEF3C7;color:#92400E;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #FCD34D';
+          banner.textContent = '👁 ADMIN visualizando como médico';
+          header.parentNode.insertBefore(banner, header.nextSibling);
+        }
+      }
+    }, 100);
   }
 }
 function navTo(pageId) {
@@ -2136,52 +2157,32 @@ function adminVerComoMedico(uid) {
     currentPerfil = Object.assign({}, perfil, { tipo: 'medico' });
     window._adminBackup = _adminBackup;
     showApp();
-    setTimeout(function() {
-      var sidebar = document.getElementById('sidebar-footer');
-      if (sidebar) sidebar.innerHTML +=
-        '<button class="btn btn-primary w-100" style="margin-top:8px;background:#DC2626" onclick="voltarParaAdmin()">↩ Sair — Voltar ao Admin</button>';
-      // Mostra banner indicando modo de visualização
-      var header = document.querySelector('.sidebar-logo');
-      if (header) {
-        var banner = document.createElement('div');
-        banner.style.cssText = 'background:#FEF3C7;color:#92400E;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #FCD34D';
-        banner.textContent = '👁 ADMIN visualizando como médico';
-        header.parentNode.insertBefore(banner, header.nextSibling);
-      }
-    }, 200);
+    // footer e banner gerenciados pelo showApp via window._adminBackup
     toast('Visualizando como: ' + (perfil.nome||'Médico'), 'success');
   }
 
+  // uid vem sempre do convitesMedico — já é o UID correto após migração
   db.collection('users').doc(uid).collection('perfil').doc('dados').get()
     .then(function(doc) {
       if (doc.exists) {
         entrarComoMedico(uid, doc.data());
         return;
       }
-      // Perfil não encontrado neste uid — busca uid real nos convites
+      // Perfil ainda não criado (médico nunca logou) — busca dados do convite
       var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
                      'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
       Promise.all(codigos.map(function(cod){
         return db.collection('convitesMedico').doc(cod).get()
-          .then(function(d){ return d.exists ? d.data() : null; })
+          .then(function(d){ return d.exists && d.data().uid===uid ? d.data() : null; })
           .catch(function(){ return null; });
       })).then(function(slots) {
-        var slot = null;
-        for (var i=0;i<slots.length;i++) {
-          if (slots[i] && slots[i].uid === uid) { slot = slots[i]; break; }
-        }
-        if (!slot) { toast('Médico não encontrado nos convites','error'); return; }
-        var realUid = slot.uid;
-        // Tenta carregar perfil do uid do convite
-        db.collection('users').doc(realUid).collection('perfil').doc('dados').get()
-          .then(function(doc2) {
-            var perfil = doc2.exists ? doc2.data() : {
-              nome: slot.nome||'Médico', email: slot.email||'',
-              crm: slot.crm||'', especialidades: slot.especialidades||[],
-              especialidade: slot.especialidade||'', tipo: 'medico'
-            };
-            entrarComoMedico(realUid, perfil);
-          });
+        var slot = slots.filter(Boolean)[0];
+        var perfil = slot ? {
+          nome: slot.nome||'Médico', email: slot.email||'', crm: slot.crm||'',
+          especialidades: slot.especialidades||[], especialidade: slot.especialidade||'',
+          clinica: slot.clinica||'NOC Clínica', tipo: 'medico'
+        } : { nome: 'Médico', tipo: 'medico' };
+        entrarComoMedico(uid, perfil);
       });
     })
     .catch(function(e){ toast('Erro: '+e.message,'error'); });
@@ -2194,8 +2195,11 @@ function voltarParaAdmin() {
   currentUser = bk.user;
   currentPerfil = bk.perfil;
   window._adminBackup = null;
+  // Remove banner antes de reconstruir
+  var banner = document.getElementById('admin-view-banner');
+  if (banner) banner.remove();
   showApp();
-  toast('Voltou ao painel Admin', 'success');
+  toast('Voltou ao painel Admin ✅', 'success');
 }
 
 function navTo_setActive(id) {
