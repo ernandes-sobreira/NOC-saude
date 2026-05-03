@@ -6142,14 +6142,16 @@ function salvarFoto() {
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           var compressed = canvas.toDataURL('image/jpeg', 0.75);
-          db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
-            .collection('fisicoFotos').add({
+          // Salva em coleção raiz acessível pelo paciente anônimo
+          // Regra Firestore: match /fotasPacientes/{id} { allow write: if request.auth != null; }
+          db.collection('fotosPacientes').add({
+              medUid: _fisicoMedUid,
+              pacId: _fisicoPacId,
               url: compressed,
-              storagePath: '',
               data: data, dataTs: new Date(data).getTime(),
               categoria: cat, obs: obs,
-              enviadoPor: 'paciente', uid: currentUser.uid,
-              pendenteMedico: true
+              enviadoPor: 'paciente',
+              lida: false
             }).then(function() {
               toast('Foto enviada ao médico! ✅', 'success');
               closeModal();
