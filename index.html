@@ -860,7 +860,8 @@ function buildSidebar() {
       {id:'admin-dash',icon:'📊',label:'Dashboard'},
       {id:'admin-medicos',icon:'👨‍⚕️',label:'Médicos'},
       {id:'admin-pacientes',icon:'🧑‍🤝‍🧑',label:'Pacientes'},
-      {id:'admin-clinica',icon:'🏥',label:'Clínica'}
+      {id:'admin-clinica',icon:'🏥',label:'Clínica'},
+      {id:'admin-migracao',icon:'🔧',label:'Migração'}
     ];
   } else if (currentRole === 'medico') {
     items = [
@@ -904,6 +905,7 @@ function navTo(pageId) {
   else if (pageId === 'admin-medicos') renderAdminMedicos();
   else if (pageId === 'admin-pacientes') renderAdminPacientes();
   else if (pageId === 'admin-clinica') renderAdminClinica();
+  else if (pageId === 'admin-migracao') renderAdminMigracao();
   else if (pageId === 'medico-dash') renderMedicoDash();
   else if (pageId === 'medico-pacientes') renderMedicoPacientes();
   else if (pageId === 'medico-agenda') renderMedicoAgenda(null);
@@ -6658,6 +6660,215 @@ function limparConsulta() {
   window._consultaTextoAtual = '';
 }
 
+
+// ============================================================
+// MIGRAÇÃO DE DADOS — ferramenta única para admin
+// ============================================================
+function renderAdminMigracao() {
+  navTo_setActive('admin-migracao');
+  setMainContent(
+    '<div class="page-header">' +
+    '<h2>🔧 Ferramenta de Migração</h2>' +
+    '<p style="color:var(--gray);font-size:.85rem">Use para corrigir inconsistências de UIDs entre sessões anônimas e autenticação por e-mail interno.</p>' +
+    '</div>' +
+
+    '<div class="card mb-3" style="border-left:4px solid #D97706">' +
+    '<div style="font-weight:700;color:#92400E;margin-bottom:8px">⚠️ O que esta ferramenta faz</div>' +
+    '<div style="font-size:.85rem;color:var(--text);line-height:1.8">' +
+    '1. Verifica todos os slots de médicos ativos<br>' +
+    '2. Para cada slot, faz login com as credenciais internas (<code>emailInterno/senhaInterna</code>) para obter o UID correto e permanente<br>' +
+    '3. Varre <strong>todos</strong> os documentos de pacientes, resultados, prescrições e exames no Firestore<br>' +
+    '4. Quando encontrar dados sob um UID diferente do correto, <strong>copia para o UID correto</strong><br>' +
+    '5. Ao final, todos os dados ficam acessíveis pelo médico<br><br>' +
+    '<strong>Execute uma vez. Pode demorar alguns minutos dependendo da quantidade de dados.</strong>' +
+    '</div></div>' +
+
+    '<div class="card mb-3" id="migracao-status">' +
+    '<div class="section-title mb-2">📋 Status dos Slots</div>' +
+    '<div id="slots-status"><p style="color:var(--gray)">Clique em Analisar para ver o status atual.</p></div>' +
+    '</div>' +
+
+    '<div class="flex gap-2">' +
+    '<button class="btn btn-outline" onclick="analisarSlots()">🔍 Analisar</button>' +
+    '<button class="btn btn-primary" id="btn-migrar" onclick="executarMigracao()" disabled>⚡ Executar Migração</button>' +
+    '</div>' +
+
+    '<div id="migracao-log" style="margin-top:16px"></div>'
+  );
+  analisarSlots();
+}
+
+function analisarSlots() {
+  var wrap = document.getElementById('slots-status');
+  if (wrap) wrap.innerHTML = '<p style="color:var(--gray)">Analisando...</p>';
+  var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
+                 'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  Promise.all(codigos.map(function(cod) {
+    return db.collection('convitesMedico').doc(cod).get()
+      .then(function(d){ return d.exists ? Object.assign({cod:cod}, d.data()) : {cod:cod}; })
+      .catch(function(){ return {cod:cod}; });
+  })).then(function(slots) {
+    var ativos = slots.filter(function(s){ return s.nome; });
+    if (!ativos.length) {
+      if (wrap) wrap.innerHTML = '<p style="color:var(--gray)">Nenhum slot ativo encontrado.</p>';
+      return;
+    }
+    var html = '<div style="display:grid;gap:8px">';
+    ativos.forEach(function(s) {
+      var temEmail = !!s.emailInterno;
+      var temUid   = !!s.uid;
+      var status = temEmail && temUid ? '✅ OK' : !temEmail ? '⚠️ Sem credenciais' : '🔄 Sem UID vinculado';
+      var cor = temEmail && temUid ? '#16A34A' : '#D97706';
+      html += '<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">' +
+        '<div>' +
+        '<span style="font-family:monospace;font-weight:700;color:var(--primary)">' + s.cod + '</span>' +
+        ' — ' + (s.nome||'') +
+        '<div style="font-size:.75rem;color:var(--gray)">' +
+        (s.emailInterno ? 'Email: ' + s.emailInterno : 'Sem email interno') +
+        (s.uid ? ' · UID: ' + s.uid.substring(0,12) + '...' : ' · Sem UID') +
+        '</div></div>' +
+        '<span style="font-weight:700;color:'+cor+'">' + status + '</span>' +
+        '</div>';
+    });
+    html += '</div>';
+    if (wrap) wrap.innerHTML = html;
+    var btn = document.getElementById('btn-migrar');
+    if (btn) btn.disabled = false;
+    window._slotsParaMigrar = ativos;
+  });
+}
+
+function executarMigracao() {
+  var slots = window._slotsParaMigrar;
+  if (!slots || !slots.length) { toast('Execute Analisar primeiro','error'); return; }
+  var btn = document.getElementById('btn-migrar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Migrando...'; }
+  var log = document.getElementById('migracao-log');
+  if (log) log.innerHTML = '<div class="card"><div class="section-title mb-2">📝 Log da Migração</div><div id="log-lines" style="font-size:.82rem;font-family:monospace;line-height:1.8"></div></div>';
+
+  function addLog(msg, cor) {
+    var el = document.getElementById('log-lines');
+    if (el) el.innerHTML += '<div style="color:'+(cor||'var(--text)')+'">'+msg+'</div>';
+  }
+
+  var ativos = slots.filter(function(s){ return s.nome && s.emailInterno; });
+  if (!ativos.length) {
+    addLog('Nenhum slot com credenciais para migrar.', '#D97706');
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Executar Migração'; }
+    return;
+  }
+
+  addLog('Iniciando migração de ' + ativos.length + ' slot(s)...', '#16A34A');
+
+  // Busca TODOS os usuários no Firestore para encontrar pacientes em UIDs errados
+  db.collection('users').get()
+    .then(function(usersSnap) {
+      var todosUids = [];
+      usersSnap.forEach(function(d){ todosUids.push(d.id); });
+      addLog('Encontrados ' + todosUids.length + ' documentos em /users/', '#1D4ED8');
+
+      // Processa cada slot ativo em sequência
+      var chain = Promise.resolve();
+      ativos.forEach(function(slot) {
+        chain = chain.then(function() {
+          return migrarSlot(slot, todosUids, addLog);
+        });
+      });
+      return chain;
+    })
+    .then(function() {
+      addLog('✅ Migração concluída!', '#16A34A');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Executar Migração'; }
+      analisarSlots();
+    })
+    .catch(function(e) {
+      addLog('❌ Erro: ' + e.message, '#DC2626');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Executar Migração'; }
+    });
+}
+
+function migrarSlot(slot, todosUids, addLog) {
+  addLog('--- Slot ' + slot.cod + ' (' + slot.nome + ') ---', '#6D28D9');
+
+  // Primeiro: fazer login com credenciais internas para obter UID correto
+  var secondaryApp;
+  try { var ex = firebase.app('mig'); ex.delete().catch(function(){}); } catch(e){}
+  secondaryApp = firebase.initializeApp(firebase.app().options, 'mig');
+  var secAuth = secondaryApp.auth();
+
+  var uidCorreto = null;
+
+  return secAuth.signInWithEmailAndPassword(slot.emailInterno, slot.senhaInterna)
+    .catch(function() {
+      // Conta não existe ainda — cria
+      return secAuth.createUserWithEmailAndPassword(slot.emailInterno, slot.senhaInterna);
+    })
+    .then(function(cred) {
+      uidCorreto = cred.user.uid;
+      secAuth.signOut().catch(function(){});
+      secondaryApp.delete().catch(function(){});
+      addLog('UID correto: ' + uidCorreto, '#065F46');
+
+      // Atualiza uid no convite
+      return db.collection('convitesMedico').doc(slot.cod)
+        .set({uid: uidCorreto}, {merge:true});
+    })
+    .then(function() {
+      // Garante perfil correto
+      var perfil = { nome:slot.nome, tipo:'medico', email:slot.email||'',
+        crm:slot.crm||'', especialidade:slot.especialidade||'',
+        especialidades:slot.especialidades||[], clinica:slot.clinica||'NOC Clínica' };
+      return db.collection('users').doc(uidCorreto).collection('perfil').doc('dados')
+        .set(perfil, {merge:true});
+    })
+    .then(function() {
+      // Atualiza adminIndex
+      return db.collection('adminIndex').doc(uidCorreto)
+        .set({tipo:'medico', email:slot.email||'', nome:slot.nome, codigoAcesso:slot.cod}, {merge:true});
+    })
+    .then(function() {
+      // Busca pacientes em outros UIDs com e-mail ou nome do médico nos dados
+      // e copia para o UID correto
+      var colecoes = ['pacientes','resultados','prescricoes','pedidos','metas','agendamentos','areas','consultas'];
+      var uidsSemCorreto = todosUids.filter(function(u){ return u !== uidCorreto; });
+
+      addLog('Varrendo ' + uidsSemCorreto.length + ' UIDs em busca de dados...', '#1D4ED8');
+
+      var ops = [];
+      uidsSemCorreto.forEach(function(uidVelho) {
+        colecoes.forEach(function(col) {
+          ops.push(
+            db.collection('users').doc(uidVelho).collection(col).get()
+              .then(function(snap) {
+                if (snap.empty) return;
+                var batch = db.batch();
+                var count = 0;
+                snap.forEach(function(docSnap) {
+                  var data = docSnap.data();
+                  // Copia para UID correto
+                  var novoRef = db.collection('users').doc(uidCorreto).collection(col).doc(docSnap.id);
+                  batch.set(novoRef, data, {merge:true});
+                  count++;
+                });
+                if (count > 0) {
+                  addLog('Copiando ' + count + ' docs de ' + col + ' (uid: ' + uidVelho.substring(0,8)+'...)', '#D97706');
+                  return batch.commit();
+                }
+              })
+              .catch(function(){})
+          );
+        });
+      });
+      return Promise.all(ops);
+    })
+    .then(function() {
+      addLog('Slot ' + slot.cod + ' migrado com sucesso ✅', '#16A34A');
+    })
+    .catch(function(e) {
+      addLog('Erro no slot ' + slot.cod + ': ' + e.message, '#DC2626');
+      try { secondaryApp.delete(); } catch(ex){}
+    });
+}
 
 // ============================================================
 // INIT
