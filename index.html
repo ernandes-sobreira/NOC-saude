@@ -4270,38 +4270,47 @@ function salvarAgGeral() {
 function renderMedicoAreas() {
   navTo_setActive('medico-areas');
   var uid = getMedUid();
-  // Identifica especialidades do medico
-  var esps = (currentPerfil && currentPerfil.especialidades) ? currentPerfil.especialidades : 
-             (currentPerfil && currentPerfil.especialidade ? [currentPerfil.especialidade] : []);
-  // Monta sugestoes baseadas nas especialidades
-  var sugestoesHtml = '';
+  // Monta sugestoes de TODAS as especialidades, agrupadas
   var todasSugestoes = [];
-  for (var si = 0; si < esps.length; si++) {
-    var banco = SUGESTOES_AREAS[esps[si]];
-    if (banco) {
-      for (var bi = 0; bi < banco.length; bi++) {
-        todasSugestoes.push({ esp: esps[si], area: banco[bi] });
-      }
+  var espKeys = Object.keys(SUGESTOES_AREAS);
+  for (var si = 0; si < espKeys.length; si++) {
+    var banco = SUGESTOES_AREAS[espKeys[si]];
+    for (var bi = 0; bi < banco.length; bi++) {
+      todasSugestoes.push({ esp: espKeys[si], area: banco[bi] });
     }
   }
-  if (todasSugestoes.length) {
-    sugestoesHtml = '<div class="card mb-2">' +
-      '<div class="section-title" style="margin-bottom:12px">✨ Sugestões para ' + esps.join(', ') + '</div>' +
-      '<p style="font-size:.82rem;color:var(--gray);margin-bottom:12px">Clique em <strong>+ Adicionar</strong> para ativar uma área sugerida no seu perfil. Você pode editar depois.</p>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">';
-    for (var ti = 0; ti < todasSugestoes.length; ti++) {
-      var s = todasSugestoes[ti];
-      var nomeEscaped = s.area.nome.replace(/'/g, "\'");
+  // Agrupa por especialidade para exibir em blocos
+  var grupos = {};
+  for (var gi = 0; gi < todasSugestoes.length; gi++) {
+    var esp = todasSugestoes[gi].esp;
+    if (!grupos[esp]) grupos[esp] = [];
+    grupos[esp].push(todasSugestoes[gi]);
+  }
+  var sugestoesHtml = '<div class="card mb-2">' +
+    '<div class="section-title" style="margin-bottom:4px">✨ Sugestões por Especialidade</div>' +
+    '<p style="font-size:.82rem;color:var(--gray);margin-bottom:14px">Clique em <strong>+ Adicionar</strong> para ativar uma área. Você pode editar depois.</p>';
+  var espOrder = ['Endocrinologia','Dermatologia Clínica','Procedimentos Estéticos','Cardiologia','Clínica Geral','Nutrição','Ginecologia','Urologia'];
+  for (var oi = 0; oi < espOrder.length; oi++) {
+    var esp = espOrder[oi];
+    var grupo = grupos[esp];
+    if (!grupo) continue;
+    sugestoesHtml += '<div style="margin-bottom:16px">' +
+      '<div style="font-size:.8rem;font-weight:700;color:var(--primary);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--primary-light)">' + esp + '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">';
+    for (var gi2 = 0; gi2 < grupo.length; gi2++) {
+      var idx = todasSugestoes.indexOf(grupo[gi2]);
+      var s = grupo[gi2];
       sugestoesHtml += '<div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:6px">' +
         '<div style="display:flex;align-items:center;gap:8px">' +
-        '<span style="font-size:1.4rem">' + (s.area.ico||'🔬') + '</span>' +
-        '<div><div style="font-weight:700;font-size:.9rem">' + s.area.nome + '</div>' +
-        '<div style="font-size:.75rem;color:var(--gray)">' + s.area.params.length + ' parâmetros · ' + s.esp + '</div></div></div>' +
-        '<button class="btn btn-outline btn-sm" style="width:100%" onclick="adicionarAreaSugerida(' + ti + ')">+ Adicionar</button>' +
+        '<span style="font-size:1.3rem">' + (s.area.ico||'🔬') + '</span>' +
+        '<div><div style="font-weight:700;font-size:.88rem">' + s.area.nome + '</div>' +
+        '<div style="font-size:.73rem;color:var(--gray)">' + s.area.params.length + ' parâmetros</div></div></div>' +
+        '<button class="btn btn-outline btn-sm" style="width:100%" onclick="adicionarAreaSugerida(' + idx + ')">+ Adicionar</button>' +
         '</div>';
     }
     sugestoesHtml += '</div></div>';
   }
+  sugestoesHtml += '</div>';
   setMainContent(
     '<div class="page-header flex justify-between align-center wrap gap-1">' +
     '<h2>⚗️ Áreas de Exame</h2>' +
