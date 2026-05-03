@@ -225,12 +225,8 @@ tr:hover td{background:var(--primary-light)}
     <div id="form-medico">
       <div id="login-email-group">
         <div class="mb-2">
-          <label>E-mail</label>
-          <input type="email" id="login-email" placeholder="seuemail@clinica.com">
-        </div>
-        <div class="mb-2">
-          <label>Senha</label>
-          <input type="password" id="login-senha" placeholder="••••••••">
+          <label>Código de acesso</label>
+          <input type="text" id="login-codigo-medico" placeholder="NOC-MED-XXX" style="letter-spacing:2px;font-weight:700;text-transform:uppercase" autocomplete="off">
         </div>
         <button class="btn btn-primary w-100" onclick="doLogin()">Entrar</button>
       </div>
@@ -394,6 +390,15 @@ function toast(msg, type) {
 // ============================================================
 // MODAL HELPERS
 // ============================================================
+function showModal(titulo, corpo, footer) {
+  openModal(
+    '<div class="modal">' +
+    '<div class="modal-header"><h3>' + titulo + '</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">&#x2715;</button></div>' +
+    '<div class="modal-body" id="modal-body">' + corpo + '</div>' +
+    '<div class="modal-footer">' + (footer||'<button class="btn btn-gray" onclick="closeModal()">Fechar</button>') + '</div>' +
+    '</div>'
+  );
+}
 function openModal(html) {
   var c = document.getElementById('modal-container');
   c.innerHTML = '<div class="modal-backdrop" id="modal-backdrop" onclick="handleBackdropClick(event)">' + html + '</div>';
@@ -442,25 +447,55 @@ function traduzirErroFirebase(msg) {
   return msg;
 }
 function doLogin() {
-  var email = document.getElementById('login-email').value.trim();
-  var senha = document.getElementById('login-senha').value;
-  if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
+  var codigo = (document.getElementById('login-codigo-medico').value||'').trim().toUpperCase();
+  if (!codigo) { showLoginError('Digite seu código de acesso.'); return; }
   var btn = document.querySelector('#form-medico .btn-primary');
-  if (btn) { btn.textContent = 'Entrando...'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
   function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
-  suppressAuthStateChange = false;
-  adminLoginInProgress = false;
-  // Force signOut any existing session (including anonymous) then login
-  var doSignIn = function() {
-    auth.signInWithEmailAndPassword(email, senha)
-      .then(function() { resetBtn(); clearLoginError(); })
-      .catch(function(e) { resetBtn(); showLoginError(traduzirErroFirebase(e.message)); });
-  };
-  if (auth.currentUser) {
-    auth.signOut().then(doSignIn).catch(doSignIn);
-  } else {
-    doSignIn();
-  }
+
+  db.collection('convitesMedico').doc(codigo).get()
+    .then(function(doc) {
+      if (!doc.exists || !doc.data().nome) {
+        resetBtn();
+        showLoginError('Código inválido ou não configurado. Solicite ao administrador.');
+        return;
+      }
+      var dados = doc.data();
+      // Login anônimo para ter sessão Firebase válida
+      suppressAuthStateChange = true;
+      var doEntrar = function() {
+        auth.signInAnonymously().then(function(cred) {
+          // Salva uid anonimo vinculado ao convite para operacoes Firestore
+          currentRole = 'medico';
+          currentUser = { uid: dados.uid || cred.user.uid, email: dados.email || codigo };
+          currentPerfil = { nome: dados.nome, tipo: 'medico', crm: dados.crm||'',
+            especialidade: dados.especialidades ? dados.especialidades[0] : '',
+            especialidades: dados.especialidades||[], clinica: dados.clinica||'NOC Clínica',
+            codigoAcesso: codigo };
+          // Garante que o perfil existe no Firestore com o uid do convite
+          if (dados.uid) {
+            db.collection('users').doc(dados.uid).collection('perfil').doc('dados')
+              .set(currentPerfil, {merge:true}).catch(function(){});
+          }
+          resetBtn(); clearLoginError();
+          suppressAuthStateChange = true;
+          showApp();
+        }).catch(function(e) {
+          suppressAuthStateChange = false;
+          resetBtn();
+          showLoginError('Erro ao autenticar: ' + e.message);
+        });
+      };
+      if (auth.currentUser) {
+        auth.signOut().then(doEntrar).catch(doEntrar);
+      } else {
+        doEntrar();
+      }
+    })
+    .catch(function(e) {
+      resetBtn();
+      showLoginError('Erro ao verificar código: ' + e.message);
+    });
 }
 function doPacienteLogin() {
   var codigo = (document.getElementById('pac-codigo').value||'').trim().toUpperCase();
@@ -1995,38 +2030,126 @@ function renderAdminMedicos() {
   navTo_setActive('admin-medicos');
   setMainContent(
     '<div class="page-header flex justify-between align-center wrap gap-1">' +
-    '<div><h2>👨‍⚕️ Médicos — NOC Clínica</h2></div>' +
-    '<button class="btn btn-gray btn-sm" onclick="renderAdminDash()">← Dashboard</button>' +
+    '<div><h2>&#x1F9D1;&#x200D;&#x2695;&#xFE0F; Convites de M\u00e9dicos</h2><p style="color:var(--gray);font-size:.85rem">10 slots dispon\u00edveis. S\u00f3 o admin v\u00ea os c\u00f3digos.</p></div>' +
+    '<button class="btn btn-gray btn-sm" onclick="renderAdminDash()">&#8592; Dashboard</button>' +
     '</div>' +
-    '<div class="card mb-2">' +
-    '<div class="section-title">Criar conta de médico</div>' +
-    '<div class="form-grid">' +
-    '<div><label>Nome completo</label><input id="nm-nome" placeholder="Dr. Caio Araújo"></div>' +
-    '<div><label>E-mail</label><input type="email" id="nm-email" placeholder="dr@clinica.com"></div>' +
-    '<div><label>CRM</label><input id="nm-crm" placeholder="MT 8817"></div>' +
-    '</div>' +
-    '<div class="mt-2"><label>Especialidades <span style="font-weight:400;color:var(--gray);font-size:.82rem">(marque uma ou mais)</span></label>' +
-    '<div id="nm-esp-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Endocrinologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Endocrinologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Dermatologia Clínica" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Dermatologia Clínica</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Procedimentos Est\u00e9ticos" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Procedimentos Est\u00e9ticos</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Cardiologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Cardiologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Cl\u00ednica Geral" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Cl\u00ednica Geral</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Nutri\u00e7\u00e3o" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Nutri\u00e7\u00e3o</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Ginecologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Ginecologia</label>' +
-    '<label style="font-weight:400;display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;font-size:.85rem"><input type="checkbox" value="Urologia" style="width:16px;height:16px;flex-shrink:0;margin-top:2px"> Urologia</label>' +
-    '</div></div>' +
-    '<div class="form-grid mt-2">' +
-    '<div><label>Cl\u00ednica</label><input id="nm-clinica" value="NOC Cl\u00ednica"></div>' +
-    '<div><label>Senha inicial</label><input type="password" id="nm-senha" placeholder="m\u00ednimo 6 caracteres"></div>' +
-    '</div>' +
-    '<div class="mt-2"><button class="btn btn-primary" onclick="adminCriarMedico()">Criar Conta</button></div>' +
-    '</div>' +
-    '<div class="card" id="admin-lista-medicos"><p style="color:var(--gray)">Carregando lista...</p></div>'
+    '<div id="admin-convites-list"><p style="color:var(--gray)">Carregando...</p></div>'
   );
-  adminLoadMedicos();
+  adminLoadConvites();
 }
+
+function adminLoadConvites() {
+  var listEl = document.getElementById('admin-convites-list');
+  if (!listEl) return;
+  var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005','NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  var promises = codigos.map(function(cod) {
+    return db.collection('convitesMedico').doc(cod).get()
+      .then(function(doc) { return { cod: cod, dados: doc.exists ? doc.data() : null }; })
+      .catch(function() { return { cod: cod, dados: null }; });
+  });
+  Promise.all(promises).then(function(slots) {
+    var html = '';
+    for (var i = 0; i < slots.length; i++) {
+      var s = slots[i];
+      var d = s.dados;
+      var ocupado = d && d.nome;
+      html += '<div class="card mb-2">' +
+        '<div class="flex justify-between align-center wrap gap-1 mb-1">' +
+        '<div class="flex align-center gap-2">' +
+        '<span style="font-family:monospace;font-weight:900;font-size:1rem;color:var(--primary);letter-spacing:2px">' + s.cod + '</span>' +
+        (ocupado ? '<span class="badge badge-success">Ativo</span>' : '<span class="badge" style="background:var(--gray-light);color:var(--gray)">Vazio</span>') +
+        '</div>' +
+        '<div class="flex gap-1">' +
+        '<button class="btn btn-outline btn-sm" onclick="adminEditarConvite(\'' + s.cod + '\')">&#9998; Editar</button>' +
+        (ocupado ? '<button class="btn btn-danger btn-sm" onclick="adminLimparConvite(\'' + s.cod + '\')">Limpar</button>' : '') +
+        '</div></div>' +
+        (ocupado ?
+          '<div style="font-size:.88rem"><strong>' + (d.nome||'') + '</strong>' +
+          (d.crm ? ' &middot; CRM ' + d.crm : '') +
+          '<br><span style="color:var(--gray);font-size:.8rem">' + (d.email||'') + '</span>' +
+          '<br><span style="color:var(--text-soft);font-size:.78rem">' + ((d.especialidades||[]).join(', ')) + '</span></div>'
+          : '<div style="color:var(--gray);font-size:.82rem">Slot livre &mdash; clique em Editar para vincular um m\u00e9dico.</div>'
+        ) +
+        '</div>';
+    }
+    listEl.innerHTML = html;
+  });
+}
+
+function adminEditarConvite(cod) {
+  db.collection('convitesMedico').doc(cod).get().then(function(doc) {
+    var d = doc.exists ? doc.data() : {};
+    var esps = ['Endocrinologia','Dermatologia Cl\u00ednica','Procedimentos Est\u00e9ticos','Cardiologia',
+                'Cl\u00ednica Geral','Nutri\u00e7\u00e3o','Ginecologia','Urologia'];
+    var chks = esps.map(function(e) {
+      var chk = (d.especialidades||[]).indexOf(e) >= 0 ? ' checked' : '';
+      return '<label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;padding:3px 0">' +
+        '<input type="checkbox" value="' + e + '"' + chk + ' style="width:16px;height:16px;flex-shrink:0"> ' + e + '</label>';
+    });
+    showModal(
+      'Slot: ' + cod,
+      '<div class="form-grid">' +
+      '<div><label>Nome completo</label><input id="ec-nome" value="' + (d.nome||'') + '" placeholder="Dr. Nome"></div>' +
+      '<div><label>E-mail</label><input type="email" id="ec-email" value="' + (d.email||'') + '" placeholder="dr@clinica.com"></div>' +
+      '<div><label>CRM</label><input id="ec-crm" value="' + (d.crm||'') + '" placeholder="MT 8817"></div>' +
+      '<div><label>Cl\u00ednica</label><input id="ec-clinica" value="' + (d.clinica||'NOC Cl\u00ednica') + '"></div>' +
+      '</div>' +
+      '<div class="mt-2"><label>Especialidades</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:8px;margin-top:6px">' +
+      chks.join('') + '</div></div>',
+      '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn btn-primary" onclick="adminSalvarConvite(\'' + cod + '\')">Salvar</button>'
+    );
+    if (!d.uid) {
+      db.collection('convitesMedico').doc(cod).set({ uid: 'medico_' + cod.replace(/-/g,'_') }, {merge:true}).catch(function(){});
+    }
+  });
+}
+
+function adminSalvarConvite(cod) {
+  var nome = (document.getElementById('ec-nome').value||'').trim();
+  var email = (document.getElementById('ec-email').value||'').trim();
+  var crm = (document.getElementById('ec-crm').value||'').trim();
+  var clinica = (document.getElementById('ec-clinica').value||'NOC Cl\u00ednica').trim();
+  var chks = document.querySelectorAll('#modal-body input[type=checkbox]:checked');
+  var esps = [];
+  for (var i=0;i<chks.length;i++) esps.push(chks[i].value);
+  if (!nome) { toast('Nome obrigat\u00f3rio','error'); return; }
+  var uid = 'medico_' + cod.replace(/-/g,'_');
+  var dados = { nome:nome, email:email, crm:crm, clinica:clinica,
+    especialidade: esps[0]||'', especialidades:esps, uid:uid, codigo:cod };
+  db.collection('convitesMedico').doc(cod).set(dados)
+    .then(function() {
+      return db.collection('users').doc(uid).collection('perfil').doc('dados')
+        .set({ nome:nome, tipo:'medico', email:email, crm:crm,
+          especialidade:esps[0]||'', especialidades:esps, clinica:clinica }, {merge:true});
+    })
+    .then(function() {
+      return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome},{merge:true});
+    })
+    .then(function() {
+      closeModal();
+      toast('Slot ' + cod + ' salvo! \u2705','success');
+      adminLoadConvites();
+    })
+    .catch(function(e) { toast('Erro: ' + e.message,'error'); });
+}
+
+function adminLimparConvite(cod) {
+  if (!confirm('Limpar este slot? O m\u00e9dico perder\u00e1 acesso pelo c\u00f3digo ' + cod + '.')) return;
+  db.collection('convitesMedico').doc(cod).get().then(function(doc) {
+    var uid = doc.exists && doc.data().uid ? doc.data().uid : null;
+    var ops = [db.collection('convitesMedico').doc(cod).delete()];
+    if (uid) ops.push(db.collection('adminIndex').doc(uid).delete().catch(function(){}));
+    return Promise.all(ops);
+  }).then(function() {
+    toast('Slot limpo.','success');
+    adminLoadConvites();
+  }).catch(function(e) { toast('Erro: ' + e.message,'error'); });
+}
+
 function adminLoadMedicos() {
+
   var listEl = document.getElementById('admin-lista-medicos');
   if (listEl) listEl.innerHTML = '<p style="color:var(--gray)">Carregando...</p>';
 
