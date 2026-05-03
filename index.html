@@ -4938,6 +4938,7 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
   // Para paciente logado, uid DEVE ser o do medico dono dos dados
   var uid = pacienteMedUid || (currentRole !== 'paciente' ? getMedUid() : null);
   var pid = pacientePacId || ctx.pacId;
+  window._pacMiniCharts = [];
   if (uid && pid) html += '<div id="metas-wrap" style="margin-bottom:16px"></div>';
 
   // ── SISTEMAS
@@ -4978,6 +4979,8 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
       var dateStr=lat2.data?lat2.data.substr(8,2)+'/'+lat2.data.substr(5,2)+'/'+lat2.data.substr(0,4):'';
       var bgCard = s2==='normal'?'#F0FDF4':s2==='warn'?'#FFFBEB':'#FFF1F2';
       var borda  = s2==='normal'?'#86EFAC':s2==='warn'?'#FCD34D':'#FCA5A5';
+      var chartIdPac = 'pacc-' + nm.replace(/[^a-zA-Z0-9]/g,'_') + '_' + si;
+      var miniChartPac = hist.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="'+chartIdPac+'"></canvas></div>' : '';
       bodyHtml+='<div style="background:'+bgCard+';border:1.5px solid '+borda+';border-radius:12px;padding:12px 14px;position:relative">'+
         '<div style="font-size:.78rem;font-weight:700;color:var(--text-soft);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div>'+
         '<div style="font-size:1.4rem;font-weight:900;color:'+statusColor(s2)+';line-height:1.1">'+formatarValorDisplay(lat2.valor)+'<span style="font-size:.7rem;font-weight:400;color:var(--gray);margin-left:3px">'+(rObj?rObj.un||lat2.unidade||'':lat2.unidade||'')+'</span></div>'+
@@ -4985,7 +4988,9 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
         '<div class="exam-bar-marker" style="left:'+pos2+'%;background:'+statusColor(s2)+'"></div></div>'+
         '<div style="font-size:.68rem;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+refLabel+'</div>'+
         (dateStr?'<div style="font-size:.65rem;color:var(--gray);margin-top:2px">'+dateStr+'</div>':'')+
+        miniChartPac+
         '</div>';
+      if (hist.length >= 2) window._pacMiniCharts = (window._pacMiniCharts||[]).concat([{id:chartIdPac,hist:hist,cor:statusColor(s2)}]);
     }
     var dot=sysAlt>0?'🔴':'🟢';
     html+='<div class="body-system-card" style="margin-bottom:10px">'+
@@ -5002,6 +5007,8 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
   if (!resFiltrados.length||sysCount===0) {
     html+='<div class="card" style="text-align:center;color:var(--gray);padding:48px"><div style="font-size:3rem;margin-bottom:12px">🔬</div><p>'+(resultados.length?'Selecione pelo menos uma data acima.':'Seus exames aparecerão aqui quando seu médico os cadastrar.')+'</p></div>';
   }
+  // Renderiza minigráficos após inserir no DOM
+  window._pacMiniCharts = [];
 
   if (currentRole === 'paciente' && pacienteMedUid && pacientePacId) {
     html += '<div class="card mb-3" style="text-align:center">' +
@@ -5013,7 +5020,33 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
 
   setTimeout(function() {
     if (uid && pid) renderMetasPaciente(uid, pid, allP, pacCtx);
-  }, 50);
+    // Renderiza minigráficos dos sistemas
+    var charts = window._pacMiniCharts || [];
+    for (var ci=0; ci<charts.length; ci++) {
+      (function(ch) {
+        var cel = document.getElementById(ch.id);
+        if (!cel) return;
+        var vals = ch.hist.map(function(h){ return parseFloat(String(h.valor).replace(',','.')) || null; });
+        var labels = ch.hist.map(function(h){
+          var d = h.data||''; return d.length===10 ? d.substr(8,2)+'/'+d.substr(5,2) : d;
+        });
+        // inverte para ordem cronológica
+        vals.reverse(); labels.reverse();
+        new Chart(cel, {
+          type:'line',
+          data:{ labels:labels, datasets:[{
+            data:vals, borderColor:ch.cor, backgroundColor:ch.cor+'22',
+            borderWidth:2, pointRadius:3, pointBackgroundColor:ch.cor,
+            tension:0.3, fill:true, spanGaps:true
+          }]},
+          options:{ responsive:true, animation:{duration:400},
+            plugins:{legend:{display:false}},
+            scales:{x:{display:false},y:{display:false}}
+          }
+        });
+      })(charts[ci]);
+    }
+  }, 100);
 }
 
 function voltarAoProntuario() {
