@@ -177,9 +177,10 @@ tr:hover td{background:var(--primary-light)}
 .health-score{font-size:4rem;font-weight:900;line-height:1}
 .health-bar-bg{background:rgba(255,255,255,.2);border-radius:99px;height:12px;margin:14px auto;max-width:280px}
 .health-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#FCD34D,#34D399);transition:width 1s ease}
-.body-system-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
-.body-system-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
-.body-system-body{padding:0 18px 18px}
+.body-system-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden}
+.body-system-header{padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.body-system-body{padding:0 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+@media(max-width:600px){.body-system-body{grid-template-columns:1fr 1fr}}
 /* FORM GRID */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -877,7 +878,8 @@ function buildSidebar() {
       {id:'pac-exames',icon:'🔬',label:'Meus Exames'},
       {id:'pac-pedidos',icon:'📝',label:'Pedidos de Exame'},
       {id:'pac-remedios',icon:'💊',label:'Meus Medicamentos'},
-      {id:'pac-agenda',icon:'📅',label:'Minha Agenda'}
+      {id:'pac-agenda',icon:'📅',label:'Minha Agenda'},
+      {id:'pac-evolucao',icon:'📸',label:'Minha Evolução'}
     ];
   }
   for (var i = 0; i < items.length; i++) {
@@ -954,6 +956,7 @@ function navTo(pageId) {
   else if (pageId === 'pac-pedidos') renderPacientePedidos();
   else if (pageId === 'pac-remedios') renderPacienteRemedios();
   else if (pageId === 'pac-agenda') renderPacienteAgenda();
+  else if (pageId === 'pac-evolucao') renderPacienteEvolucao();
 }
 function toggleSidebar() {
   var s = document.getElementById('sidebar');
@@ -4908,26 +4911,27 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
       var pos2=rObj?barPos(lat2.valor,rObj.min,rObj.max):50;
       var refLabel=rObj?'Ref: '+rObj.min+' – '+rObj.max+' '+(rObj.un||lat2.unidade||''):'Sem referência';
       var dateStr=lat2.data?lat2.data.substr(8,2)+'/'+lat2.data.substr(5,2)+'/'+lat2.data.substr(0,4):'';
-      bodyHtml+='<div style="padding:12px;border-left:3px solid '+statusColor(s2)+';margin-bottom:8px;border-radius:0 10px 10px 0;background:'+(s2==='normal'?'var(--success-light)':s2==='warn'?'var(--warn-light)':'var(--danger-light)')+'">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center">'+
-        '<span style="font-weight:700;font-size:.9rem">'+nm+'</span>'+
-        '<span style="font-size:1.15rem;font-weight:900;color:'+statusColor(s2)+'">'+formatarValorDisplay(lat2.valor)+'</span>'+
-        '</div>'+
-        '<div class="exam-bar" style="margin:6px 0"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>'+
+      var bgCard = s2==='normal'?'#F0FDF4':s2==='warn'?'#FFFBEB':'#FFF1F2';
+      var borda  = s2==='normal'?'#86EFAC':s2==='warn'?'#FCD34D':'#FCA5A5';
+      bodyHtml+='<div style="background:'+bgCard+';border:1.5px solid '+borda+';border-radius:12px;padding:12px 14px;position:relative">'+
+        '<div style="font-size:.78rem;font-weight:700;color:var(--text-soft);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div>'+
+        '<div style="font-size:1.4rem;font-weight:900;color:'+statusColor(s2)+';line-height:1.1">'+formatarValorDisplay(lat2.valor)+'<span style="font-size:.7rem;font-weight:400;color:var(--gray);margin-left:3px">'+(rObj?rObj.un||lat2.unidade||'':lat2.unidade||'')+'</span></div>'+
+        '<div class="exam-bar" style="margin:6px 0 4px"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,#22C55E,#F59E0B,#EF4444)"></div>'+
         '<div class="exam-bar-marker" style="left:'+pos2+'%;background:'+statusColor(s2)+'"></div></div>'+
-        '<div style="font-size:.72rem;color:var(--gray)">'+refLabel+(dateStr?' · '+dateStr:'')+'</div>'+
+        '<div style="font-size:.68rem;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+refLabel+'</div>'+
+        (dateStr?'<div style="font-size:.65rem;color:var(--gray);margin-top:2px">'+dateStr+'</div>':'')+
         '</div>';
     }
     var dot=sysAlt>0?'🔴':'🟢';
     html+='<div class="body-system-card" style="margin-bottom:10px">'+
-      '<div class="body-system-header" onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\'">'+
+      '<div class="body-system-header" onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\'none\'?\'grid\':\'none\'">'+
       '<span style="font-size:1.2rem">'+sys.ico+'</span>'+
       '<span style="font-weight:700;font-size:.92rem">'+sys.label+'</span>'+
       '<span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
       '<span>'+dot+'</span>'+
       '<span style="font-size:.75rem;color:var(--gray)">'+sysParams.length+' itens ▾</span>'+
       '</span></div>'+
-      '<div class="body-system-body" style="display:none">'+bodyHtml+'</div></div>';
+      '<div class="body-system-body" id="sys-'+si+'">'+bodyHtml+'</div></div>';
   }
 
   if (!resFiltrados.length||sysCount===0) {
@@ -6956,6 +6960,258 @@ function voltarDeVisualizacaoPaciente() {
   showApp();
   toast('Voltou ao painel Admin ✅','success');
 }
+// ============================================================
+// PACIENTE — MINHA EVOLUÇÃO (fotos + bioimpedância)
+// ============================================================
+function renderPacienteEvolucao() {
+  navTo_setActive('pac-evolucao');
+  var uid = pacienteMedUid;
+  var pid = pacientePacId;
+  if (!uid || !pid) {
+    setMainContent('<div class="card" style="text-align:center;padding:40px;color:var(--gray)">Sessão inválida.</div>');
+    return;
+  }
+
+  setMainContent(
+    '<div class="page-header flex justify-between align-center">' +
+    '<h2>📸 Minha Evolução</h2>' +
+    '<button class="btn btn-outline btn-sm" onclick="pacEnviarFoto()">📷 Enviar Foto</button>' +
+    '</div>' +
+    '<div id="pac-evolucao-wrap"><div style="text-align:center;padding:40px;color:var(--gray)">Carregando...</div></div>'
+  );
+
+  Promise.all([
+    db.collection('users').doc(uid).collection('pacientes').doc(pid)
+      .collection('fisicoFotos').orderBy('dataTs','desc').get()
+      .catch(function(){ return {docs:[]}; }),
+    db.collection('users').doc(uid).collection('pacientes').doc(pid)
+      .collection('fisicoMedidas').orderBy('dataTs','asc').get()
+      .catch(function(){ return {docs:[]}; })
+  ]).then(function(res) {
+    var fotos   = res[0].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    var medidas = res[1].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    var wrap = document.getElementById('pac-evolucao-wrap');
+    if (!wrap) return;
+
+    var html = '';
+
+    // ── FOTOS
+    html += '<div class="card mb-3">' +
+      '<div class="section-title mb-2">📷 Minhas Fotos</div>';
+
+    if (!fotos.length) {
+      html += '<div style="text-align:center;padding:32px;color:var(--gray)">' +
+        '<div style="font-size:2rem;margin-bottom:8px">📷</div>' +
+        'Nenhuma foto ainda. Clique em "Enviar Foto" para começar a registrar sua evolução.' +
+        '</div>';
+    } else {
+      // Filtros por categoria
+      var cats = {};
+      fotos.forEach(function(f){ cats[f.categoria||'Geral'] = true; });
+      var catList = Object.keys(cats);
+      if (catList.length > 1) {
+        html += '<div class="flex gap-1 mb-2" style="flex-wrap:wrap">' +
+          '<button class="btn btn-outline btn-sm active" onclick="pacFiltrarFotos(\'todas\',this)">Todas</button>' +
+          catList.map(function(c){
+            return '<button class="btn btn-outline btn-sm" onclick="pacFiltrarFotos(\''+c+'\',this)">'+c+'</button>';
+          }).join('') +
+          '</div>';
+      }
+      html += '<div id="pac-fotos-grid" class="fisico-foto-grid">' +
+        fotos.map(function(f){
+          return '<div class="fisico-foto-card" onclick="pacVerFotoGrande(\''+f.url+'\',\''+(f.categoria||'')+'\',\''+f.data+'\')">' +
+            '<img src="'+f.url+'" alt="'+(f.categoria||'foto')+'" loading="lazy">' +
+            '<div class="fisico-foto-info">' +
+            '<div class="cat">'+(f.categoria||'Geral')+'</div>' +
+            '<div class="data">'+f.data+'</div>' +
+            (f.obs?'<div style="font-size:.72rem;color:var(--text-soft)">'+f.obs+'</div>':'') +
+            (f.enviadoPor==='paciente'?'<div style="font-size:.68rem;color:var(--primary)">enviada por mim</div>':'') +
+            '</div></div>';
+        }).join('') +
+        '</div>';
+    }
+    html += '</div>';
+
+    // ── COMPARADOR (só se tiver 2+ fotos)
+    if (fotos.length >= 2) {
+      var opts = fotos.map(function(f,i){
+        return '<option value="'+i+'">'+f.data+' — '+(f.categoria||'Geral')+'</option>';
+      }).join('');
+      var opts2 = fotos.map(function(f,i){
+        return '<option value="'+i+'"'+(i===1?' selected':'')+'>'+f.data+' — '+(f.categoria||'Geral')+'</option>';
+      }).join('');
+
+      html += '<div class="card mb-3">' +
+        '<div class="section-title mb-2">🔄 Comparador Antes / Depois</div>' +
+        '<div class="flex gap-2 mb-2 align-center wrap">' +
+        '<div style="flex:1"><label>Foto A (antes)</label><select id="pac-comp-a" onchange="pacInitComparador()">'+opts+'</select></div>' +
+        '<div style="flex:1"><label>Foto B (depois)</label><select id="pac-comp-b" onchange="pacInitComparador()">'+opts2+'</select></div>' +
+        '</div>' +
+        '<div class="comparador-wrap" id="pac-comparador-wrap" style="height:360px">' +
+        '<img class="img-depois" id="pac-comp-img-b" src="" alt="depois">' +
+        '<img class="img-antes" id="pac-comp-img-a" src="" alt="antes" style="clip-path:inset(0 50% 0 0)">' +
+        '<div class="comparador-handle" id="pac-comp-handle"></div>' +
+        '</div></div>';
+
+      // Guarda fotos para o comparador
+      window._pacFotos = fotos;
+      setTimeout(pacInitComparador, 200);
+    }
+
+    // ── BIOIMPEDÂNCIA
+    if (medidas.length) {
+      var ultima = medidas[medidas.length-1];
+      var penultima = medidas.length >= 2 ? medidas[medidas.length-2] : null;
+
+      html += '<div class="card mb-3">' +
+        '<div class="section-title mb-2">⚖️ Última Medição — '+ultima.data+'</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">';
+
+      var campos = [
+        {k:'peso',label:'Peso',un:'kg',cor:'#3B82F6'},
+        {k:'gordura',label:'% Gordura',un:'%',cor:'#F59E0B'},
+        {k:'muscular',label:'Massa Musc.',un:'kg',cor:'#10B981'},
+        {k:'agua',label:'Água',un:'%',cor:'#06B6D4'},
+        {k:'imc',label:'IMC',un:'',cor:'#8B5CF6'},
+        {k:'idadeMet',label:'Idade Met.',un:'anos',cor:'#6B7280'}
+      ];
+      campos.forEach(function(f) {
+        var val = ultima[f.k];
+        if (!val && val !== 0) return;
+        var delta = '';
+        if (penultima && penultima[f.k]) {
+          var diff = Math.round((parseFloat(val) - parseFloat(penultima[f.k]))*10)/10;
+          if (diff !== 0) {
+            var cls = diff > 0 ? 'delta-up' : 'delta-down';
+            delta = '<div class="bio-metric-delta '+cls+'">'+(diff>0?'▲':'▼')+' '+Math.abs(diff)+'</div>';
+          }
+        }
+        html += '<div class="bio-metric-card" style="border-top-color:'+f.cor+'">' +
+          '<div class="bio-metric-val">'+val+'<span style="font-size:.68rem;font-weight:400;color:var(--gray)"> '+f.un+'</span></div>' +
+          '<div class="bio-metric-label">'+f.label+'</div>'+delta+'</div>';
+      });
+      html += '</div></div>';
+
+      // Gráfico se 2+ medições
+      if (medidas.length >= 2) {
+        html += '<div class="card">' +
+          '<div class="section-title mb-2">📈 Minha Evolução</div>' +
+          '<div class="flex gap-1 mb-2" style="flex-wrap:wrap" id="pac-bio-btns">' +
+          [{k:'peso',label:'Peso'},{k:'gordura',label:'% Gordura'},{k:'muscular',label:'Massa Musc.'},{k:'imc',label:'IMC'}]
+          .map(function(c,i){
+            return '<button class="btn btn-sm '+(i===0?'btn-primary':'btn-outline')+'" onclick="pacTrocarGrafico(this,\''+c.k+'\',\''+c.label+'\')">'+c.label+'</button>';
+          }).join('') +
+          '</div>' +
+          '<canvas id="pac-bio-chart" height="100"></canvas>' +
+          '</div>';
+
+        window._pacMedidas = medidas;
+        setTimeout(function(){ pacRenderGrafico(medidas,'peso','Peso (kg)'); }, 300);
+      }
+    } else {
+      html += '<div class="card" style="text-align:center;padding:32px;color:var(--gray)">' +
+        '<div style="font-size:2rem;margin-bottom:8px">⚖️</div>' +
+        'Nenhuma medição registrada ainda. Seu médico lançará os dados após a consulta.' +
+        '</div>';
+    }
+
+    wrap.innerHTML = html;
+  });
+}
+
+function pacFiltrarFotos(cat, btn) {
+  var btns = document.querySelectorAll('#pac-evolucao-wrap .btn-outline.btn-sm');
+  for (var i=0;i<btns.length;i++) btns[i].classList.remove('active');
+  if (btn) btn.classList.add('active');
+  if (!window._pacFotos) return;
+  var fotos = cat==='todas' ? window._pacFotos : window._pacFotos.filter(function(f){return (f.categoria||'Geral')===cat;});
+  var grid = document.getElementById('pac-fotos-grid');
+  if (!grid) return;
+  grid.innerHTML = fotos.map(function(f){
+    return '<div class="fisico-foto-card" onclick="pacVerFotoGrande(\''+f.url+'\',\''+(f.categoria||'')+'\',\''+f.data+'\')">' +
+      '<img src="'+f.url+'" alt="'+(f.categoria||'foto')+'" loading="lazy">' +
+      '<div class="fisico-foto-info"><div class="cat">'+(f.categoria||'Geral')+'</div><div class="data">'+f.data+'</div></div></div>';
+  }).join('');
+}
+
+function pacVerFotoGrande(url, cat, data) {
+  openModal(
+    '<div class="modal" style="max-width:92vw">' +
+    '<div class="modal-header"><h3>'+(cat||'Foto')+' — '+data+'</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body" style="text-align:center;padding:12px">' +
+    '<img src="'+url+'" style="max-width:100%;max-height:78vh;border-radius:8px;object-fit:contain">' +
+    '</div></div>'
+  );
+}
+
+function pacInitComparador() {
+  var fotos = window._pacFotos;
+  if (!fotos || fotos.length < 2) return;
+  var selA = document.getElementById('pac-comp-a');
+  var selB = document.getElementById('pac-comp-b');
+  var idxA = selA ? parseInt(selA.value)||0 : 0;
+  var idxB = selB ? parseInt(selB.value)||1 : 1;
+  var imgA = document.getElementById('pac-comp-img-a');
+  var imgB = document.getElementById('pac-comp-img-b');
+  if (!imgA || !imgB) return;
+  if (fotos[idxA]) imgA.src = fotos[idxA].url;
+  if (fotos[idxB]) imgB.src = fotos[idxB].url;
+  var wrap = document.getElementById('pac-comparador-wrap');
+  var handle = document.getElementById('pac-comp-handle');
+  if (!wrap || !handle) return;
+  function setPct(p) {
+    p = Math.max(0,Math.min(100,p));
+    handle.style.left = p+'%';
+    imgA.style.clipPath = 'inset(0 '+(100-p)+'% 0 0)';
+  }
+  setPct(50);
+  handle.onmousedown = function(e) {
+    e.preventDefault();
+    document.onmousemove = function(ev){ setPct(((ev.clientX-wrap.getBoundingClientRect().left)/wrap.offsetWidth)*100); };
+    document.onmouseup = function(){ document.onmousemove=null; document.onmouseup=null; };
+  };
+  handle.ontouchstart = function(e) {
+    e.preventDefault();
+    document.ontouchmove = function(ev){ setPct(((ev.touches[0].clientX-wrap.getBoundingClientRect().left)/wrap.offsetWidth)*100); };
+    document.ontouchend = function(){ document.ontouchmove=null; document.ontouchend=null; };
+  };
+}
+
+function pacTrocarGrafico(btn, campo, label) {
+  var btns = document.querySelectorAll('#pac-bio-btns .btn');
+  for (var i=0;i<btns.length;i++) btns[i].className = btns[i].className.replace('btn-primary','btn-outline');
+  btn.className = btn.className.replace('btn-outline','btn-primary');
+  pacRenderGrafico(window._pacMedidas||[], campo, label);
+}
+
+function pacRenderGrafico(medidas, campo, label) {
+  var canvas = document.getElementById('pac-bio-chart');
+  if (!canvas) return;
+  if (window._pacChart) { window._pacChart.destroy(); window._pacChart = null; }
+  window._pacChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: medidas.map(function(m){ return m.data; }),
+      datasets: [{
+        label: label,
+        data: medidas.map(function(m){ return parseFloat(m[campo])||null; }),
+        borderColor: '#16A34A', backgroundColor: 'rgba(22,163,74,.08)',
+        borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#16A34A',
+        tension: 0.3, fill: true, spanGaps: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend:{display:false} },
+      scales: {
+        y: { beginAtZero:false, grid:{color:'rgba(0,0,0,.05)'} },
+        x: { grid:{display:false} }
+      }
+    }
+  });
+}
+
 
 // ============================================================
 // INIT
