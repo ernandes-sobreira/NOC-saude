@@ -2948,6 +2948,7 @@ function abrirModalNovoPaciente() {
     '<div><label>E-mail</label><input type="email" id="np-email" placeholder="paciente@email.com"></div>' +
     '<div><label>Cidade</label><input id="np-cidade" placeholder="Cáceres-MT"></div>' +
     '<div><label>Especialidade/Serviço</label><input id="np-esp" value="' + espAtual + '"></div>' +
+    '<div><label>Altura (cm)</label><input type="number" id="np-altura" placeholder="Ex: 170" min="100" max="220"></div>' +
     '</div>' +
     '<div class="mt-2">' +
     '<label>🔑 Código de Acesso *</label>' +
@@ -2983,6 +2984,7 @@ function salvarNovoPaciente() {
     cidade: document.getElementById('np-cidade').value.trim()||'',
     especialidade: document.getElementById('np-esp').value.trim()||'',
     queixa: document.getElementById('np-queixa').value.trim()||'',
+    altura: parseFloat(document.getElementById('np-altura').value)||0,
     codigoAcesso: codigo,
     totalExames: 0,
     temAlteracao: false
@@ -3009,7 +3011,7 @@ function modalEditarPaciente(pacId) {
     if (listaPacientes[i].id === pacId) { pac = listaPacientes[i]; break; }
   }
   if (!pac) return;
-  openModal('<div class="modal"><div class="modal-header"><h3>Editar Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome *</label><input id="ep-nome" value="' + (pac.nome||'') + '"></div><div><label>Data Nasc.</label><input type="date" id="ep-nasc" value="' + (pac.dataNasc||'') + '"></div><div><label>Sexo</label><select id="ep-sexo"><option value="F"' + (pac.sexo==='F'?' selected':'') + '>Feminino</option><option value="M"' + (pac.sexo==='M'?' selected':'') + '>Masculino</option><option value="O"' + (pac.sexo==='O'?' selected':'') + '>Outro</option></select></div><div><label>CPF</label><input id="ep-cpf" value="' + (pac.cpf||'') + '"></div><div><label>Telefone</label><input id="ep-tel" value="' + (pac.telefone||'') + '"></div><div><label>E-mail</label><input type="email" id="ep-email" value="' + (pac.email||'') + '"></div><div><label>Cidade</label><input id="ep-cidade" value="' + (pac.cidade||'') + '"></div><div><label>Especialidade</label><input id="ep-esp" value="' + (pac.especialidade||'') + '"></div><div style="grid-column:1/-1"><label>🔑 Código de Acesso</label><div style="display:flex;gap:8px"><input id="ep-codigo" value="' + (pac.codigoAcesso||'') + '" style="font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:600" oninput="this.value=this.value.toUpperCase()"><button type="button" class="btn btn-gray btn-sm" onclick="gerarCodigoEdicao()">Gerar</button></div></div></div><div class="mt-2"><label>Queixa</label><textarea id="ep-queixa" rows="2">' + (pac.queixa||'') + '</textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarEdicaoPaciente(\'' + pacId + '\')">Salvar</button></div></div>');
+  openModal('<div class="modal"><div class="modal-header"><h3>Editar Paciente</h3><button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div><label>Nome *</label><input id="ep-nome" value="' + (pac.nome||'') + '"></div><div><label>Data Nasc.</label><input type="date" id="ep-nasc" value="' + (pac.dataNasc||'') + '"></div><div><label>Sexo</label><select id="ep-sexo"><option value="F"' + (pac.sexo==='F'?' selected':'') + '>Feminino</option><option value="M"' + (pac.sexo==='M'?' selected':'') + '>Masculino</option><option value="O"' + (pac.sexo==='O'?' selected':'') + '>Outro</option></select></div><div><label>CPF</label><input id="ep-cpf" value="' + (pac.cpf||'') + '"></div><div><label>Telefone</label><input id="ep-tel" value="' + (pac.telefone||'') + '"></div><div><label>E-mail</label><input type="email" id="ep-email" value="' + (pac.email||'') + '"></div><div><label>Cidade</label><input id="ep-cidade" value="' + (pac.cidade||'') + '"></div><div><label>Especialidade</label><input id="ep-esp" value="' + (pac.especialidade||'') + '"></div><div><label>Altura (cm)</label><input type="number" id="ep-altura" value="' + (pac.altura||'') + '" placeholder="Ex: 170" min="100" max="220"></div><div style="grid-column:1/-1"><label>🔑 Código de Acesso</label><div style="display:flex;gap:8px"><input id="ep-codigo" value="' + (pac.codigoAcesso||'') + '" style="font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:600" oninput="this.value=this.value.toUpperCase()"><button type="button" class="btn btn-gray btn-sm" onclick="gerarCodigoEdicao()">Gerar</button></div></div></div><div class="mt-2"><label>Queixa</label><textarea id="ep-queixa" rows="2">' + (pac.queixa||'') + '</textarea></div></div><div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="salvarEdicaoPaciente(\'' + pacId + '\')">Salvar</button></div></div>');
 }
 function salvarEdicaoPaciente(pacId) {
   var nome = (document.getElementById('ep-nome').value||'').trim();
@@ -3024,6 +3026,7 @@ function salvarEdicaoPaciente(pacId) {
     cidade: document.getElementById('ep-cidade').value.trim()||'',
     especialidade: document.getElementById('ep-esp').value.trim()||'',
     codigoAcesso: (document.getElementById('ep-codigo') ? document.getElementById('ep-codigo').value.trim().toUpperCase() : '') || '',
+    altura: parseFloat(document.getElementById('ep-altura') ? document.getElementById('ep-altura').value : 0)||0,
     queixa: document.getElementById('ep-queixa').value.trim()||''
   };
   db.collection('users').doc(currentUser.uid).collection('pacientes').doc(pacId).update(dados)
@@ -3081,6 +3084,7 @@ function renderProntuario() {
     '<div class="tab" onclick="switchPronTab(\'metas\',this)">🎯 Metas</div>' +
     '<div class="tab" onclick="switchPronTab(\'agenda\',this)">📅 Agenda</div>' +
     '<div class="tab" onclick="switchPronTab(\'fisico\',this)">💪 Avaliação Física</div>' +
+    '<div class="tab" onclick="switchPronTab(\'consulta\',this)">🩺 Consulta IA</div>' +
     '</div>' +
     '<div id="pron-resumo" class="tab-panel active"></div>' +
     '<div id="pron-exames" class="tab-panel"></div>' +
@@ -3089,7 +3093,8 @@ function renderProntuario() {
     '<div id="pron-pedidos" class="tab-panel"></div>' +
     '<div id="pron-metas" class="tab-panel"></div>' +
     '<div id="pron-agenda" class="tab-panel"></div>' +
-    '<div id="pron-fisico" class="tab-panel"></div>'
+    '<div id="pron-fisico" class="tab-panel"></div>' +
+    '<div id="pron-consulta" class="tab-panel"></div>'
   );
   loadProntuarioResumo();
 }
@@ -3097,7 +3102,7 @@ function switchPronTab(tab, el) {
   var tabs = document.querySelectorAll('.tab');
   for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
   el.classList.add('active');
-  var panels = ['resumo','exames','laudos','prescricoes','pedidos','metas','agenda','fisico'];
+  var panels = ['resumo','exames','laudos','prescricoes','pedidos','metas','agenda','fisico','consulta'];
   for (var j = 0; j < panels.length; j++) {
     var panel = document.getElementById('pron-' + panels[j]);
     if (panel) panel.classList.toggle('active', panels[j] === tab);
@@ -3110,6 +3115,7 @@ function switchPronTab(tab, el) {
   else if (tab === 'metas') loadProntuarioMetas();
   else if (tab === 'agenda') loadProntuarioAgenda();
   else if (tab === 'fisico') loadAvaliacaoFisica();
+  else if (tab === 'consulta') loadConsultaIA();
 }
 function loadProntuarioResumo() {
   var uid = currentUser.uid;
@@ -5998,38 +6004,109 @@ function verFotoGrande(url, cat, data) {
 // ── BIOIMPEDÂNCIA ───────────────────────────────────────────
 function abrirModalBio() {
   var hoje = new Date().toISOString().slice(0,10);
+  var altPac = (prontuarioPac && prontuarioPac.altura) ? parseFloat(prontuarioPac.altura)||0 : 0;
   showModal(
     '⚖️ Lançar Medidas de Bioimpedância',
     '<div class="form-grid">' +
     '<div style="grid-column:1/-1"><label>Data da medição</label><input type="date" id="bio-data" value="'+hoje+'"></div>' +
-    '<div><label>Peso (kg)</label><input type="number" step="0.1" id="bio-peso" placeholder="Ex: 72.5"></div>' +
-    '<div><label>% Gordura</label><input type="number" step="0.1" id="bio-gordura" placeholder="Ex: 24.3"></div>' +
+    '<div><label>Peso (kg)</label><input type="number" step="0.1" id="bio-peso" placeholder="Ex: 72.5" oninput="calcularIndicesAuto()"></div>' +
+    '<div><label>% Gordura Corporal</label><input type="number" step="0.1" id="bio-gordura" placeholder="Ex: 24.3" oninput="calcularIndicesAuto()"></div>' +
     '<div><label>Massa Muscular (kg)</label><input type="number" step="0.1" id="bio-muscular" placeholder="Ex: 48.2"></div>' +
     '<div><label>Água Corporal (%)</label><input type="number" step="0.1" id="bio-agua" placeholder="Ex: 55.1"></div>' +
     '<div><label>Gordura Visceral</label><input type="number" step="1" id="bio-visceral" placeholder="Ex: 8"></div>' +
-    '<div><label>IMC</label><input type="number" step="0.1" id="bio-imc" placeholder="Ex: 23.4"></div>' +
+    '<div><label>IMC <span style="font-size:.75rem;color:var(--primary)">(auto)</span></label><input type="number" step="0.01" id="bio-imc" placeholder="Calculado" readonly style="background:var(--gray-light)"></div>' +
     '<div><label>Metabolismo Basal (kcal)</label><input type="number" step="1" id="bio-basal" placeholder="Ex: 1680"></div>' +
     '<div><label>Idade Metabólica (anos)</label><input type="number" step="1" id="bio-idademet" placeholder="Ex: 32"></div>' +
-    '</div>',
+    '</div>' +
+    '<div id="bio-indices-preview" style="margin-top:12px"></div>' +
+    '<input type="hidden" id="bio-altura-ref" value="'+altPac+'">',
     '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
     '<button class="btn btn-primary" onclick="salvarBio()">Salvar Medidas</button>'
   );
+  if (altPac > 0) setTimeout(calcularIndicesAuto, 100);
 }
+
+function calcularIndicesAuto() {
+  var peso  = parseFloat((document.getElementById('bio-peso')||{}).value)||0;
+  var gord  = parseFloat((document.getElementById('bio-gordura')||{}).value)||0;
+  var altEl = document.getElementById('bio-altura-ref');
+  var alt   = altEl ? parseFloat(altEl.value)||0 : 0;
+  var prev  = document.getElementById('bio-indices-preview');
+  if (!prev) return;
+  if (peso <= 0 || alt <= 0) { prev.innerHTML = ''; return; }
+  var altM = alt/100;
+  var imc  = peso/(altM*altM);
+  var imcR = Math.round(imc*10)/10;
+  var imcEl = document.getElementById('bio-imc');
+  if (imcEl) imcEl.value = imcR;
+  var imcCls,imcCor,imcEmoji;
+  if (imc<18.5)    { imcCls='Baixo Peso';    imcCor='#3B82F6'; imcEmoji='🦋'; }
+  else if(imc<25)  { imcCls='Peso Normal';   imcCor='#16A34A'; imcEmoji='✅'; }
+  else if(imc<30)  { imcCls='Sobrepeso';     imcCor='#D97706'; imcEmoji='⚠️'; }
+  else if(imc<35)  { imcCls='Obesidade I';   imcCor='#DC2626'; imcEmoji='🔴'; }
+  else if(imc<40)  { imcCls='Obesidade II';  imcCor='#991B1B'; imcEmoji='🔴'; }
+  else             { imcCls='Obesidade III'; imcCor='#7F1D1D'; imcEmoji='🔴'; }
+  var massaGorda = gord>0 ? Math.round(peso*gord/100*10)/10 : null;
+  var massaMagra = massaGorda!==null ? Math.round((peso-massaGorda)*10)/10 : null;
+  var relGM = (massaMagra!==null && massaGorda>0) ? Math.round(massaMagra/massaGorda*10)/10 : null;
+  var sexoPac = prontuarioPac?(prontuarioPac.sexo||'M'):'M';
+  var gMin=sexoPac==='F'?20:10; var gMax=sexoPac==='F'?30:20;
+  var gordStatus=gord>0?(gord<gMin?'Abaixo do ideal':gord<=gMax?'Na faixa ideal':'Acima do ideal'):null;
+  var gordCor=gord>0?(gord<gMin?'#3B82F6':gord<=gMax?'#16A34A':'#DC2626'):'#6B7280';
+  var html='<div style="background:linear-gradient(135deg,#F0FDF4,#EFF6FF);border-radius:12px;padding:14px;border:1.5px solid #86EFAC">' +
+    '<div style="font-size:.75rem;font-weight:700;color:#166534;margin-bottom:10px">CALCULADO AUTOMATICAMENTE</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
+  html+='<div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border-top:3px solid '+imcCor+'">' +
+    '<div style="font-size:1.3rem;font-weight:800;color:'+imcCor+'">'+imcR+'</div>' +
+    '<div style="font-size:.68rem;color:#6B7280">IMC</div>' +
+    '<div style="font-size:.7rem;font-weight:700;color:'+imcCor+'">'+imcEmoji+' '+imcCls+'</div></div>';
+  if(massaMagra!==null)
+    html+='<div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border-top:3px solid #10B981">' +
+      '<div style="font-size:1.3rem;font-weight:800;color:#10B981">'+massaMagra+' kg</div>' +
+      '<div style="font-size:.68rem;color:#6B7280">Massa Magra</div>' +
+      '<div style="font-size:.7rem;color:#059669">peso − gordura</div></div>';
+  if(massaGorda!==null)
+    html+='<div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border-top:3px solid '+gordCor+'">' +
+      '<div style="font-size:1.3rem;font-weight:800;color:'+gordCor+'">'+massaGorda+' kg</div>' +
+      '<div style="font-size:.68rem;color:#6B7280">Gordura Total</div>' +
+      '<div style="font-size:.7rem;font-weight:700;color:'+gordCor+'">'+(gordStatus||'')+'</div></div>';
+  if(relGM!==null){
+    var relCor=relGM>=2?'#16A34A':relGM>=1.5?'#D97706':'#DC2626';
+    var relStatus=relGM>=2?'Excelente':relGM>=1.5?'Bom':'Atenção';
+    html+='<div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border-top:3px solid '+relCor+'">' +
+      '<div style="font-size:1.3rem;font-weight:800;color:'+relCor+'">'+relGM+':1</div>' +
+      '<div style="font-size:.68rem;color:#6B7280">Músculo/Gordura</div>' +
+      '<div style="font-size:.7rem;font-weight:700;color:'+relCor+'">'+relStatus+'</div></div>';
+  }
+  html+='</div></div>';
+  prev.innerHTML=html;
+}
+
 
 function salvarBio() {
   var data = document.getElementById('bio-data').value;
   if (!data) { toast('Informe a data','error'); return; }
+  var pesoV = document.getElementById('bio-peso').value;
+  var gordV = document.getElementById('bio-gordura').value;
+  var pesoN = parseFloat(pesoV)||0;
+  var gordN = parseFloat(gordV)||0;
+  var mGorda = gordN>0 ? String(Math.round(pesoN*gordN/100*10)/10) : '';
+  var mMagra = mGorda ? String(Math.round((pesoN-parseFloat(mGorda))*10)/10) : '';
+  var relGMv = (mMagra && mGorda && parseFloat(mGorda)>0) ? String(Math.round(parseFloat(mMagra)/parseFloat(mGorda)*10)/10) : '';
   var m = {
     data: data,
     dataTs: new Date(data).getTime(),
-    peso:     document.getElementById('bio-peso').value,
-    gordura:  document.getElementById('bio-gordura').value,
-    muscular: document.getElementById('bio-muscular').value,
-    agua:     document.getElementById('bio-agua').value,
-    visceral: document.getElementById('bio-visceral').value,
-    imc:      document.getElementById('bio-imc').value,
-    basal:    document.getElementById('bio-basal').value,
-    idadeMet: document.getElementById('bio-idademet').value
+    peso:        pesoV,
+    gordura:     gordV,
+    muscular:    document.getElementById('bio-muscular').value,
+    agua:        document.getElementById('bio-agua').value,
+    visceral:    document.getElementById('bio-visceral').value,
+    imc:         document.getElementById('bio-imc').value,
+    basal:       document.getElementById('bio-basal').value,
+    idadeMet:    document.getElementById('bio-idademet').value,
+    massaGorda:  mGorda,
+    massaMagra:  mMagra,
+    relMuscGord: relGMv
   };
   // Remove campos vazios
   Object.keys(m).forEach(function(k){ if (m[k]===''||m[k]===null||m[k]===undefined) delete m[k]; });
@@ -6056,6 +6133,306 @@ function pacEnviarFoto() {
   _fisicoMedUid = pacienteMedUid;
   _fisicoPacId  = pacientePacId;
   abrirUploadFoto();
+}
+
+
+// ============================================================
+// CONSULTA IA — Notas + Extração Automática
+// ============================================================
+var _consultaHistorico = [];
+
+function loadConsultaIA() {
+  var el = document.getElementById('pron-consulta');
+  if (!el) return;
+  var uid = getMedUid();
+  var pid = prontuarioPacId;
+  var pac = prontuarioPac || {};
+
+  db.collection('users').doc(uid).collection('pacientes').doc(pid)
+    .collection('consultas').orderBy('dataTs','desc').get()
+    .catch(function(){ return {docs:[]}; })
+    .then(function(snap) {
+      _consultaHistorico = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+      _renderConsultaIA(el, pac);
+    });
+}
+
+function _renderConsultaIA(el, pac) {
+  var html =
+    // ── CABEÇALHO
+    '<div class="flex justify-between align-center wrap gap-1 mb-3">' +
+    '<div>' +
+    '<h3 style="font-size:1rem">🩺 Consulta com Assistente IA</h3>' +
+    '<p style="font-size:.8rem;color:var(--gray);margin-top:2px">Digite as notas da consulta e a IA extrai automaticamente os itens clínicos importantes.</p>' +
+    '</div></div>' +
+
+    // ── ÁREA DE DIGITAÇÃO
+    '<div class="card mb-3">' +
+    '<div class="flex justify-between align-center mb-2">' +
+    '<div class="section-title">📝 Notas da Consulta</div>' +
+    '<div style="font-size:.75rem;color:var(--gray)" id="consulta-chars">0 caracteres</div>' +
+    '</div>' +
+    '<textarea id="consulta-texto" rows="8" placeholder="Digite aqui as anotações da consulta...\n\nExemplos:\n- Paciente relata dor de cabeça há 3 dias, pressão alta 150/90\n- Prescrito Losartana 50mg 1x ao dia\n- Solicitar hemograma, glicemia e colesterol\n- Retorno em 30 dias\n- Orientado sobre dieta hipossódica" ' +
+    'style="width:100%;font-size:.9rem;line-height:1.7;border:1.5px solid var(--gray-200);border-radius:10px;padding:14px;resize:vertical;font-family:var(--font)" ' +
+    'oninput="document.getElementById(\'consulta-chars\').textContent=this.value.length+\' caracteres\'"></textarea>' +
+    '<div class="flex gap-1 mt-2">' +
+    '<button class="btn btn-primary" onclick="analisarConsultaIA()" id="btn-analisar">' +
+    '<span>✨ Analisar com IA</span></button>' +
+    '<button class="btn btn-gray btn-sm" onclick="limparConsulta()">Limpar</button>' +
+    '</div></div>' +
+
+    // ── RESULTADO DA ANÁLISE
+    '<div id="consulta-resultado"></div>' +
+
+    // ── HISTÓRICO
+    '<div class="card">' +
+    '<div class="section-title mb-2">📋 Histórico de Consultas</div>' +
+    (_consultaHistorico.length === 0 ?
+      '<p style="color:var(--gray);font-size:.85rem">Nenhuma consulta registrada ainda.</p>' :
+      _consultaHistorico.map(function(c) {
+        return '<div style="border:1px solid var(--gray-200);border-radius:10px;padding:14px;margin-bottom:10px">' +
+          '<div class="flex justify-between align-center mb-1">' +
+          '<div style="font-weight:700;font-size:.88rem">' + c.data + '</div>' +
+          '<div class="flex gap-1">' +
+          '<button class="btn btn-outline btn-sm" onclick="verConsulta(\'' + c.id + '\')">Ver resumo</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="excluirConsulta(\'' + c.id + '\')">🗑️</button>' +
+          '</div></div>' +
+          '<div style="font-size:.82rem;color:var(--gray);white-space:pre-wrap;max-height:60px;overflow:hidden">' +
+          (c.notas||'').substring(0,200) + (c.notas && c.notas.length>200?'...':'') +
+          '</div></div>';
+      }).join('')
+    ) +
+    '</div>';
+
+  el.innerHTML = html;
+}
+
+function analisarConsultaIA() {
+  var texto = (document.getElementById('consulta-texto').value||'').trim();
+  if (!texto) { toast('Digite as notas da consulta primeiro','error'); return; }
+
+  var btn = document.getElementById('btn-analisar');
+  var res = document.getElementById('consulta-resultado');
+  if (btn) { btn.innerHTML = '<span>⏳ Analisando...</span>'; btn.disabled = true; }
+  if (res) res.innerHTML = '<div class="card mb-3" style="text-align:center;padding:24px;color:var(--gray)"><div style="font-size:1.5rem;margin-bottom:8px">🤖</div>A IA está lendo as notas...</div>';
+
+  var pac = prontuarioPac || {};
+  var WORKER_URL = window._nocWorkerUrl || 'https://noc-clinic.ernandes-sobreira.workers.dev';
+
+  var prompt = 'Você é um assistente médico clínico. Analise as notas de consulta abaixo e extraia as informações clínicas relevantes.\n\n' +
+    'DADOS DO PACIENTE:\n' +
+    'Nome: ' + (pac.nome||'Não informado') + '\n' +
+    'Sexo: ' + (pac.sexo==='F'?'Feminino':pac.sexo==='M'?'Masculino':'Não informado') + '\n' +
+    'Data Nasc: ' + (pac.dataNasc||'Não informado') + '\n' +
+    'Especialidade: ' + (pac.especialidade||'Não informado') + '\n\n' +
+    'NOTAS DA CONSULTA:\n' + texto + '\n\n' +
+    'Retorne SOMENTE JSON válido sem markdown, sem explicações:\n' +
+    '{\n' +
+    '  "resumo": "resumo clínico em 2-3 frases",\n' +
+    '  "queixas": ["queixa 1","queixa 2"],\n' +
+    '  "sinaisVitais": [{"nome":"Pressão Arterial","valor":"120/80"}],\n' +
+    '  "diagnosticos": ["hipótese diagnóstica 1"],\n' +
+    '  "medicamentos": [{"nome":"Medicamento","dose":"dose","frequencia":"1x ao dia","via":"oral"}],\n' +
+    '  "examesSolicitados": ["Hemograma","Glicemia"],\n' +
+    '  "orientacoes": ["orientação 1","orientação 2"],\n' +
+    '  "retorno": "prazo de retorno mencionado ou vazio",\n' +
+    '  "observacoes": "outras observações relevantes"\n' +
+    '}';
+
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    var text = '';
+    if (data.content && data.content[0]) text = data.content[0].text || '';
+    text = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    var mx = text.match(/\{[\s\S]*\}/);
+    if (mx) text = mx[0];
+    var result;
+    try { result = JSON.parse(text); } catch(e) { result = null; }
+    if (btn) { btn.innerHTML = '<span>✨ Analisar com IA</span>'; btn.disabled = false; }
+    if (!result) {
+      if (res) res.innerHTML = '<div class="card mb-3" style="color:var(--danger);padding:16px">Não foi possível analisar. Verifique a conexão com o servidor IA.</div>';
+      return;
+    }
+    _exibirResultadoConsulta(result, texto);
+  })
+  .catch(function(e) {
+    if (btn) { btn.innerHTML = '<span>✨ Analisar com IA</span>'; btn.disabled = false; }
+    if (res) res.innerHTML = '<div class="card mb-3" style="color:var(--danger);padding:16px">Erro: ' + e.message + '</div>';
+  });
+}
+
+function _exibirResultadoConsulta(r, textoOriginal) {
+  var res = document.getElementById('consulta-resultado');
+  if (!res) return;
+
+  var html = '<div class="card mb-3" style="border-left:4px solid var(--primary)">' +
+    '<div class="flex justify-between align-center mb-3">' +
+    '<div class="section-title">✨ Análise da IA</div>' +
+    '<button class="btn btn-primary btn-sm" onclick="salvarConsultaIA()" id="btn-salvar-consulta">💾 Salvar no Prontuário</button>' +
+    '</div>';
+
+  // Resumo
+  if (r.resumo) {
+    html += '<div style="background:var(--primary-light);border-radius:10px;padding:14px;margin-bottom:16px;font-size:.9rem;color:var(--text);line-height:1.6">' +
+      '<strong style="color:var(--primary)">📋 Resumo Clínico</strong><br>' + r.resumo + '</div>';
+  }
+
+  var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">';
+
+  // Queixas
+  if (r.queixas && r.queixas.length) {
+    grid += _cardConsulta('🤒 Queixas', r.queixas.map(function(q){ return '• '+q; }).join('<br>'), '#FFF7ED', '#D97706');
+  }
+  // Sinais vitais
+  if (r.sinaisVitais && r.sinaisVitais.length) {
+    var sv = r.sinaisVitais.map(function(s){ return '<strong>'+s.nome+':</strong> '+s.valor; }).join('<br>');
+    grid += _cardConsulta('❤️ Sinais Vitais', sv, '#FFF1F2', '#DC2626');
+  }
+  // Diagnósticos
+  if (r.diagnosticos && r.diagnosticos.length) {
+    grid += _cardConsulta('🔍 Hipóteses Diagnósticas', r.diagnosticos.map(function(d){ return '• '+d; }).join('<br>'), '#EFF6FF', '#1D4ED8');
+  }
+  // Retorno
+  if (r.retorno) {
+    grid += _cardConsulta('📅 Retorno', r.retorno, '#F0FDF4', '#15803D');
+  }
+  grid += '</div>';
+  html += grid;
+
+  // Medicamentos
+  if (r.medicamentos && r.medicamentos.length) {
+    html += '<div style="background:#F5F3FF;border-radius:10px;padding:14px;margin-bottom:12px">' +
+      '<div style="font-weight:700;color:#6D28D9;margin-bottom:10px">💊 Medicamentos Prescritos</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' +
+      r.medicamentos.map(function(m){
+        return '<div style="background:#fff;border-radius:8px;padding:10px;border-left:3px solid #8B5CF6">' +
+          '<div style="font-weight:700;font-size:.88rem">' + m.nome + '</div>' +
+          (m.dose?'<div style="font-size:.78rem;color:#6B7280">'+m.dose+'</div>':'') +
+          (m.frequencia?'<div style="font-size:.78rem;color:#6B7280">'+m.frequencia+'</div>':'') +
+          (m.via?'<div style="font-size:.75rem;color:#9CA3AF">via '+m.via+'</div>':'') +
+          '</div>';
+      }).join('') +
+      '</div></div>';
+  }
+
+  // Exames solicitados
+  if (r.examesSolicitados && r.examesSolicitados.length) {
+    html += '<div style="background:#ECFDF5;border-radius:10px;padding:14px;margin-bottom:12px">' +
+      '<div style="font-weight:700;color:#065F46;margin-bottom:10px">🔬 Exames Solicitados</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+      r.examesSolicitados.map(function(e){
+        return '<span style="background:#fff;border:1.5px solid #6EE7B7;border-radius:20px;padding:4px 12px;font-size:.82rem;font-weight:600;color:#065F46">' + e + '</span>';
+      }).join('') +
+      '</div></div>';
+  }
+
+  // Orientações
+  if (r.orientacoes && r.orientacoes.length) {
+    html += '<div style="background:#FEFCE8;border-radius:10px;padding:14px;margin-bottom:12px">' +
+      '<div style="font-weight:700;color:#92400E;margin-bottom:8px">📌 Orientações ao Paciente</div>' +
+      r.orientacoes.map(function(o){ return '<div style="font-size:.85rem;color:#78350F;padding:3px 0">• '+o+'</div>'; }).join('') +
+      '</div>';
+  }
+
+  // Observações
+  if (r.observacoes) {
+    html += '<div style="font-size:.82rem;color:var(--gray);padding:10px;background:var(--gray-light);border-radius:8px">' +
+      '<strong>Obs.:</strong> ' + r.observacoes + '</div>';
+  }
+
+  html += '</div>';
+  res.innerHTML = html;
+
+  // Guarda resultado para salvar
+  window._consultaResultadoAtual = r;
+  window._consultaTextoAtual = textoOriginal;
+}
+
+function _cardConsulta(titulo, conteudo, bg, cor) {
+  return '<div style="background:'+bg+';border-radius:10px;padding:12px;border-left:3px solid '+cor+'">' +
+    '<div style="font-weight:700;font-size:.8rem;color:'+cor+';margin-bottom:6px">'+titulo+'</div>' +
+    '<div style="font-size:.83rem;color:var(--text);line-height:1.6">'+conteudo+'</div></div>';
+}
+
+function salvarConsultaIA() {
+  var resultado = window._consultaResultadoAtual;
+  var notas = window._consultaTextoAtual || '';
+  if (!resultado) { toast('Nada para salvar','error'); return; }
+
+  var uid = getMedUid();
+  var pid = prontuarioPacId;
+  var hoje = new Date().toISOString().slice(0,10);
+  var btn = document.getElementById('btn-salvar-consulta');
+  if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
+
+  var doc = {
+    data: hoje,
+    dataTs: Date.now(),
+    notas: notas,
+    resumo: resultado.resumo||'',
+    queixas: resultado.queixas||[],
+    sinaisVitais: resultado.sinaisVitais||[],
+    diagnosticos: resultado.diagnosticos||[],
+    medicamentos: resultado.medicamentos||[],
+    examesSolicitados: resultado.examesSolicitados||[],
+    orientacoes: resultado.orientacoes||[],
+    retorno: resultado.retorno||'',
+    observacoes: resultado.observacoes||''
+  };
+
+  db.collection('users').doc(uid).collection('pacientes').doc(pid)
+    .collection('consultas').add(doc)
+    .then(function() {
+      toast('Consulta salva no prontuário! ✅','success');
+      if (btn) { btn.textContent = '✅ Salvo!'; }
+      // Atualiza queixa principal se vazia
+      if (resultado.queixas && resultado.queixas.length && prontuarioPac && !prontuarioPac.queixa) {
+        db.collection('users').doc(uid).collection('pacientes').doc(pid)
+          .update({ queixa: resultado.queixas[0] }).catch(function(){});
+      }
+      loadConsultaIA();
+    })
+    .catch(function(e) {
+      toast('Erro ao salvar: ' + e.message,'error');
+      if (btn) { btn.textContent = '💾 Salvar no Prontuário'; btn.disabled = false; }
+    });
+}
+
+function verConsulta(id) {
+  var c = _consultaHistorico.find(function(x){ return x.id===id; });
+  if (!c) return;
+  window._consultaResultadoAtual = c;
+  window._consultaTextoAtual = c.notas||'';
+  var ta = document.getElementById('consulta-texto');
+  if (ta) ta.value = c.notas||'';
+  _exibirResultadoConsulta(c, c.notas||'');
+  document.getElementById('pron-consulta').scrollTop = 0;
+}
+
+function excluirConsulta(id) {
+  if (!confirm('Excluir esta consulta do histórico?')) return;
+  var uid = getMedUid();
+  var pid = prontuarioPacId;
+  db.collection('users').doc(uid).collection('pacientes').doc(pid)
+    .collection('consultas').doc(id).delete()
+    .then(function(){ toast('Consulta removida','success'); loadConsultaIA(); })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function limparConsulta() {
+  var ta = document.getElementById('consulta-texto');
+  if (ta) ta.value = '';
+  var res = document.getElementById('consulta-resultado');
+  if (res) res.innerHTML = '';
+  var chars = document.getElementById('consulta-chars');
+  if (chars) chars.textContent = '0 caracteres';
+  window._consultaResultadoAtual = null;
+  window._consultaTextoAtual = '';
 }
 
 
