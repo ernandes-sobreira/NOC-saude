@@ -14,19 +14,19 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --primary:#2D5016;--primary-light:#EEF4E8;--primary-dark:#1E3A0F;
-  --accent:#4A7C2F;--accent-light:#F0F7EA;
+  --primary:#2D5016;--primary-light:#D4EDBA;--primary-dark:#1E3A0F;
+  --accent:#3A8C1C;--accent-light:#E6F5DC;
   --olive:#6B8C3E;--olive-light:#F2F6EC;
   --warm:#C8A96E;--warm-light:#FAF5EC;
-  --success:#2D7A4F;--success-light:#E4F5EC;
-  --warn:#B07D2A;--warn-light:#FDF4E3;
-  --danger:#B03A2E;--danger-light:#FDEEEC;
-  --gray:#6B7280;--gray-light:#F7F8F5;--gray-200:#E8EBE4;
-  --text:#1C2412;--text-soft:#3D4A2E;
-  --radius:14px;--shadow:0 2px 16px rgba(45,80,22,.08);
+  --success:#15803D;--success-light:#DCFCE7;
+  --warn:#D97706;--warn-light:#FEF3C7;
+  --danger:#DC2626;--danger-light:#FEE2E2;
+  --gray:#6B7280;--gray-light:#F7F8F5;--gray-200:#D1D9C8;
+  --text:#0A1409;--text-soft:#1E3A0F;
+  --radius:14px;--shadow:0 2px 20px rgba(45,80,22,.14);
   --font:'DM Sans','Segoe UI',system-ui,sans-serif;
   --font-display:'DM Serif Display',Georgia,serif;
-  --noc-gradient:linear-gradient(135deg,#2D5016 0%,#4A7C2F 60%,#6B8C3E 100%);
+  --noc-gradient:linear-gradient(135deg,#1E3A0F 0%,#2D5016 45%,#3A8C1C 100%);
   --noc-marble:linear-gradient(145deg,#FAFAF8 0%,#F4F4F0 40%,#FAFAF8 100%);
 }
 body{font-family:var(--font);background:#F7F8F5;color:var(--text);min-height:100vh}
@@ -303,7 +303,10 @@ tr:hover td{background:var(--primary-light)}
         <input type="password" id="admin-code" placeholder="Código NOC">
       </div>
       <button class="btn btn-primary w-100" onclick="doAdminLogin()">Entrar como Admin</button>
-      <div style="font-size:.75rem;color:var(--gray);text-align:center;margin-top:8px">
+      <div style="text-align:center;margin-top:10px">
+        <a href="#" onclick="enviarResetSenhaAdmin()" style="font-size:.78rem;color:var(--primary)">Esqueci minha senha</a>
+      </div>
+      <div style="font-size:.75rem;color:var(--gray);text-align:center;margin-top:6px">
         Primeiro acesso? O sistema criará a conta automaticamente.
       </div>
     </div>
@@ -527,6 +530,18 @@ function doPacienteLogin() {
       });
   }
 }
+function enviarResetSenhaAdmin() {
+  var email = (document.getElementById('admin-email').value||'').trim();
+  if (!email) { showLoginError('Digite o e-mail primeiro.'); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(function() {
+      showLoginError('✅ E-mail de redefinição enviado para ' + email + '. Verifique sua caixa de entrada.');
+    })
+    .catch(function(e) {
+      showLoginError(traduzirErroFirebase(e.message));
+    });
+}
+
 function doAdminLogin() {
   var code = document.getElementById('admin-code').value;
   var email = (document.getElementById('admin-email').value || '').trim();
