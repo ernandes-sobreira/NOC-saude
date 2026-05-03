@@ -6316,44 +6316,49 @@ function _exibirResultadoConsulta(r, textoOriginal) {
   if (!res) return;
 
   var html = '<div class="card mb-3" style="border-left:4px solid var(--primary)">' +
-    '<div class="flex justify-between align-center mb-3">' +
+
+    // ── CABEÇALHO com botões de ação
+    '<div class="flex justify-between align-center mb-3 wrap gap-1">' +
     '<div class="section-title">✨ Análise da IA</div>' +
-    '<button class="btn btn-primary btn-sm" onclick="salvarConsultaIA()" id="btn-salvar-consulta">💾 Salvar no Prontuário</button>' +
+    '<div class="flex gap-1 wrap">' +
+    '<button class="btn btn-outline btn-sm" onclick="editarAnaliseIA()">✏️ Editar</button>' +
+    '<button class="btn btn-primary btn-sm" onclick="salvarConsultaIA()" id="btn-salvar-consulta">💾 Salvar</button>' +
+    '</div></div>' +
+
+    // ── BARRA DE AÇÕES INTEGRADAS
+    '<div style="background:var(--gray-light);border-radius:10px;padding:12px;margin-bottom:16px">' +
+    '<div style="font-size:.75rem;font-weight:700;color:var(--text-soft);margin-bottom:8px;letter-spacing:.5px">ENVIAR PARA O PRONTUÁRIO</div>' +
+    '<div class="flex gap-1 wrap">' +
+    '<button class="btn btn-sm" style="background:#7C3AED;color:#fff" onclick="consultaParaPrescricao()">💊 Prescrição</button>' +
+    '<button class="btn btn-sm" style="background:#059669;color:#fff" onclick="consultaParaPedido()">🔬 Pedido de Exame</button>' +
+    '<button class="btn btn-sm" style="background:#DC2626;color:#fff" onclick="consultaParaMeta()">🎯 Meta</button>' +
+    '</div>' +
+    '<div style="font-size:.72rem;color:var(--gray);margin-top:6px">Clique para abrir o modal já preenchido — edite antes de salvar.</div>' +
     '</div>';
 
-  // Resumo
+  // ── RESUMO
   if (r.resumo) {
     html += '<div style="background:var(--primary-light);border-radius:10px;padding:14px;margin-bottom:16px;font-size:.9rem;color:var(--text);line-height:1.6">' +
       '<strong style="color:var(--primary)">📋 Resumo Clínico</strong><br>' + r.resumo + '</div>';
   }
 
-  var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">';
-
-  // Queixas
-  if (r.queixas && r.queixas.length) {
+  var grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:14px">';
+  if (r.queixas && r.queixas.length)
     grid += _cardConsulta('🤒 Queixas', r.queixas.map(function(q){ return '• '+q; }).join('<br>'), '#FFF7ED', '#D97706');
-  }
-  // Sinais vitais
-  if (r.sinaisVitais && r.sinaisVitais.length) {
-    var sv = r.sinaisVitais.map(function(s){ return '<strong>'+s.nome+':</strong> '+s.valor; }).join('<br>');
-    grid += _cardConsulta('❤️ Sinais Vitais', sv, '#FFF1F2', '#DC2626');
-  }
-  // Diagnósticos
-  if (r.diagnosticos && r.diagnosticos.length) {
-    grid += _cardConsulta('🔍 Hipóteses Diagnósticas', r.diagnosticos.map(function(d){ return '• '+d; }).join('<br>'), '#EFF6FF', '#1D4ED8');
-  }
-  // Retorno
-  if (r.retorno) {
+  if (r.sinaisVitais && r.sinaisVitais.length)
+    grid += _cardConsulta('❤️ Sinais Vitais', r.sinaisVitais.map(function(s){ return '<strong>'+s.nome+':</strong> '+s.valor; }).join('<br>'), '#FFF1F2', '#DC2626');
+  if (r.diagnosticos && r.diagnosticos.length)
+    grid += _cardConsulta('🔍 Hipóteses', r.diagnosticos.map(function(d){ return '• '+d; }).join('<br>'), '#EFF6FF', '#1D4ED8');
+  if (r.retorno)
     grid += _cardConsulta('📅 Retorno', r.retorno, '#F0FDF4', '#15803D');
-  }
   grid += '</div>';
   html += grid;
 
-  // Medicamentos
+  // ── MEDICAMENTOS
   if (r.medicamentos && r.medicamentos.length) {
     html += '<div style="background:#F5F3FF;border-radius:10px;padding:14px;margin-bottom:12px">' +
-      '<div style="font-weight:700;color:#6D28D9;margin-bottom:10px">💊 Medicamentos Prescritos</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' +
+      '<div style="font-weight:700;color:#6D28D9;margin-bottom:10px">💊 Medicamentos</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">' +
       r.medicamentos.map(function(m){
         return '<div style="background:#fff;border-radius:8px;padding:10px;border-left:3px solid #8B5CF6">' +
           '<div style="font-weight:700;font-size:.88rem">' + m.nome + '</div>' +
@@ -6365,38 +6370,201 @@ function _exibirResultadoConsulta(r, textoOriginal) {
       '</div></div>';
   }
 
-  // Exames solicitados
+  // ── EXAMES
   if (r.examesSolicitados && r.examesSolicitados.length) {
     html += '<div style="background:#ECFDF5;border-radius:10px;padding:14px;margin-bottom:12px">' +
       '<div style="font-weight:700;color:#065F46;margin-bottom:10px">🔬 Exames Solicitados</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
       r.examesSolicitados.map(function(e){
         return '<span style="background:#fff;border:1.5px solid #6EE7B7;border-radius:20px;padding:4px 12px;font-size:.82rem;font-weight:600;color:#065F46">' + e + '</span>';
-      }).join('') +
-      '</div></div>';
+      }).join('') + '</div></div>';
   }
 
-  // Orientações
+  // ── ORIENTAÇÕES
   if (r.orientacoes && r.orientacoes.length) {
     html += '<div style="background:#FEFCE8;border-radius:10px;padding:14px;margin-bottom:12px">' +
-      '<div style="font-weight:700;color:#92400E;margin-bottom:8px">📌 Orientações ao Paciente</div>' +
+      '<div style="font-weight:700;color:#92400E;margin-bottom:8px">📌 Orientações</div>' +
       r.orientacoes.map(function(o){ return '<div style="font-size:.85rem;color:#78350F;padding:3px 0">• '+o+'</div>'; }).join('') +
       '</div>';
   }
 
-  // Observações
-  if (r.observacoes) {
-    html += '<div style="font-size:.82rem;color:var(--gray);padding:10px;background:var(--gray-light);border-radius:8px">' +
-      '<strong>Obs.:</strong> ' + r.observacoes + '</div>';
-  }
+  if (r.observacoes)
+    html += '<div style="font-size:.82rem;color:var(--gray);padding:10px;background:var(--gray-light);border-radius:8px"><strong>Obs.:</strong> ' + r.observacoes + '</div>';
 
   html += '</div>';
   res.innerHTML = html;
 
-  // Guarda resultado para salvar
   window._consultaResultadoAtual = r;
   window._consultaTextoAtual = textoOriginal;
 }
+
+// ── EDITAR ANÁLISE ─────────────────────────────────────────
+function editarAnaliseIA() {
+  var r = window._consultaResultadoAtual;
+  if (!r) return;
+  showModal(
+    '✏️ Editar Análise',
+    '<div class="form-grid">' +
+    '<div style="grid-column:1/-1"><label>Resumo Clínico</label><textarea id="edit-resumo" rows="3">' + (r.resumo||'') + '</textarea></div>' +
+    '<div style="grid-column:1/-1"><label>Queixas (uma por linha)</label><textarea id="edit-queixas" rows="3">' + (r.queixas||[]).join('\n') + '</textarea></div>' +
+    '<div style="grid-column:1/-1"><label>Hipóteses Diagnósticas (uma por linha)</label><textarea id="edit-diag" rows="2">' + (r.diagnosticos||[]).join('\n') + '</textarea></div>' +
+    '<div style="grid-column:1/-1"><label>Medicamentos (formato: Nome | dose | frequência | via)</label><textarea id="edit-meds" rows="3">' +
+      (r.medicamentos||[]).map(function(m){ return [m.nome,m.dose||'',m.frequencia||'',m.via||''].join(' | '); }).join('\n') +
+    '</textarea></div>' +
+    '<div style="grid-column:1/-1"><label>Exames Solicitados (um por linha)</label><textarea id="edit-exames" rows="3">' + (r.examesSolicitados||[]).join('\n') + '</textarea></div>' +
+    '<div style="grid-column:1/-1"><label>Orientações (uma por linha)</label><textarea id="edit-orient" rows="3">' + (r.orientacoes||[]).join('\n') + '</textarea></div>' +
+    '<div><label>Retorno</label><input id="edit-retorno" value="' + (r.retorno||'') + '"></div>' +
+    '<div style="grid-column:1/-1"><label>Observações</label><textarea id="edit-obs" rows="2">' + (r.observacoes||'') + '</textarea></div>' +
+    '</div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="aplicarEdicaoAnalise()">Aplicar</button>'
+  );
+}
+
+function aplicarEdicaoAnalise() {
+  var r = window._consultaResultadoAtual || {};
+  function linhas(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean) : [];
+  }
+  r.resumo = (document.getElementById('edit-resumo').value||'').trim();
+  r.queixas = linhas('edit-queixas');
+  r.diagnosticos = linhas('edit-diag');
+  r.examesSolicitados = linhas('edit-exames');
+  r.orientacoes = linhas('edit-orient');
+  r.retorno = (document.getElementById('edit-retorno').value||'').trim();
+  r.observacoes = (document.getElementById('edit-obs').value||'').trim();
+  r.medicamentos = linhas('edit-meds').map(function(linha) {
+    var p = linha.split('|').map(function(s){ return s.trim(); });
+    return { nome: p[0]||'', dose: p[1]||'', frequencia: p[2]||'', via: p[3]||'' };
+  });
+  window._consultaResultadoAtual = r;
+  closeModal();
+  _exibirResultadoConsulta(r, window._consultaTextoAtual||'');
+  toast('Análise atualizada! ✅','success');
+}
+
+// ── INTEGRAÇÃO: PRESCRIÇÃO ─────────────────────────────────
+function consultaParaPrescricao() {
+  var r = window._consultaResultadoAtual || {};
+  var meds = r.medicamentos || [];
+
+  // Abre modal de prescrição pré-preenchido
+  openModal(
+    '<div class="modal" style="max-width:640px"><div class="modal-header"><h3>💊 Nova Prescrição</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:14px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
+    (meds.length ? '<div style="background:#F5F3FF;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.82rem;color:#6D28D9"><strong>Da consulta IA:</strong> ' + meds.map(function(m){return m.nome;}).join(', ') + '</div>' : '') +
+    '<div class="form-grid mb-2">' +
+    '<div style="grid-column:1/-1"><label>Medicamento *</label><input id="pr-med" value="' + (meds.length ? meds[0].nome : '') + '" placeholder="Ex: Losartana 50mg"></div>' +
+    '<div><label>Dose / Posologia</label><input id="pr-dose" value="' + (meds.length ? meds[0].dose||'' : '') + '" placeholder="1 comprimido em jejum"></div>' +
+    '<div><label>Via</label><input id="pr-via" value="' + (meds.length ? meds[0].via||'Oral' : 'Oral') + '"></div>' +
+    '<div><label>Início</label><input type="date" id="pr-inicio" value="'+todayISO()+'"></div>' +
+    '<div><label>Fim (opcional)</label><input type="date" id="pr-fim"></div>' +
+    '<div style="grid-column:1/-1"><label>Duração</label><input id="pr-dur" value="' + (meds.length ? meds[0].frequencia||'' : '') + '" placeholder="Uso contínuo, 30 dias..."></div>' +
+    '</div>' +
+    '<div class="mb-2"><label>Horários</label>' +
+    '<div id="pr-horarios-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>' +
+    '<button type="button" class="btn btn-gray btn-sm" onclick="adicionarHorario(\'08:00\')">+ Horário</button></div>' +
+    '<div><label>Instruções especiais</label><textarea id="pr-instrucoes" rows="2" placeholder="Ex: Tomar em jejum 30min antes..."></textarea></div>' +
+    (meds.length > 1 ? '<div style="margin-top:10px;font-size:.8rem;color:var(--gray)">⚠️ Múltiplos medicamentos detectados. Salve um por vez e abra novamente para o próximo.</div>' : '') +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarPrescricao()">Salvar Prescrição</button></div></div>'
+  );
+}
+
+// ── INTEGRAÇÃO: PEDIDO DE EXAME ────────────────────────────
+function consultaParaPedido() {
+  var r = window._consultaResultadoAtual || {};
+  var exames = r.examesSolicitados || [];
+
+  var EXAMES_COMUNS = ['Hemograma completo','Glicose','HbA1c','Colesterol Total','HDL','LDL','Triglicerídeos',
+    'TSH','T4 Livre','Vitamina D','Vitamina B12','Ferritina','PCR Ultrassensível',
+    'TGO (AST)','TGP (ALT)','GGT','Creatinina','Ureia','Ácido Úrico',
+    'Testosterona Total','Estradiol','DHEA-S','Insulina','Cortisol Basal'];
+
+  var chks = '';
+  for (var i=0;i<EXAMES_COMUNS.length;i++) {
+    var checked = exames.indexOf(EXAMES_COMUNS[i]) >= 0 ? ' checked' : '';
+    chks += '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;padding:3px 0;cursor:pointer">' +
+      '<input type="checkbox" value="'+EXAMES_COMUNS[i]+'"'+checked+' class="pedido-exame-chk" style="width:15px;height:15px"> '+EXAMES_COMUNS[i]+'</label>';
+  }
+
+  openModal(
+    '<div class="modal" style="max-width:600px"><div class="modal-header"><h3>🔬 Pedido de Exame</h3>' +
+    '<button class="btn btn-gray btn-sm" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' +
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
+    (exames.length ? '<div style="background:#ECFDF5;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.82rem;color:#065F46"><strong>Da consulta IA:</strong> ' + exames.join(', ') + '</div>' : '') +
+    '<div class="form-grid mb-2">' +
+    '<div><label>Tipo</label><input id="ped-tipo" value="Exames Laboratoriais"></div>' +
+    '<div><label>Data</label><input type="date" id="ped-data" value="'+todayISO()+'"></div>' +
+    '</div>' +
+    '<div class="mb-2"><label>Exames</label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;max-height:200px;overflow-y:auto">'+chks+'</div></div>' +
+    '<div class="mb-2"><label>Outros exames</label><textarea id="ped-exames" rows="2" placeholder="Digite exames adicionais...">' +
+      exames.filter(function(e){ return EXAMES_COMUNS.indexOf(e) < 0; }).join(', ') +
+    '</textarea></div>' +
+    '<div><label>Indicação clínica</label><textarea id="ped-obs" rows="2">' + (r.diagnosticos||[]).join('. ') + '</textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarPedido()">Emitir Pedido</button></div></div>'
+  );
+}
+
+// ── INTEGRAÇÃO: META ───────────────────────────────────────
+function consultaParaMeta() {
+  var r = window._consultaResultadoAtual || {};
+
+  // Tenta inferir uma meta a partir do contexto clínico
+  var tituloSugerido = '';
+  var exameSugerido = '';
+  var direcaoSugerida = 'menor';
+  var alvoSugerido = '';
+  var unidadeSugerida = '';
+
+  var texto = (r.resumo||'') + ' ' + (r.diagnosticos||[]).join(' ') + ' ' + (r.queixas||[]).join(' ');
+  texto = texto.toLowerCase();
+
+  if (texto.indexOf('diabetes') >= 0 || texto.indexOf('glicemia') >= 0 || texto.indexOf('glicose') >= 0) {
+    tituloSugerido = 'Controle Glicêmico';
+    exameSugerido = 'Glicose'; direcaoSugerida = 'menor'; alvoSugerido = '100'; unidadeSugerida = 'mg/dL';
+  } else if (texto.indexOf('colesterol') >= 0 || texto.indexOf('ldl') >= 0) {
+    tituloSugerido = 'Reduzir Colesterol LDL';
+    exameSugerido = 'LDL'; direcaoSugerida = 'menor'; alvoSugerido = '100'; unidadeSugerida = 'mg/dL';
+  } else if (texto.indexOf('peso') >= 0 || texto.indexOf('obesi') >= 0 || texto.indexOf('emagre') >= 0) {
+    tituloSugerido = 'Redução de Peso';
+    exameSugerido = 'peso'; direcaoSugerida = 'menor'; alvoSugerido = ''; unidadeSugerida = 'kg';
+  } else if (texto.indexOf('vitamina d') >= 0) {
+    tituloSugerido = 'Normalizar Vitamina D';
+    exameSugerido = 'Vitamina D'; direcaoSugerida = 'maior'; alvoSugerido = '40'; unidadeSugerida = 'ng/mL';
+  } else if (texto.indexOf('hba1c') >= 0 || texto.indexOf('hemoglobina glicada') >= 0) {
+    tituloSugerido = 'Controle HbA1c';
+    exameSugerido = 'HbA1c'; direcaoSugerida = 'menor'; alvoSugerido = '7'; unidadeSugerida = '%';
+  } else if (texto.indexOf('tsh') >= 0 || texto.indexOf('tireoide') >= 0) {
+    tituloSugerido = 'Normalizar TSH';
+    exameSugerido = 'TSH'; direcaoSugerida = 'menor'; alvoSugerido = '4'; unidadeSugerida = 'mUI/L';
+  }
+
+  openModal(
+    '🎯 Nova Meta',
+    '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
+    (tituloSugerido ? '<div style="background:#FEF3C7;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.82rem;color:#92400E">✨ Meta inferida da consulta. Edite se necessário.</div>' : '') +
+    '<div class="form-grid">' +
+    '<div style="grid-column:1/-1"><label>Título da Meta *</label><input id="mt-titulo" value="'+tituloSugerido+'" placeholder="Ex: Reduzir Colesterol LDL"></div>' +
+    '<div style="grid-column:1/-1"><label>Descrição</label><input id="mt-desc" value="' + (r.diagnosticos||[]).join('. ') + '"></div>' +
+    '<div><label>Exame relacionado</label><input id="mt-exame" value="'+exameSugerido+'" placeholder="Ex: LDL, Glicose..."></div>' +
+    '<div><label>Direção</label><select id="mt-direcao"><option value="menor"'+(direcaoSugerida==='menor'?' selected':'')+'>Manter abaixo de (&lt;)</option><option value="maior"'+(direcaoSugerida==='maior'?' selected':'')+'>Manter acima de (&gt;)</option></select></div>' +
+    '<div><label>Valor alvo</label><input type="number" id="mt-alvo" value="'+alvoSugerido+'" placeholder="Ex: 100"></div>' +
+    '<div><label>Unidade</label><input id="mt-unidade" value="'+unidadeSugerida+'" placeholder="mg/dL, kg..."></div>' +
+    '</div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="salvarMeta()">Criar Meta</button>'
+  );
+}
+
 
 function _cardConsulta(titulo, conteudo, bg, cor) {
   return '<div style="background:'+bg+';border-radius:10px;padding:12px;border-left:3px solid '+cor+'">' +
