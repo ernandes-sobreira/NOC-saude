@@ -2047,9 +2047,18 @@ function renderAdminDash() {
     '</div>' +
     '<div class="card"><div class="section-title">👨‍⚕️ Médicos da NOC Clínica</div><div id="admin-medicos-list"><p style="color:var(--gray)">Carregando...</p></div></div>'
   );
-  db.collection('adminIndex').where('tipo','==','medico').get().then(function(snap) {
-    var uids = [];
-    snap.forEach(function(d) { uids.push(d.id); });
+  // Fonte de verdade: convitesMedico (evita duplicatas de UIDs anônimos de teste)
+  var _codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
+                  'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  Promise.all(_codigos.map(function(cod) {
+    return db.collection('convitesMedico').doc(cod).get()
+      .then(function(d){ return (d.exists && d.data().nome && d.data().uid) ? Object.assign({cod:cod},d.data()) : null; })
+      .catch(function(){ return null; });
+  })).then(function(_slots) {
+    var snap = { forEach: function(fn) {
+      _slots.filter(Boolean).forEach(function(s){ fn({id: s.uid, data: function(){ return {tipo:'medico',email:s.email||'',nome:s.nome,cod:s.cod}; }}); });
+    }};
+    var uids = _slots.filter(Boolean).map(function(s){ return s.uid; });
     var kme = document.getElementById('kpi-medicos');
     if (kme) kme.textContent = uids.length;
     if (!uids.length) {
@@ -2095,6 +2104,7 @@ function renderAdminDash() {
               '<td style="font-size:.8rem;color:var(--primary)">' + (espsArr.join(', ')||'—') + '</td>' +
               '<td style="text-align:center">' + (pCounts[pi]||0) + '</td>' +
               '<td class="flex gap-1">' +
+              '<button class="btn btn-primary btn-sm" title="Ver como médico" onclick="adminVerComoMedico(\'' + p.uid + '\')">👁 Ver</button>' +
               '<button class="btn btn-outline btn-sm" onclick="adminEditarMedico(\'' + p.uid + '\')">✏️</button>' +
               '<button class="btn btn-danger btn-sm" onclick="adminRemoverMedico(\'' + p.uid + '\')">🗑️</button>' +
               '</td>' +
@@ -2112,6 +2122,41 @@ function renderAdminDash() {
     if (le) le.innerHTML = '<p style="color:var(--danger)">Erro: ' + (e && e.message ? e.message : 'sem permissão') + '</p>';
   });
 }
+
+function adminVerComoMedico(uid) {
+  // Admin assume visão do médico temporariamente
+  var _adminBackup = { role: currentRole, user: currentUser, perfil: currentPerfil };
+  db.collection('users').doc(uid).collection('perfil').doc('dados').get()
+    .then(function(doc) {
+      if (!doc.exists) { toast('Perfil do médico não encontrado','error'); return; }
+      var perfil = doc.data();
+      currentRole = 'medico';
+      currentUser = { uid: uid, email: perfil.email||'' };
+      currentPerfil = Object.assign({}, perfil, { tipo: 'medico' });
+      window._adminBackup = _adminBackup;
+      showApp();
+      // Adiciona botão de volta ao admin
+      setTimeout(function() {
+        var sidebar = document.getElementById('sidebar-footer');
+        if (sidebar) sidebar.innerHTML +=
+          '<button class="btn btn-primary w-100" style="margin-top:8px" onclick="voltarParaAdmin()">↩ Voltar ao Admin</button>';
+      }, 200);
+      toast('Visualizando como: ' + (perfil.nome||'Médico'), 'success');
+    })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function voltarParaAdmin() {
+  var bk = window._adminBackup;
+  if (!bk) return;
+  currentRole = bk.role;
+  currentUser = bk.user;
+  currentPerfil = bk.perfil;
+  window._adminBackup = null;
+  showApp();
+  toast('Voltou ao painel Admin', 'success');
+}
+
 function navTo_setActive(id) {
   currentPage = id;
   var all = document.querySelectorAll('.nav-item');
