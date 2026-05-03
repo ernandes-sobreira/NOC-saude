@@ -6548,13 +6548,13 @@ function consultaParaMeta() {
     exameSugerido = 'TSH'; direcaoSugerida = 'menor'; alvoSugerido = '4'; unidadeSugerida = 'mUI/L';
   }
 
-  openModal(
+  showModal(
     '🎯 Nova Meta',
     '<div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:.85rem;color:var(--primary)">👤 '+(prontuarioPac?prontuarioPac.nome:'')+'</div>' +
     (tituloSugerido ? '<div style="background:#FEF3C7;border-radius:8px;padding:10px;margin-bottom:12px;font-size:.82rem;color:#92400E">✨ Meta inferida da consulta. Edite se necessário.</div>' : '') +
     '<div class="form-grid">' +
     '<div style="grid-column:1/-1"><label>Título da Meta *</label><input id="mt-titulo" value="'+tituloSugerido+'" placeholder="Ex: Reduzir Colesterol LDL"></div>' +
-    '<div style="grid-column:1/-1"><label>Descrição</label><input id="mt-desc" value="' + (r.diagnosticos||[]).join('. ') + '"></div>' +
+    '<div style="grid-column:1/-1"><label>Descrição</label><input id="mt-desc" value="' + (r.diagnosticos||[]).join('. ').replace(/"/g,'&quot;') + '"></div>' +
     '<div><label>Exame relacionado</label><input id="mt-exame" value="'+exameSugerido+'" placeholder="Ex: LDL, Glicose..."></div>' +
     '<div><label>Direção</label><select id="mt-direcao"><option value="menor"'+(direcaoSugerida==='menor'?' selected':'')+'>Manter abaixo de (&lt;)</option><option value="maior"'+(direcaoSugerida==='maior'?' selected':'')+'>Manter acima de (&gt;)</option></select></div>' +
     '<div><label>Valor alvo</label><input type="number" id="mt-alvo" value="'+alvoSugerido+'" placeholder="Ex: 100"></div>' +
