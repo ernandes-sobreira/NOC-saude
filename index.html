@@ -832,7 +832,8 @@ function buildSidebar() {
     items = [
       {id:'admin-dash',icon:'📊',label:'Dashboard'},
       {id:'admin-medicos',icon:'👨‍⚕️',label:'Médicos'},
-      {id:'admin-pacientes',icon:'🧑‍🤝‍🧑',label:'Pacientes'}
+      {id:'admin-pacientes',icon:'🧑‍🤝‍🧑',label:'Pacientes'},
+      {id:'admin-clinica',icon:'🏥',label:'Clínica'}
     ];
   } else if (currentRole === 'medico') {
     items = [
@@ -875,6 +876,7 @@ function navTo(pageId) {
   if (pageId === 'admin-dash') renderAdminDash();
   else if (pageId === 'admin-medicos') renderAdminMedicos();
   else if (pageId === 'admin-pacientes') renderAdminPacientes();
+  else if (pageId === 'admin-clinica') renderAdminClinica();
   else if (pageId === 'medico-dash') renderMedicoDash();
   else if (pageId === 'medico-pacientes') renderMedicoPacientes();
   else if (pageId === 'medico-agenda') renderMedicoAgenda(null);
@@ -1298,16 +1300,204 @@ var AREAS_ESTETICA = [
       {'nome':'Retorno','unidade':'','refMin':0,'refMax':0,'tipoCampo':'data'}
     ]}
 ];
+var AREAS_CARDIO = [
+  {'nome':'Lipidograma','ico':'🫀','cor':'#FFF1F2','params':[
+    {'nome':'Colesterol Total','unidade':'mg/dL','refMin':0,'refMax':190,'tipoCampo':'numero'},
+    {'nome':'HDL','unidade':'mg/dL','refMin':50,'refMax':999,'tipoCampo':'numero'},
+    {'nome':'LDL','unidade':'mg/dL','refMin':0,'refMax':130,'tipoCampo':'numero'},
+    {'nome':'VLDL','unidade':'mg/dL','refMin':0,'refMax':30,'tipoCampo':'numero'},
+    {'nome':'Triglicerídeos','unidade':'mg/dL','refMin':0,'refMax':150,'tipoCampo':'numero'},
+    {'nome':'Apo A1','unidade':'mg/dL','refMin':120,'refMax':180,'tipoCampo':'numero'},
+    {'nome':'Apo B','unidade':'mg/dL','refMin':0,'refMax':100,'tipoCampo':'numero'},
+    {'nome':'Lp(a)','unidade':'mg/dL','refMin':0,'refMax':30,'tipoCampo':'numero'}]},
+  {'nome':'Marcadores Cardíacos','ico':'💓','cor':'#FEF2F2','params':[
+    {'nome':'Troponina I','unidade':'ng/mL','refMin':0,'refMax':0.04,'tipoCampo':'numero'},
+    {'nome':'Troponina T','unidade':'ng/mL','refMin':0,'refMax':0.014,'tipoCampo':'numero'},
+    {'nome':'CK-MB','unidade':'U/L','refMin':0,'refMax':25,'tipoCampo':'numero'},
+    {'nome':'CK Total','unidade':'U/L','refMin':26,'refMax':192,'tipoCampo':'numero'},
+    {'nome':'LDH','unidade':'U/L','refMin':140,'refMax':280,'tipoCampo':'numero'},
+    {'nome':'BNP','unidade':'pg/mL','refMin':0,'refMax':100,'tipoCampo':'numero'},
+    {'nome':'NT-proBNP','unidade':'pg/mL','refMin':0,'refMax':125,'tipoCampo':'numero'},
+    {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'}]},
+  {'nome':'Função Renal e Eletrólitos','ico':'🧪','cor':'#EFF6FF','params':[
+    {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.2,'tipoCampo':'numero'},
+    {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+    {'nome':'Sódio','unidade':'mEq/L','refMin':136,'refMax':145,'tipoCampo':'numero'},
+    {'nome':'Potássio','unidade':'mEq/L','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'},
+    {'nome':'Magnésio','unidade':'mg/dL','refMin':1.7,'refMax':2.4,'tipoCampo':'numero'},
+    {'nome':'Cálcio Total','unidade':'mg/dL','refMin':8.5,'refMax':10.5,'tipoCampo':'numero'},
+    {'nome':'Fósforo','unidade':'mg/dL','refMin':2.5,'refMax':4.5,'tipoCampo':'numero'}]},
+  {'nome':'Coagulação','ico':'🩸','cor':'#FFF7ED','params':[
+    {'nome':'TP (INR)','unidade':'INR','refMin':0.8,'refMax':1.2,'tipoCampo':'numero'},
+    {'nome':'TTPA','unidade':'s','refMin':25,'refMax':35,'tipoCampo':'numero'},
+    {'nome':'Fibrinogênio','unidade':'mg/dL','refMin':200,'refMax':400,'tipoCampo':'numero'},
+    {'nome':'D-Dímero','unidade':'ng/mL','refMin':0,'refMax':500,'tipoCampo':'numero'}]},
+  {'nome':'Glicemia e Diabetes','ico':'🩺','cor':'#F0FDF4','params':[
+    {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+    {'nome':'HbA1c','unidade':'%','refMin':4,'refMax':5.7,'tipoCampo':'numero'},
+    {'nome':'Insulina','unidade':'µUI/mL','refMin':2,'refMax':10,'tipoCampo':'numero'}]}
+];
+
+var AREAS_CLINICA = [
+  {'nome':'Hemograma Completo','ico':'🩸','cor':'#FFF1F2','params':[
+    {'nome':'Hemoglobina','unidade':'g/dL','refMin':12,'refMax':17,'tipoCampo':'numero'},
+    {'nome':'Hematócrito','unidade':'%','refMin':36,'refMax':54,'tipoCampo':'numero'},
+    {'nome':'Hemácias','unidade':'milh./mm³','refMin':3.8,'refMax':5.8,'tipoCampo':'numero'},
+    {'nome':'VCM','unidade':'fL','refMin':80,'refMax':100,'tipoCampo':'numero'},
+    {'nome':'HCM','unidade':'pg','refMin':27,'refMax':32,'tipoCampo':'numero'},
+    {'nome':'CHCM','unidade':'g/dL','refMin':32,'refMax':36,'tipoCampo':'numero'},
+    {'nome':'Leucócitos','unidade':'/mm³','refMin':4500,'refMax':11000,'tipoCampo':'numero'},
+    {'nome':'Neutrófilos','unidade':'/mm³','refMin':1800,'refMax':7500,'tipoCampo':'numero'},
+    {'nome':'Linfócitos','unidade':'/mm³','refMin':1000,'refMax':4500,'tipoCampo':'numero'},
+    {'nome':'Monócitos','unidade':'/mm³','refMin':200,'refMax':1000,'tipoCampo':'numero'},
+    {'nome':'Eosinófilos','unidade':'/mm³','refMin':50,'refMax':500,'tipoCampo':'numero'},
+    {'nome':'Basófilos','unidade':'/mm³','refMin':0,'refMax':100,'tipoCampo':'numero'},
+    {'nome':'Plaquetas','unidade':'K/µL','refMin':150,'refMax':400,'tipoCampo':'numero'}]},
+  {'nome':'Bioquímica Básica','ico':'🧪','cor':'#EFF6FF','params':[
+    {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+    {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+    {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.2,'tipoCampo':'numero'},
+    {'nome':'Ácido Úrico','unidade':'mg/dL','refMin':2.4,'refMax':7.0,'tipoCampo':'numero'},
+    {'nome':'TGO (AST)','unidade':'U/L','refMin':10,'refMax':40,'tipoCampo':'numero'},
+    {'nome':'TGP (ALT)','unidade':'U/L','refMin':7,'refMax':40,'tipoCampo':'numero'},
+    {'nome':'GGT','unidade':'U/L','refMin':9,'refMax':48,'tipoCampo':'numero'},
+    {'nome':'Bilirrubina Total','unidade':'mg/dL','refMin':0.3,'refMax':1.2,'tipoCampo':'numero'},
+    {'nome':'Proteínas Totais','unidade':'g/dL','refMin':6,'refMax':8,'tipoCampo':'numero'},
+    {'nome':'Albumina','unidade':'g/dL','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'}]},
+  {'nome':'Lipidograma','ico':'💛','cor':'#FEFCE8','params':[
+    {'nome':'Colesterol Total','unidade':'mg/dL','refMin':0,'refMax':190,'tipoCampo':'numero'},
+    {'nome':'HDL','unidade':'mg/dL','refMin':50,'refMax':999,'tipoCampo':'numero'},
+    {'nome':'LDL','unidade':'mg/dL','refMin':0,'refMax':130,'tipoCampo':'numero'},
+    {'nome':'Triglicerídeos','unidade':'mg/dL','refMin':0,'refMax':150,'tipoCampo':'numero'}]},
+  {'nome':'Tireoide','ico':'🦋','cor':'#F0FDF4','params':[
+    {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+    {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+    {'nome':'T3 Livre','unidade':'pg/mL','refMin':2.3,'refMax':4.2,'tipoCampo':'numero'}]},
+  {'nome':'Urina e Renal','ico':'💧','cor':'#EFF6FF','params':[
+    {'nome':'Creatinina','unidade':'mg/dL','refMin':0.5,'refMax':1.2,'tipoCampo':'numero'},
+    {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+    {'nome':'Sódio','unidade':'mEq/L','refMin':136,'refMax':145,'tipoCampo':'numero'},
+    {'nome':'Potássio','unidade':'mEq/L','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'},
+    {'nome':'EAS (Urina I)','unidade':'resultado','refMin':0,'refMax':0,'tipoCampo':'texto'}]}
+];
+
+var AREAS_NUTRI = [
+  {'nome':'Avaliação Nutricional Básica','ico':'🥗','cor':'#F0FDF4','params':[
+    {'nome':'Hemoglobina','unidade':'g/dL','refMin':12,'refMax':17,'tipoCampo':'numero'},
+    {'nome':'Ferritina','unidade':'ng/mL','refMin':50,'refMax':200,'tipoCampo':'numero'},
+    {'nome':'Ferro Sérico','unidade':'µg/dL','refMin':60,'refMax':170,'tipoCampo':'numero'},
+    {'nome':'Vitamina D','unidade':'ng/mL','refMin':40,'refMax':80,'tipoCampo':'numero'},
+    {'nome':'Vitamina B12','unidade':'pg/mL','refMin':400,'refMax':950,'tipoCampo':'numero'},
+    {'nome':'Ácido Fólico','unidade':'ng/mL','refMin':4,'refMax':20,'tipoCampo':'numero'},
+    {'nome':'Zinco','unidade':'µg/dL','refMin':60,'refMax':120,'tipoCampo':'numero'},
+    {'nome':'Magnésio','unidade':'mg/dL','refMin':1.7,'refMax':2.4,'tipoCampo':'numero'},
+    {'nome':'Cálcio Total','unidade':'mg/dL','refMin':8.5,'refMax':10.5,'tipoCampo':'numero'},
+    {'nome':'Proteínas Totais','unidade':'g/dL','refMin':6,'refMax':8,'tipoCampo':'numero'},
+    {'nome':'Albumina','unidade':'g/dL','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'}]},
+  {'nome':'Metabolismo e Peso','ico':'⚖️','cor':'#FEFCE8','params':[
+    {'nome':'Glicose','unidade':'mg/dL','refMin':70,'refMax':99,'tipoCampo':'numero'},
+    {'nome':'Insulina','unidade':'µUI/mL','refMin':2,'refMax':10,'tipoCampo':'numero'},
+    {'nome':'HbA1c','unidade':'%','refMin':4,'refMax':5.7,'tipoCampo':'numero'},
+    {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+    {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+    {'nome':'Colesterol Total','unidade':'mg/dL','refMin':0,'refMax':190,'tipoCampo':'numero'},
+    {'nome':'LDL','unidade':'mg/dL','refMin':0,'refMax':130,'tipoCampo':'numero'},
+    {'nome':'HDL','unidade':'mg/dL','refMin':50,'refMax':999,'tipoCampo':'numero'},
+    {'nome':'Triglicerídeos','unidade':'mg/dL','refMin':0,'refMax':150,'tipoCampo':'numero'},
+    {'nome':'Leptina','unidade':'ng/mL','refMin':3,'refMax':18,'tipoCampo':'numero'},
+    {'nome':'Adiponectina','unidade':'µg/mL','refMin':5,'refMax':30,'tipoCampo':'numero'}]},
+  {'nome':'Inflamação e Intestino','ico':'🔬','cor':'#FFF7ED','params':[
+    {'nome':'PCR Ultrassensível','unidade':'mg/L','refMin':0,'refMax':1,'tipoCampo':'numero'},
+    {'nome':'Homocisteína','unidade':'µmol/L','refMin':0,'refMax':10,'tipoCampo':'numero'},
+    {'nome':'Vitamina B12','unidade':'pg/mL','refMin':400,'refMax':950,'tipoCampo':'numero'},
+    {'nome':'Ácido Fólico','unidade':'ng/mL','refMin':4,'refMax':20,'tipoCampo':'numero'},
+    {'nome':'Zonulina','unidade':'ng/mL','refMin':0,'refMax':30,'tipoCampo':'texto'},
+    {'nome':'IgA Total','unidade':'mg/dL','refMin':70,'refMax':400,'tipoCampo':'numero'}]}
+];
+
+var AREAS_GINECO = [
+  {'nome':'Hormônios Femininos','ico':'🌸','cor':'#FDF2F8','params':[
+    {'nome':'FSH','unidade':'mUI/mL','refMin':3,'refMax':20,'tipoCampo':'numero'},
+    {'nome':'LH','unidade':'mUI/mL','refMin':2,'refMax':15,'tipoCampo':'numero'},
+    {'nome':'Estradiol','unidade':'pg/mL','refMin':30,'refMax':400,'tipoCampo':'numero'},
+    {'nome':'Progesterona','unidade':'ng/mL','refMin':1.7,'refMax':27,'tipoCampo':'numero'},
+    {'nome':'Prolactina','unidade':'ng/mL','refMin':2,'refMax':29,'tipoCampo':'numero'},
+    {'nome':'Testosterona Total','unidade':'ng/dL','refMin':15,'refMax':80,'tipoCampo':'numero'},
+    {'nome':'DHEA-S','unidade':'µg/dL','refMin':35,'refMax':430,'tipoCampo':'numero'},
+    {'nome':'SHBG','unidade':'nmol/L','refMin':18,'refMax':114,'tipoCampo':'numero'},
+    {'nome':'AMH','unidade':'ng/mL','refMin':1,'refMax':3.5,'tipoCampo':'numero'}]},
+  {'nome':'Rastreio Oncológico','ico':'🎗️','cor':'#FFF1F2','params':[
+    {'nome':'CA-125','unidade':'U/mL','refMin':0,'refMax':35,'tipoCampo':'numero'},
+    {'nome':'CA 19-9','unidade':'U/mL','refMin':0,'refMax':37,'tipoCampo':'numero'},
+    {'nome':'CEA','unidade':'ng/mL','refMin':0,'refMax':3,'tipoCampo':'numero'},
+    {'nome':'AFP','unidade':'ng/mL','refMin':0,'refMax':10,'tipoCampo':'numero'},
+    {'nome':'Beta-HCG Quantitativo','unidade':'mUI/mL','refMin':0,'refMax':5,'tipoCampo':'numero'}]},
+  {'nome':'Tireoide e Metabolismo','ico':'🦋','cor':'#F0FDF4','params':[
+    {'nome':'TSH','unidade':'mUI/L','refMin':0.4,'refMax':4.0,'tipoCampo':'numero'},
+    {'nome':'T4 Livre','unidade':'ng/dL','refMin':0.8,'refMax':1.8,'tipoCampo':'numero'},
+    {'nome':'T3 Livre','unidade':'pg/mL','refMin':2.3,'refMax':4.2,'tipoCampo':'numero'},
+    {'nome':'Anti-TPO','unidade':'UI/mL','refMin':0,'refMax':35,'tipoCampo':'numero'},
+    {'nome':'Anti-Tireoglobulina','unidade':'UI/mL','refMin':0,'refMax':40,'tipoCampo':'numero'}]},
+  {'nome':'Pré-Natal','ico':'👶','cor':'#EFF6FF','params':[
+    {'nome':'Hemoglobina','unidade':'g/dL','refMin':11,'refMax':16,'tipoCampo':'numero'},
+    {'nome':'Glicose em Jejum','unidade':'mg/dL','refMin':70,'refMax':92,'tipoCampo':'numero'},
+    {'nome':'TOTG 75g (1h)','unidade':'mg/dL','refMin':0,'refMax':180,'tipoCampo':'numero'},
+    {'nome':'TOTG 75g (2h)','unidade':'mg/dL','refMin':0,'refMax':153,'tipoCampo':'numero'},
+    {'nome':'TSH','unidade':'mUI/L','refMin':0.1,'refMax':2.5,'tipoCampo':'numero'},
+    {'nome':'Ferritina','unidade':'ng/mL','refMin':30,'refMax':200,'tipoCampo':'numero'},
+    {'nome':'Vitamina D','unidade':'ng/mL','refMin':40,'refMax':80,'tipoCampo':'numero'},
+    {'nome':'Ácido Fólico','unidade':'ng/mL','refMin':4,'refMax':20,'tipoCampo':'numero'}]}
+];
+
+var AREAS_UROLOGIA = [
+  {'nome':'Função Renal','ico':'🫘','cor':'#EFF6FF','params':[
+    {'nome':'Creatinina','unidade':'mg/dL','refMin':0.7,'refMax':1.3,'tipoCampo':'numero'},
+    {'nome':'Ureia','unidade':'mg/dL','refMin':15,'refMax':45,'tipoCampo':'numero'},
+    {'nome':'Ácido Úrico','unidade':'mg/dL','refMin':3.4,'refMax':7.2,'tipoCampo':'numero'},
+    {'nome':'Sódio','unidade':'mEq/L','refMin':136,'refMax':145,'tipoCampo':'numero'},
+    {'nome':'Potássio','unidade':'mEq/L','refMin':3.5,'refMax':5.0,'tipoCampo':'numero'},
+    {'nome':'EAS (Urina I)','unidade':'resultado','refMin':0,'refMax':0,'tipoCampo':'texto'},
+    {'nome':'Microalbuminúria','unidade':'mg/g','refMin':0,'refMax':30,'tipoCampo':'numero'}]},
+  {'nome':'Hormônios Masculinos','ico':'💪','cor':'#F0FDF4','params':[
+    {'nome':'Testosterona Total','unidade':'ng/dL','refMin':300,'refMax':1000,'tipoCampo':'numero'},
+    {'nome':'Testosterona Livre','unidade':'pg/mL','refMin':50,'refMax':210,'tipoCampo':'numero'},
+    {'nome':'FSH','unidade':'mUI/mL','refMin':1.5,'refMax':12.4,'tipoCampo':'numero'},
+    {'nome':'LH','unidade':'mUI/mL','refMin':1.7,'refMax':8.6,'tipoCampo':'numero'},
+    {'nome':'Prolactina','unidade':'ng/mL','refMin':2,'refMax':18,'tipoCampo':'numero'},
+    {'nome':'DHEA-S','unidade':'µg/dL','refMin':80,'refMax':560,'tipoCampo':'numero'},
+    {'nome':'SHBG','unidade':'nmol/L','refMin':10,'refMax':57,'tipoCampo':'numero'},
+    {'nome':'Estradiol','unidade':'pg/mL','refMin':10,'refMax':40,'tipoCampo':'numero'}]},
+  {'nome':'Próstata','ico':'🔴','cor':'#FFF1F2','params':[
+    {'nome':'PSA Total','unidade':'ng/mL','refMin':0,'refMax':4,'tipoCampo':'numero'},
+    {'nome':'PSA Livre','unidade':'ng/mL','refMin':0,'refMax':999,'tipoCampo':'numero'},
+    {'nome':'Relação PSA Livre/Total','unidade':'%','refMin':25,'refMax':100,'tipoCampo':'numero'}]},
+  {'nome':'Fertilidade Masculina','ico':'🧬','cor':'#F5F3FF','params':[
+    {'nome':'Espermograma','unidade':'resultado','refMin':0,'refMax':0,'tipoCampo':'texto'},
+    {'nome':'FSH','unidade':'mUI/mL','refMin':1.5,'refMax':12.4,'tipoCampo':'numero'},
+    {'nome':'Testosterona Total','unidade':'ng/dL','refMin':300,'refMax':1000,'tipoCampo':'numero'},
+    {'nome':'Inibina B','unidade':'pg/mL','refMin':80,'refMax':300,'tipoCampo':'numero'}]}
+];
+
+// Mapa geral de sugestoes por especialidade
+var SUGESTOES_AREAS = {
+  'Endocrinologia': AREAS_ENDO,
+  'Dermatologia Clínica': AREAS_DERM,
+  'Procedimentos Estéticos': AREAS_ESTETICA,
+  'Cardiologia': AREAS_CARDIO,
+  'Clínica Geral': AREAS_CLINICA,
+  'Nutrição': AREAS_NUTRI,
+  'Ginecologia': AREAS_GINECO,
+  'Urologia': AREAS_UROLOGIA
+};
+
 function seedAreasMedico(uid, especialidades) {
   if (!Array.isArray(especialidades)) especialidades = [especialidades];
   var areas = [];
   for (var i = 0; i < especialidades.length; i++) {
-    var esp = especialidades[i];
-    if (esp === 'Endocrinologia') areas = areas.concat(AREAS_ENDO);
-    else if (esp === 'Dermatologia Clínica') areas = areas.concat(AREAS_DERM);
-    else if (esp === 'Procedimentos Estéticos') areas = areas.concat(AREAS_ESTETICA);
+    var banco = SUGESTOES_AREAS[especialidades[i]];
+    if (banco) areas = areas.concat(banco);
   }
-  if (!areas.length) areas = AREAS_ENDO.slice(0, 5);
+  if (!areas.length) areas = AREAS_CLINICA.slice(0, 3);
   var visto = {};
   var unique = [];
   for (var j = 0; j < areas.length; j++) {
@@ -2291,6 +2481,191 @@ function renderListaMedicos(medicos, listEl) {
     }
   });
 }
+function renderAdminClinica() {
+  navTo_setActive('admin-clinica');
+
+  // Carrega dados salvos do Firestore
+  db.collection('adminIndex').doc('_clinica').get().then(function(doc) {
+    var d = doc.exists ? doc.data() : {};
+
+    // Valores padrão com os dados reais da NOC
+    var nome = d.nome || 'NOC — Núcleo de Orientações e Cuidados';
+    var endereco = d.endereco || 'Av. Bosque da Saúde, 173 — Jardim Leblon, Cuiabá-MT';
+    var cep = d.cep || '78050-080';
+    var telefone = d.telefone || '(65) 99360-5857';
+    var whatsapp = d.whatsapp || '65993605857';
+    var horario = d.horario || '08h–12h e 13h–18h';
+    var instagram = d.instagram || '@clinicanoc';
+    var facebook = d.facebook || 'facebook.com/61569763585003';
+    var site = d.site || 'drcaioaraujoendocrino.com.br';
+    var planos = d.planos || 'Somente particular';
+    var pagamentos = d.pagamentos || 'Dinheiro, cartão crédito/débito, Pix CNPJ';
+    var missao = d.missao || 'Equipe multidisciplinar com atendimento humanizado, sem filas e sempre no horário. Atendimento presencial e online.';
+
+    setMainContent(
+      '<div class="page-header flex justify-between align-center wrap gap-1">' +
+      '<div><h2>🏥 Clínica NOC</h2><p style="color:var(--gray);font-size:.85rem">Dados oficiais · Cartão de visita para secretárias</p></div>' +
+      '<button class="btn btn-primary" onclick="adminEditarClinica()">✏️ Editar</button>' +
+      '</div>' +
+
+      // CARTÃO DE VISITA
+      '<div class="card mb-2" id="clinica-card" style="background:var(--noc-gradient);color:#fff;border-radius:20px;padding:28px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.06)"></div>' +
+      '<div style="position:absolute;bottom:-30px;left:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.04)"></div>' +
+      '<div style="position:relative;z-index:1">' +
+      '<div style="font-family:var(--font-display);font-size:2rem;font-style:italic;letter-spacing:-1px;margin-bottom:2px">noc</div>' +
+      '<div style="font-size:.65rem;font-weight:700;letter-spacing:4px;text-transform:uppercase;opacity:.8;margin-bottom:16px">CLÍNICA</div>' +
+      '<div style="font-size:.95rem;font-weight:600;margin-bottom:4px;opacity:.95">' + nome + '</div>' +
+      '<div style="font-size:.82rem;opacity:.8;margin-bottom:16px">' + missao + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem">' +
+      '<div>📍 ' + endereco + '<br><span style="opacity:.7">CEP ' + cep + '</span></div>' +
+      '<div>📞 ' + telefone + '<br>🕐 ' + horario + '</div>' +
+      '<div>📸 ' + instagram + '<br>🌐 ' + site + '</div>' +
+      '<div>💳 ' + planos + '<br>💰 ' + pagamentos + '</div>' +
+      '</div>' +
+      '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">' +
+      '<a href="https://wa.me/' + whatsapp + '" target="_blank" style="background:rgba(255,255,255,.18);color:#fff;padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">💬 WhatsApp</a>' +
+      '<button onclick="copiarCartao()" style="background:rgba(255,255,255,.18);color:#fff;padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;border:none;cursor:pointer;backdrop-filter:blur(4px)">📋 Copiar texto</button>' +
+      '</div>' +
+      '</div></div>' +
+
+      // MÉDICOS DA CLÍNICA
+      '<div class="card mb-2">' +
+      '<div class="section-title mb-2">👨‍⚕️ Equipe Médica</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      // Dr. Caio
+      '<div style="border:1.5px solid var(--gray-200);border-radius:12px;padding:16px">' +
+      '<div style="font-weight:700;font-size:.95rem;margin-bottom:4px">Dr. Caio Túlio Araújo</div>' +
+      '<div style="font-size:.78rem;color:var(--primary);font-weight:600;margin-bottom:8px">Endocrinologia e Metabologia · CEO</div>' +
+      '<div style="font-size:.8rem;color:var(--gray);line-height:1.6">' +
+      'CRM-MT 8817<br>' +
+      '📸 @drcaiotaraujo<br>' +
+      '⭐ 151 aval. · 5 estrelas (Doctoralia)<br>' +
+      '🗣️ PT · EN · ES<br>' +
+      '💻 Teleconsulta disponível<br>' +
+      '💵 A partir de R$ 750' +
+      '</div></div>' +
+      // Dra. Anna
+      '<div style="border:1.5px solid var(--gray-200);border-radius:12px;padding:16px">' +
+      '<div style="font-weight:700;font-size:.95rem;margin-bottom:4px">Dra. Anna Gabriela Borges</div>' +
+      '<div style="font-size:.78rem;color:var(--primary);font-weight:600;margin-bottom:8px">Dermatologia e Medicina Estética</div>' +
+      '<div style="font-size:.8rem;color:var(--gray);line-height:1.6">' +
+      'CRM-MT 8816<br>' +
+      '📸 @dra.annagabrielaborges<br>' +
+      '✨ Beleza com consCIÊNCIA<br>' +
+      '🤝 wa.me/message/YOOWOFZKBSIFK1' +
+      '</div></div>' +
+      '</div></div>' +
+
+      // TEXTO PRONTO PARA COPIAR
+      '<div class="card">' +
+      '<div class="section-title mb-2">📤 Mensagem pronta para pacientes</div>' +
+      '<div id="msg-clinica" style="background:var(--gray-light);border-radius:10px;padding:16px;font-size:.85rem;line-height:1.8;white-space:pre-line;color:var(--text)">*🏥 NOC — Núcleo de Orientações e Cuidados*
+' +
+      nome + '
+
+' +
+      '📍 ' + endereco + ' · CEP ' + cep + '
+' +
+      '📞 ' + telefone + '
+' +
+      '🕐 ' + horario + '
+
+' +
+      '👨‍⚕️ *Dr. Caio Araújo* — Endocrinologia (CRM-MT 8817)
+' +
+      '👩‍⚕️ *Dra. Anna Gabriela* — Dermatologia (CRM-MT 8816)
+
+' +
+      '💬 WhatsApp: wa.me/' + whatsapp + '
+' +
+      '📸 Instagram: ' + instagram + '
+' +
+      '🌐 ' + site + '
+
+' +
+      '💳 ' + planos + ' · ' + pagamentos + '</div>' +
+      '<div class="flex gap-1 mt-2">' +
+      '<button class="btn btn-primary" onclick="copiarMensagem()">📋 Copiar mensagem</button>' +
+      '<a href="https://wa.me/' + whatsapp + '" target="_blank" class="btn btn-success">💬 Abrir WhatsApp</a>' +
+      '</div></div>'
+    );
+  }).catch(function(e) {
+    toast('Erro ao carregar dados da clínica: ' + e.message, 'error');
+  });
+}
+
+function adminEditarClinica() {
+  db.collection('adminIndex').doc('_clinica').get().then(function(doc) {
+    var d = doc.exists ? doc.data() : {};
+    showModal(
+      '🏥 Editar Dados da Clínica',
+      '<div class="form-grid">' +
+      '<div style="grid-column:1/-1"><label>Nome da Clínica</label><input id="cl-nome" value="' + (d.nome||'NOC — Núcleo de Orientações e Cuidados') + '"></div>' +
+      '<div style="grid-column:1/-1"><label>Missão / Descrição curta</label><textarea id="cl-missao" rows="2">' + (d.missao||'Equipe multidisciplinar com atendimento humanizado, sem filas e sempre no horário.') + '</textarea></div>' +
+      '<div><label>Endereço</label><input id="cl-end" value="' + (d.endereco||'Av. Bosque da Saúde, 173 — Jardim Leblon, Cuiabá-MT') + '"></div>' +
+      '<div><label>CEP</label><input id="cl-cep" value="' + (d.cep||'78050-080') + '"></div>' +
+      '<div><label>Telefone</label><input id="cl-tel" value="' + (d.telefone||'(65) 99360-5857') + '"></div>' +
+      '<div><label>WhatsApp (só números)</label><input id="cl-wa" value="' + (d.whatsapp||'65993605857') + '"></div>' +
+      '<div><label>Horário</label><input id="cl-hor" value="' + (d.horario||'08h–12h e 13h–18h') + '"></div>' +
+      '<div><label>Instagram</label><input id="cl-ig" value="' + (d.instagram||'@clinicanoc') + '"></div>' +
+      '<div><label>Facebook</label><input id="cl-fb" value="' + (d.facebook||'facebook.com/61569763585003') + '"></div>' +
+      '<div><label>Site</label><input id="cl-site" value="' + (d.site||'drcaioaraujoendocrino.com.br') + '"></div>' +
+      '<div><label>Planos aceitos</label><input id="cl-planos" value="' + (d.planos||'Somente particular') + '"></div>' +
+      '<div><label>Formas de pagamento</label><input id="cl-pag" value="' + (d.pagamentos||'Dinheiro, cartão crédito/débito, Pix CNPJ') + '"></div>' +
+      '</div>',
+      '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn btn-primary" onclick="adminSalvarClinica()">Salvar</button>'
+    );
+  });
+}
+
+function adminSalvarClinica() {
+  var dados = {
+    nome: document.getElementById('cl-nome').value.trim(),
+    missao: document.getElementById('cl-missao').value.trim(),
+    endereco: document.getElementById('cl-end').value.trim(),
+    cep: document.getElementById('cl-cep').value.trim(),
+    telefone: document.getElementById('cl-tel').value.trim(),
+    whatsapp: document.getElementById('cl-wa').value.trim(),
+    horario: document.getElementById('cl-hor').value.trim(),
+    instagram: document.getElementById('cl-ig').value.trim(),
+    facebook: document.getElementById('cl-fb').value.trim(),
+    site: document.getElementById('cl-site').value.trim(),
+    planos: document.getElementById('cl-planos').value.trim(),
+    pagamentos: document.getElementById('cl-pag').value.trim()
+  };
+  db.collection('adminIndex').doc('_clinica').set(dados)
+    .then(function() {
+      closeModal();
+      toast('Dados da clínica salvos! ✅', 'success');
+      renderAdminClinica();
+    })
+    .catch(function(e) { toast('Erro: ' + e.message, 'error'); });
+}
+
+function copiarMensagem() {
+  var el = document.getElementById('msg-clinica');
+  if (!el) return;
+  var texto = el.innerText || el.textContent;
+  navigator.clipboard.writeText(texto)
+    .then(function() { toast('Mensagem copiada! ✅', 'success'); })
+    .catch(function() {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Mensagem copiada!', 'success');
+    });
+}
+
+function copiarCartao() {
+  copiarMensagem();
+}
+
+
 function renderAdminPacientes() {
   navTo_setActive('admin-pacientes');
   setMainContent(
@@ -3919,14 +4294,67 @@ function salvarAgGeral() {
 function renderMedicoAreas() {
   navTo_setActive('medico-areas');
   var uid = getMedUid();
+  // Identifica especialidades do medico
+  var esps = (currentPerfil && currentPerfil.especialidades) ? currentPerfil.especialidades : 
+             (currentPerfil && currentPerfil.especialidade ? [currentPerfil.especialidade] : []);
+  // Monta sugestoes baseadas nas especialidades
+  var sugestoesHtml = '';
+  var todasSugestoes = [];
+  for (var si = 0; si < esps.length; si++) {
+    var banco = SUGESTOES_AREAS[esps[si]];
+    if (banco) {
+      for (var bi = 0; bi < banco.length; bi++) {
+        todasSugestoes.push({ esp: esps[si], area: banco[bi] });
+      }
+    }
+  }
+  if (todasSugestoes.length) {
+    sugestoesHtml = '<div class="card mb-2">' +
+      '<div class="section-title" style="margin-bottom:12px">✨ Sugestões para ' + esps.join(', ') + '</div>' +
+      '<p style="font-size:.82rem;color:var(--gray);margin-bottom:12px">Clique em <strong>+ Adicionar</strong> para ativar uma área sugerida no seu perfil. Você pode editar depois.</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">';
+    for (var ti = 0; ti < todasSugestoes.length; ti++) {
+      var s = todasSugestoes[ti];
+      var nomeEscaped = s.area.nome.replace(/'/g, "\'");
+      sugestoesHtml += '<div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:1.4rem">' + (s.area.ico||'🔬') + '</span>' +
+        '<div><div style="font-weight:700;font-size:.9rem">' + s.area.nome + '</div>' +
+        '<div style="font-size:.75rem;color:var(--gray)">' + s.area.params.length + ' parâmetros · ' + s.esp + '</div></div></div>' +
+        '<button class="btn btn-outline btn-sm" style="width:100%" onclick="adicionarAreaSugerida(' + ti + ')">+ Adicionar</button>' +
+        '</div>';
+    }
+    sugestoesHtml += '</div></div>';
+  }
   setMainContent(
-    '<div class="page-header"><h2>⚗️ Áreas de Exame</h2></div>' +
-    '<div class="card mb-2">' +
+    '<div class="page-header flex justify-between align-center wrap gap-1">' +
+    '<h2>⚗️ Áreas de Exame</h2>' +
     '<button class="btn btn-primary" onclick="modalNovaArea()">+ Nova Área</button>' +
     '</div>' +
+    sugestoesHtml +
     '<div id="areas-wrap">Carregando...</div>'
   );
+  // Guarda sugestoes no window para acesso pelo index
+  window._sugestoesAreas = todasSugestoes;
   carregarAreas(uid);
+}
+
+function adicionarAreaSugerida(idx) {
+  var s = window._sugestoesAreas && window._sugestoesAreas[idx];
+  if (!s) { toast('Sugestão não encontrada','error'); return; }
+  var uid = getMedUid();
+  // Verifica se já existe area com mesmo nome
+  var jaExiste = false;
+  for (var i = 0; i < areasCache.length; i++) {
+    if (areasCache[i].nome === s.area.nome) { jaExiste = true; break; }
+  }
+  if (jaExiste) { toast('Área "' + s.area.nome + '" já está no seu perfil.','warn'); return; }
+  db.collection('users').doc(uid).collection('areas').add(s.area)
+    .then(function() {
+      toast(s.area.ico + ' ' + s.area.nome + ' adicionada! ✅','success');
+      renderMedicoAreas();
+    })
+    .catch(function(e) { toast('Erro: ' + e.message,'error'); });
 }
 
 function carregarAreas(uid) {
