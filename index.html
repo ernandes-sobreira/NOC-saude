@@ -342,13 +342,6 @@ tr:hover td{background:var(--primary-light)}
           <button class="senha-toggle" type="button" onclick="toggleSenha('admin-senha',this)" title="Mostrar/ocultar">&#128065;</button>
         </div>
       </div>
-      <div class="mb-2">
-        <label>Código de acesso</label>
-        <div class="senha-wrap">
-          <input type="password" id="admin-code" placeholder="Código NOC">
-          <button class="senha-toggle" type="button" onclick="toggleSenha('admin-code',this)" title="Mostrar/ocultar">&#128065;</button>
-        </div>
-      </div>
       <button class="btn btn-primary w-100" onclick="doAdminLogin()">Entrar como Admin</button>
       <div style="text-align:center;margin-top:10px">
         <a href="#" onclick="enviarResetSenhaAdmin()" style="font-size:.78rem;color:var(--primary)">Esqueci minha senha</a>
@@ -679,43 +672,51 @@ function enviarResetSenhaAdmin() {
 }
 
 function doAdminLogin() {
-  var code = document.getElementById('admin-code').value;
   var email = (document.getElementById('admin-email').value || '').trim();
   var senha = document.getElementById('admin-senha').value;
-  if (code !== 'NOC@admin2025') { showLoginError('Codigo de acesso invalido.'); return; }
   if (!email || !senha) { showLoginError('Preencha e-mail e senha.'); return; }
-  if (senha.length < 6) { showLoginError('Senha minimo 6 caracteres.'); return; }
-  suppressAuthStateChange = false;
+  if (senha.length < 6) { showLoginError('Senha mínimo 6 caracteres.'); return; }
   clearLoginError();
   var btnEl = document.querySelector('#form-admin .btn-primary');
   if (btnEl) { btnEl.textContent = 'Entrando...'; btnEl.disabled = true; }
   function resetBtn() { if (btnEl) { btnEl.textContent = 'Entrar como Admin'; btnEl.disabled = false; } }
-  window._adminEmail = email;
-  window._adminSenha = senha;
-  try { sessionStorage.setItem('_noc_admin_email', email); } catch(e) {}
-  function setupAdminProfile(uid) {
-    return db.collection('users').doc(uid).collection('perfil').doc('dados')
-      .set({ nome: 'Administrador', tipo: 'admin', email: email, clinica: 'NOC Clinica' })
-      .then(function() { return db.collection('adminIndex').doc(uid).delete().catch(function(){}); })
-      .then(function() { resetBtn(); })
-      .catch(function() { resetBtn(); });
-  }
+
   function doSignIn() {
     auth.signInWithEmailAndPassword(email, senha)
-      .then(function(cred) { return setupAdminProfile(cred.user.uid); })
+      .then(function(cred) {
+        var uid = cred.user.uid;
+        // Valida tipo no Firestore — nunca no front-end
+        return db.collection('users').doc(uid).collection('perfil').doc('dados').get()
+          .then(function(doc) {
+            if (!doc.exists) {
+              auth.signOut();
+              resetBtn();
+              showLoginError('Usuário sem permissão para acessar este painel.');
+              return;
+            }
+            var perfil = doc.data();
+            var tipo = perfil.tipo || '';
+            // Aceita admin, medico e recepcao — cada um vai para seu painel
+            if (tipo === 'admin' || tipo === 'medico' || tipo === 'recepcao') {
+              currentUser = cred.user;
+              currentPerfil = perfil;
+              currentRole = tipo;
+              suppressAuthStateChange = true;
+              resetBtn();
+              showApp();
+            } else {
+              auth.signOut();
+              resetBtn();
+              showLoginError('Usuário sem permissão para acessar este painel.');
+            }
+          });
+      })
       .catch(function(e) {
-        var msg = e.message || '';
-        var notFound = msg.indexOf('user-not-found') >= 0 || msg.indexOf('INVALID_LOGIN_CREDENTIALS') >= 0 || msg.indexOf('invalid-credential') >= 0;
-        if (notFound) {
-          auth.createUserWithEmailAndPassword(email, senha)
-            .then(function(cred) { return setupAdminProfile(cred.user.uid); })
-            .catch(function(e2) { resetBtn(); showLoginError(traduzirErroFirebase(e2.message)); });
-        } else {
-          resetBtn();
-          showLoginError(traduzirErroFirebase(msg));
-        }
+        resetBtn();
+        showLoginError(traduzirErroFirebase(e.message));
       });
   }
+
   if (auth.currentUser) {
     auth.signOut().then(doSignIn).catch(doSignIn);
   } else {
@@ -765,10 +766,9 @@ function doLogout() {
   prontuarioPac = null;
   adminLoginInProgress = false;
   suppressAuthStateChange = false;
-  window._adminEmail = null;
-  window._adminSenha = null;
+  // sem variáveis de sessão inseguras
   window._pdfSolicitante = null;
-  try { sessionStorage.removeItem('_noc_admin_email'); } catch(e) {}
+  // sessão limpa
   auth.signOut().then(function() {
     document.getElementById('app-shell').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
@@ -791,8 +791,7 @@ var suppressAuthStateChange = false;
 var adminLoginInProgress = false;
 // Restore admin email from previous session (survives page reload)
 try {
-  var _storedAdminEmail = sessionStorage.getItem('_noc_admin_email');
-  if (_storedAdminEmail) window._adminEmail = _storedAdminEmail;
+  // sem cache de credenciais admin no sessionStorage
 } catch(e) {}
 
 // ============================================================
@@ -806,29 +805,20 @@ auth.onAuthStateChanged(function(user) {
     if (currentRole === 'paciente') return;
     suppressAuthStateChange = false;
     currentUser = user;
-    // If this is the known admin email — force admin role immediately without waiting for Firestore
-    if (window._adminEmail && user.email && user.email.toLowerCase() === window._adminEmail.toLowerCase()) {
-      currentRole = 'admin';
-      currentPerfil = { nome: 'Administrador', tipo: 'admin', email: user.email };
-      showApp();
-      return;
-    }
+    // Valida tipo sempre pelo Firestore — nunca por variável local
     db.collection('users').doc(user.uid).collection('perfil').doc('dados').get()
       .then(function(doc) {
         if (doc.exists) {
           currentPerfil = doc.data();
-          // Extra guard: if tipo is admin, always show admin dashboard
           currentRole = currentPerfil.tipo || 'medico';
         } else {
-          currentPerfil = { nome: user.email, tipo: 'paciente' };
-          currentRole = 'paciente';
+          // Sem perfil = sessão órfã (ex: anônimo reconectado) — ignorar
+          return;
         }
         showApp();
       })
       .catch(function() {
-        currentPerfil = { nome: user.email, tipo: 'paciente' };
-        currentRole = 'paciente';
-        showApp();
+        // Erro de leitura — não mostra nada, não vaza dados
       });
   } else {
     currentUser = null; currentRole = null; currentPerfil = null;
@@ -892,9 +882,11 @@ function buildSidebar() {
   } else if (currentRole === 'recepcao') {
     items = [
       {id:'rec-dash',icon:'📋',label:'Dashboard'},
-      {id:'rec-pacientes',icon:'👤',label:'Pacientes'},
       {id:'rec-agenda',icon:'📅',label:'Agenda'},
-      {id:'rec-novo-paciente',icon:'➕',label:'Novo Paciente'}
+      {id:'rec-pacientes',icon:'👤',label:'Pacientes'},
+      {id:'rec-documentos',icon:'📄',label:'Documentos'},
+      {id:'rec-confirmacoes',icon:'✅',label:'Confirmações'},
+      {id:'rec-codigos',icon:'🔑',label:'Códigos de Acesso'}
     ];
   } else {
     items = [
@@ -980,6 +972,9 @@ function navTo(pageId) {
   else if (pageId === 'rec-pacientes') renderRecepcaoPacientes();
   else if (pageId === 'rec-agenda') renderRecepcaoAgenda();
   else if (pageId === 'rec-novo-paciente') renderRecepcaoNovoPaciente();
+  else if (pageId === 'rec-documentos') renderRecepcaoDocumentos();
+  else if (pageId === 'rec-confirmacoes') renderRecepcaoConfirmacoes();
+  else if (pageId === 'rec-codigos') renderRecepcaoCodigos();
   else if (pageId === 'pac-dash') renderPacienteDash();
   else if (pageId === 'pac-exames') renderPacienteExames();
   else if (pageId === 'pac-pedidos') renderPacientePedidos();
@@ -7569,85 +7564,306 @@ function renderRecepcaoDash() {
 
 function renderRecepcaoPacientes() {
   navTo_setActive('rec-pacientes');
-  setMainContent(
-    '<div class="page-header flex justify-between align-center">' +
-    '<h2>👤 Pacientes</h2>' +
-    '<button class="btn btn-primary btn-sm" onclick="navTo(\'rec-novo-paciente\')">➕ Novo Paciente</button>' +
-    '</div>' +
-    '<div class="card mb-3"><input id="rec-busca-pac" placeholder="🔍 Buscar por nome ou CPF..." oninput="recFiltrarPacientes()" style="width:100%"></div>' +
-    '<div id="rec-lista-pacs"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>'
-  );
   getMedUidsParaRecepcao().then(function(slots) {
+    var optsHtml = slots.map(function(s){
+      return '<option value="'+s.uid+'">Dr(a). '+(s.nome||s.uid)+'</option>';
+    }).join('');
+    setMainContent(
+      '<div class="page-header flex justify-between align-center">' +
+      '<h2>&#128100; Pacientes</h2>' +
+      '<button class="btn btn-primary btn-sm" onclick="recAbrirCadastro()">&#43; Novo Paciente</button>' +
+      '</div>' +
+      '<div class="card mb-3" style="padding:10px 14px">' +
+      '<input id="rec-busca-pac" placeholder="Buscar por nome ou telefone..." oninput="recFiltrarPacientes()" style="width:100%">' +
+      '</div>' +
+      '<div id="rec-lista-pacs"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>' +
+      '<div id="rec-form-wrap" style="display:none;margin-top:16px">' +
+      '<div class="card" style="border-top:3px solid var(--primary)">' +
+      '<div class="flex justify-between align-center mb-3">' +
+      '<div style="font-weight:700;font-size:1rem">Cadastrar Novo Paciente</div>' +
+      '<button onclick="recFecharCadastro()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--gray)">&#10005;</button>' +
+      '</div>' +
+      '<div class="mb-3"><label>M\u00e9dico respons\u00e1vel *</label>' +
+      '<select id="rec-med-uid" style="width:100%">' + optsHtml + '</select></div>' +
+      '<div class="form-grid mb-3">' +
+      '<div style="grid-column:1/-1"><label>Nome completo *</label><input id="rec-pac-nome" placeholder="Nome do paciente" autocomplete="off"></div>' +
+      '<div><label>Telefone *</label><input id="rec-pac-tel" placeholder="(65) 99999-9999" type="tel"></div>' +
+      '<div><label>Data de nascimento</label><input id="rec-pac-nasc" type="date"></div>' +
+      '<div><label>Sexo</label><select id="rec-pac-sexo"><option value="">\u2014</option><option value="F">Feminino</option><option value="M">Masculino</option></select></div>' +
+      '<div style="grid-column:1/-1"><label>Observa\u00e7\u00f5es</label>' +
+      '<textarea id="rec-pac-obs" rows="2" placeholder="Motivo da consulta..."></textarea></div>' +
+      '</div>' +
+      '<div class="flex gap-2">' +
+      '<button class="btn btn-primary" onclick="recSalvarNovoPaciente()">Salvar Paciente</button>' +
+      '<button class="btn btn-gray" onclick="recFecharCadastro()">Cancelar</button>' +
+      '</div></div></div>'
+    );
     var todos = [];
     Promise.all(slots.map(function(s) {
       return db.collection('users').doc(s.uid).collection('pacientes').get()
         .then(function(snap) {
           snap.forEach(function(d) {
-            todos.push(Object.assign({}, d.data(), {id: d.id, medUid: s.uid, medNome: s.nome}));
+            todos.push(Object.assign({}, d.data(), {id:d.id, medUid:s.uid, medNome:s.nome}));
           });
         }).catch(function(){});
     })).then(function() {
+      todos.sort(function(a,b){ return (a.nome||'')>(b.nome||'')?1:-1; });
       window._recPacientes = todos;
       recRenderPacientes(todos);
     });
   });
 }
 
+function recAbrirCadastro() {
+  var wrap = document.getElementById('rec-form-wrap');
+  if (wrap) {
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(function(){ var el = document.getElementById('rec-pac-nome'); if(el) el.focus(); }, 300);
+  }
+}
+
+function recFecharCadastro() {
+  var wrap = document.getElementById('rec-form-wrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
 function recFiltrarPacientes() {
   var q = (document.getElementById('rec-busca-pac').value||'').toLowerCase();
   var todos = window._recPacientes || [];
-  recRenderPacientes(q ? todos.filter(function(p){ return (p.nome||'').toLowerCase().indexOf(q)>=0||(p.cpf||'').indexOf(q)>=0; }) : todos);
+  recRenderPacientes(q ? todos.filter(function(p){
+    return (p.nome||'').toLowerCase().indexOf(q)>=0 || (p.telefone||'').indexOf(q)>=0;
+  }) : todos);
 }
 
 function recRenderPacientes(pacs) {
   var el = document.getElementById('rec-lista-pacs');
   if (!el) return;
-  if (!pacs.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:32px">Nenhum paciente encontrado.</div>'; return; }
-  el.innerHTML = pacs.map(function(p) {
-    return '<div class="card mb-2" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">' +
-      '<div>' +
-      '<div style="font-weight:700">' + (p.nome||'—') + '</div>' +
-      '<div style="font-size:.78rem;color:var(--gray)">' + (p.especialidade||'') + (p.cidade?' · '+p.cidade:'') + ' · Dr(a). ' + (p.medNome||'') + '</div>' +
-      '</div>' +
-      '<div class="flex gap-1">' +
-      (p.codigoAcesso?'<span style="font-family:monospace;font-size:.78rem;background:var(--primary-light);color:var(--primary);padding:4px 8px;border-radius:6px">🔑 '+p.codigoAcesso+'</span>':'') +
-      '</div></div>';
-  }).join('');
+  if (!pacs.length) {
+    el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:32px">Nenhum paciente encontrado.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:.72rem;font-weight:700;color:var(--text-soft);letter-spacing:.5px;margin-bottom:8px">' +
+    pacs.length + ' PACIENTE' + (pacs.length!==1?'S':'') + '</div>' +
+    pacs.map(function(p) {
+      var ini = (p.nome||'?')[0].toUpperCase();
+      var telLimpo = (p.telefone||'').replace(/[^0-9]/g,'');
+      var wap = telLimpo ? 'https://wa.me/55' + telLimpo + '?text=' + encodeURIComponent('Ol\u00e1 ' + (p.nome||'') + '!') : null;
+      var codSpan = p.codigoAcesso ?
+        '<span style="font-family:monospace;font-size:.75rem;font-weight:700;color:var(--primary);background:var(--primary-light);padding:3px 8px;border-radius:6px;cursor:pointer" onclick="copiarCodigo(\'' + p.codigoAcesso + '\')">&#128273; '+p.codigoAcesso+'</span>' : '';
+      return '<div style="background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:8px;display:flex;align-items:center;gap:12px;padding:12px 16px">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0">' + ini + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:700;font-size:.92rem">' + (p.nome||'\u2014') + '</div>' +
+        '<div style="font-size:.75rem;color:var(--gray);margin-top:2px">' +
+        (p.telefone?p.telefone+' &middot; ':'') + 'Dr(a). ' + (p.medNome||'\u2014') +
+        (p.dataNasc?' &middot; '+p.dataNasc.substr(8,2)+'/'+p.dataNasc.substr(5,2)+'/'+p.dataNasc.substr(0,4):'') +
+        '</div>' +
+        (p.obs?'<div style="font-size:.75rem;color:var(--text-soft);margin-top:3px">'+p.obs+'</div>':'') +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">' +
+        codSpan +
+        (wap?'<a href="'+wap+'" target="_blank" style="font-size:.72rem;font-weight:700;color:#25D366;text-decoration:none">WhatsApp</a>':'') +
+        '</div></div>';
+    }).join('');
 }
 
 function renderRecepcaoAgenda() {
   navTo_setActive('rec-agenda');
+
+  // Estado da agenda
+  if (!window._recAgendaData) {
+    window._recAgendaData = todayISO();
+  }
+
+  // Mock de consultas — substituir por Firestore futuramente
+  if (!window._recAgendaMock) {
+    window._recAgendaMock = [
+      {id:'1', data: todayISO(), hora:'08:00', pacienteNome:'Ernandes Sobreira',  medNome:'Dr. Caio Araújo',    tipo:'Retorno',  status:'confirmado'},
+      {id:'2', data: todayISO(), hora:'08:30', pacienteNome:'Maria Fernanda Lima', medNome:'Dra. Anna Gabriela', tipo:'Consulta', status:'pendente'},
+      {id:'3', data: todayISO(), hora:'09:00', pacienteNome:'João Carlos Neves',   medNome:'Dr. Caio Araújo',    tipo:'Consulta', status:'pendente'},
+      {id:'4', data: todayISO(), hora:'09:30', pacienteNome:'Luísa Mendes',        medNome:'Dra. Anna Gabriela', tipo:'Retorno',  status:'confirmado'},
+      {id:'5', data: todayISO(), hora:'10:00', pacienteNome:'Rodrigo Farias',      medNome:'Dr. Caio Araújo',    tipo:'Consulta', status:'pendente'},
+      {id:'6', data: todayISO(), hora:'10:30', pacienteNome:'Carla Nascimento',    medNome:'Dra. Anna Gabriela', tipo:'Consulta', status:'confirmado'},
+      {id:'7', data: todayISO(), hora:'11:00', pacienteNome:'Antônio Rezende',     medNome:'Dr. Caio Araújo',    tipo:'Exame',    status:'pendente'},
+      {id:'8', data: todayISO(), hora:'14:00', pacienteNome:'Beatriz Souza',       medNome:'Dra. Anna Gabriela', tipo:'Consulta', status:'pendente'},
+      {id:'9', data: todayISO(), hora:'14:30', pacienteNome:'Paulo Henrique',      medNome:'Dr. Caio Araújo',    tipo:'Retorno',  status:'confirmado'},
+      {id:'10',data: todayISO(), hora:'15:00', pacienteNome:'Simone Castro',       medNome:'Dra. Anna Gabriela', tipo:'Consulta', status:'pendente'},
+    ];
+  }
+
+  _renderAgendaDia(window._recAgendaData);
+}
+
+function _recNavData(dias) {
+  var d = new Date(window._recAgendaData + 'T12:00:00');
+  d.setDate(d.getDate() + dias);
+  window._recAgendaData = d.toISOString().substr(0,10);
+  _renderAgendaDia(window._recAgendaData);
+}
+
+function _renderAgendaDia(dataISO) {
+  navTo_setActive('rec-agenda');
+
+  var diasSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  var d = new Date(dataISO + 'T12:00:00');
+  var nomeDia = diasSemana[d.getDay()];
+  var dataFmt = d.getDate().toString().padStart(2,'0') + '/' +
+    (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear();
+  var ehHoje = dataISO === todayISO();
+
+  var consultas = (window._recAgendaMock||[]).filter(function(c){ return c.data === dataISO; });
+  consultas.sort(function(a,b){ return a.hora > b.hora ? 1 : -1; });
+
+  // Separa pendentes e confirmados
+  var pendentes   = consultas.filter(function(c){ return c.status !== 'confirmado'; });
+  var confirmados = consultas.filter(function(c){ return c.status === 'confirmado'; });
+
+  var totalConf = confirmados.length;
+  var totalPend = pendentes.length;
+
+  var html =
+    // ── Cabeçalho com navegação
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">' +
+    '<div style="display:flex;align-items:center;gap:12px">' +
+    '<button onclick="_recNavData(-1)" style="border:1.5px solid var(--gray-200);background:#fff;border-radius:8px;padding:6px 14px;font-size:1rem;cursor:pointer">‹</button>' +
+    '<div>' +
+    '<div style="font-size:1.1rem;font-weight:800;color:var(--text)">' + nomeDia + ', ' + dataFmt + (ehHoje?' <span style="font-size:.72rem;background:var(--primary);color:#fff;padding:2px 8px;border-radius:99px;vertical-align:middle">Hoje</span>':'') + '</div>' +
+    '<div style="font-size:.78rem;color:var(--gray);margin-top:2px">' + consultas.length + ' consulta' + (consultas.length!==1?'s':'') + ' · ' + totalConf + ' confirmada' + (totalConf!==1?'s':'') + ' · ' + totalPend + ' pendente' + (totalPend!==1?'s':'') + '</div>' +
+    '</div>' +
+    '<button onclick="_recNavData(1)" style="border:1.5px solid var(--gray-200);background:#fff;border-radius:8px;padding:6px 14px;font-size:1rem;cursor:pointer">›</button>' +
+    '</div>' +
+    '<button onclick="recNovaConsulta()" class="btn btn-primary btn-sm">+ Nova Consulta</button>' +
+    '</div>';
+
+  if (!consultas.length) {
+    html += '<div style="text-align:center;padding:48px;color:var(--gray);background:#fff;border-radius:12px;box-shadow:var(--shadow)">' +
+      '<div style="font-size:2rem;margin-bottom:8px">📅</div>' +
+      '<div style="font-weight:600">Nenhuma consulta neste dia</div>' +
+      '<div style="font-size:.82rem;margin-top:4px">Use o botão + Nova Consulta para agendar</div>' +
+      '</div>';
+  } else {
+    // Pendentes primeiro
+    if (pendentes.length) {
+      html += '<div style="font-size:.72rem;font-weight:700;color:var(--warn);letter-spacing:.5px;margin-bottom:6px">⏳ AGUARDANDO CONFIRMAÇÃO</div>';
+      html += pendentes.map(function(c){ return _recCardConsulta(c); }).join('');
+    }
+    if (confirmados.length) {
+      html += '<div style="font-size:.72rem;font-weight:700;color:var(--success);letter-spacing:.5px;margin:' + (pendentes.length?'14px':'0') + ' 0 6px">✅ CONFIRMADAS</div>';
+      html += confirmados.map(function(c){ return _recCardConsulta(c); }).join('');
+    }
+  }
+
   setMainContent(
-    '<div class="page-header"><h2>📅 Agenda</h2></div>' +
-    '<div id="rec-agenda-wrap"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>'
+    '<div class="page-header" style="margin-bottom:0"><h2>📅 Agenda</h2></div>' +
+    '<div style="padding:0 0 16px">' + html + '</div>'
   );
-  var hoje = todayISO();
-  getMedUidsParaRecepcao().then(function(slots) {
-    var agendamentos = [];
-    Promise.all(slots.map(function(s) {
-      return db.collection('users').doc(s.uid).collection('agendamentos')
-        .where('data','>=',hoje).orderBy('data').limit(30).get()
-        .then(function(snap) {
-          snap.forEach(function(d) {
-            agendamentos.push(Object.assign({}, d.data(), {id:d.id, medNome:s.nome}));
-          });
-        }).catch(function(){});
-    })).then(function() {
-      agendamentos.sort(function(a,b){ return (a.data+a.hora)>(b.data+b.hora)?1:-1; });
-      var el = document.getElementById('rec-agenda-wrap');
-      if (!el) return;
-      if (!agendamentos.length) {
-        el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:32px">Nenhum agendamento próximo.</div>';
-        return;
-      }
-      el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Paciente</th><th>Médico</th><th>Tipo</th></tr></thead><tbody>' +
-        agendamentos.map(function(a) {
-          var d = a.data||''; var fmt = d.length===10?d.substr(8,2)+'/'+d.substr(5,2)+'/'+d.substr(0,4):d;
-          return '<tr><td>'+fmt+'</td><td>'+(a.hora||'—')+'</td><td style="font-weight:600">'+(a.pacienteNome||'—')+'</td><td>Dr(a). '+(a.medNome||'')+'</td><td>'+(a.tipo||'Consulta')+'</td></tr>';
-        }).join('') +
-        '</tbody></table></div>';
-    });
-  });
+}
+
+function _recCardConsulta(c) {
+  var confirmado = c.status === 'confirmado';
+  var tipoCor = c.tipo === 'Retorno' ? '#6D28D9' : c.tipo === 'Exame' ? '#0369A1' : 'var(--primary)';
+  return '<div style="background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:8px;' +
+    'display:flex;align-items:center;gap:0;overflow:hidden;border-left:4px solid ' + (confirmado?'var(--success)':'var(--warn)') + '">' +
+
+    // Horário
+    '<div style="min-width:64px;text-align:center;padding:16px 10px;background:' + (confirmado?'#F0FDF4':'#FFFBEB') + ';align-self:stretch;display:flex;align-items:center;justify-content:center;flex-direction:column">' +
+    '<div style="font-size:1.1rem;font-weight:900;color:' + (confirmado?'var(--success)':'#D97706') + '">' + c.hora + '</div>' +
+    '</div>' +
+
+    // Dados
+    '<div style="flex:1;padding:12px 14px">' +
+    '<div style="font-weight:700;font-size:.95rem">' + c.pacienteNome + '</div>' +
+    '<div style="font-size:.78rem;color:var(--gray);margin-top:2px">' + c.medNome + '</div>' +
+    '<div style="margin-top:6px;display:flex;gap:6px;align-items:center">' +
+    '<span style="font-size:.72rem;font-weight:700;color:' + tipoCor + ';background:' + tipoCor + '18;padding:2px 8px;border-radius:99px">' + c.tipo + '</span>' +
+    '<span style="font-size:.72rem;font-weight:700;color:' + (confirmado?'var(--success)':'#D97706') + ';background:' + (confirmado?'#DCFCE7':'#FEF3C7') + ';padding:2px 8px;border-radius:99px">' + (confirmado?'✅ Confirmado':'⏳ Pendente') + '</span>' +
+    '</div></div>' +
+
+    // Ações
+    '<div style="padding:12px 12px 12px 0;display:flex;flex-direction:column;gap:6px;min-width:110px">' +
+    (!confirmado ?
+      '<button onclick="recConfirmarConsulta(\'' + c.id + '\')" style="padding:6px 12px;background:var(--success);color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap">✅ Confirmar</button>' :
+      '<button disabled style="padding:6px 12px;background:var(--gray-light);color:var(--gray);border:none;border-radius:8px;font-size:.78rem;cursor:default;white-space:nowrap">✅ Confirmado</button>'
+    ) +
+    '<button onclick="recRemarcarConsulta(\'' + c.id + '\')" style="padding:6px 12px;background:#fff;color:var(--primary);border:1.5px solid var(--primary);border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap">🔄 Remarcar</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function recConfirmarConsulta(id) {
+  var mock = window._recAgendaMock || [];
+  for (var i=0;i<mock.length;i++) {
+    if (mock[i].id === id) { mock[i].status = 'confirmado'; break; }
+  }
+  toast('Consulta confirmada ✅','success');
+  _renderAgendaDia(window._recAgendaData);
+}
+
+function recRemarcarConsulta(id) {
+  var mock = window._recAgendaMock || [];
+  var c = null;
+  for (var i=0;i<mock.length;i++) { if (mock[i].id===id) { c=mock[i]; break; } }
+  if (!c) return;
+  showModal(
+    '🔄 Remarcar Consulta',
+    '<div style="margin-bottom:12px"><strong>' + c.pacienteNome + '</strong> · ' + c.hora + ' · ' + c.tipo + '</div>' +
+    '<div class="form-grid">' +
+    '<div><label>Nova data</label><input type="date" id="rem-data" value="' + c.data + '"></div>' +
+    '<div><label>Novo horário</label><input type="time" id="rem-hora" value="' + c.hora + '"></div>' +
+    '</div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="recSalvarRemarcacao(\'' + id + '\')" >Salvar</button>'
+  );
+}
+
+function recSalvarRemarcacao(id) {
+  var novaData = document.getElementById('rem-data').value;
+  var novaHora = document.getElementById('rem-hora').value;
+  if (!novaData || !novaHora) { toast('Preencha data e horário','error'); return; }
+  var mock = window._recAgendaMock || [];
+  for (var i=0;i<mock.length;i++) {
+    if (mock[i].id===id) { mock[i].data=novaData; mock[i].hora=novaHora; mock[i].status='pendente'; break; }
+  }
+  closeModal();
+  toast('Consulta remarcada ✅','success');
+  _renderAgendaDia(window._recAgendaData);
+}
+
+function recNovaConsulta() {
+  showModal(
+    '➕ Nova Consulta',
+    '<div class="form-grid">' +
+    '<div style="grid-column:1/-1"><label>Nome do paciente *</label><input id="nc-pac" placeholder="Nome completo"></div>' +
+    '<div><label>Data *</label><input type="date" id="nc-data" value="' + (window._recAgendaData||todayISO()) + '"></div>' +
+    '<div><label>Horário *</label><input type="time" id="nc-hora"></div>' +
+    '<div><label>Médico</label><input id="nc-med" placeholder="Dr. Nome"></div>' +
+    '<div><label>Tipo</label><select id="nc-tipo"><option>Consulta</option><option>Retorno</option><option>Exame</option></select></div>' +
+    '</div>',
+    '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+    '<button class="btn btn-primary" onclick="recSalvarNovaConsulta()">Agendar</button>'
+  );
+}
+
+function recSalvarNovaConsulta() {
+  var pac  = (document.getElementById('nc-pac').value||'').trim();
+  var data = document.getElementById('nc-data').value;
+  var hora = document.getElementById('nc-hora').value;
+  if (!pac||!data||!hora) { toast('Preencha paciente, data e horário','error'); return; }
+  var nova = {
+    id: Date.now().toString(),
+    data: data, hora: hora,
+    pacienteNome: pac,
+    medNome: (document.getElementById('nc-med').value||'').trim() || 'A definir',
+    tipo: document.getElementById('nc-tipo').value,
+    status: 'pendente'
+  };
+  window._recAgendaMock = window._recAgendaMock || [];
+  window._recAgendaMock.push(nova);
+  window._recAgendaData = data;
+  closeModal();
+  toast('Consulta agendada ✅','success');
+  _renderAgendaDia(data);
 }
 
 function renderRecepcaoNovoPaciente() {
@@ -7781,6 +7997,184 @@ function adminLimparRecepcao(cod) {
     if (atual.senhaInterna) stub.senhaInterna = atual.senhaInterna;
     return db.collection('convitesRecepcao').doc(cod).set(stub);
   }).then(function() { toast('Slot limpo','success'); renderAdminRecepcao(); });
+}
+
+
+// ── RECEPÇÃO — Stubs (implementação futura) ─────────────────
+function renderRecepcaoDocumentos() {
+  navTo_setActive('rec-documentos');
+  setMainContent(
+    '<div class="page-header"><h2>📄 Documentos</h2></div>' +
+    '<div class="card" style="text-align:center;padding:48px;color:var(--gray)">' +
+    '<div style="font-size:2.5rem;margin-bottom:12px">📄</div>' +
+    '<div style="font-weight:600;margin-bottom:6px">Em breve</div>' +
+    '<div style="font-size:.85rem">Aqui ficarão declarações, atestados e documentos emitidos pela clínica.</div>' +
+    '</div>'
+  );
+}
+
+function renderRecepcaoConfirmacoes() {
+  navTo_setActive('rec-confirmacoes');
+  setMainContent(
+    '<div class="page-header"><h2>✅ Confirmações</h2></div>' +
+    '<div class="card" style="text-align:center;padding:48px;color:var(--gray)">' +
+    '<div style="font-size:2.5rem;margin-bottom:12px">✅</div>' +
+    '<div style="font-weight:600;margin-bottom:6px">Em breve</div>' +
+    '<div style="font-size:.85rem">Confirmação de consultas agendadas por WhatsApp ou e-mail.</div>' +
+    '</div>'
+  );
+}
+
+function renderRecepcaoCodigos() {
+  navTo_setActive('rec-codigos');
+  setMainContent(
+    '<div class="page-header flex justify-between align-center">' +
+    '<h2>&#128273; C\u00f3digos de Acesso</h2>' +
+    '<button class="btn btn-primary btn-sm" onclick="recAbrirCadastro();navTo(\'rec-pacientes\')">&#43; Novo Paciente</button>' +
+    '</div>' +
+
+    // Instrução
+    '<div style="background:var(--primary-light);border-left:4px solid var(--primary);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:.85rem;color:var(--text)">' +
+    '<strong style="color:var(--primary)">Como funciona:</strong> ' +
+    'Cada paciente tem um c\u00f3digo \u00fanico. Copie e entregue pessoalmente, ou clique em WhatsApp para enviar direto pelo celular.' +
+    '</div>' +
+
+    // Busca + contador
+    '<div class="flex gap-2 align-center mb-3">' +
+    '<input id="rec-cod-busca" placeholder="&#128269; Buscar por nome ou telefone..." oninput="recFiltrarCodigos()" style="flex:1">' +
+    '<span id="rec-cod-total" style="font-size:.8rem;color:var(--gray);white-space:nowrap"></span>' +
+    '</div>' +
+
+    // Lista
+    '<div id="rec-codigos-lista"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>'
+  );
+
+  getMedUidsParaRecepcao().then(function(slots) {
+    var todos = [];
+    Promise.all(slots.map(function(s) {
+      return db.collection('users').doc(s.uid).collection('pacientes').get()
+        .then(function(snap) {
+          snap.forEach(function(d) {
+            var p = Object.assign({}, d.data(), {id:d.id, medNome:s.nome, medUid:s.uid});
+            if (p.codigoAcesso) todos.push(p);
+          });
+        }).catch(function(){});
+    })).then(function() {
+      todos.sort(function(a,b){ return (a.nome||'')>(b.nome||'')?1:-1; });
+      window._recCodigos = todos;
+      recRenderCodigos(todos);
+    });
+  });
+}
+
+function recFiltrarCodigos() {
+  var q = (document.getElementById('rec-cod-busca').value||'').toLowerCase();
+  var todos = window._recCodigos || [];
+  recRenderCodigos(q ? todos.filter(function(p){
+    return (p.nome||'').toLowerCase().indexOf(q) >= 0 ||
+           (p.telefone||'').indexOf(q) >= 0 ||
+           (p.codigoAcesso||'').toLowerCase().indexOf(q) >= 0;
+  }) : todos);
+}
+
+function recRenderCodigos(pacs) {
+  var el = document.getElementById('rec-codigos-lista');
+  var tot = document.getElementById('rec-cod-total');
+  if (!el) return;
+  if (tot) tot.textContent = pacs.length + ' paciente' + (pacs.length!==1?'s':'');
+
+  if (!pacs.length) {
+    el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--gray);background:#fff;border-radius:12px;box-shadow:var(--shadow)">' +
+      '<div style="font-size:2rem;margin-bottom:8px">&#128273;</div>' +
+      '<div style="font-weight:600">Nenhum paciente com c\u00f3digo</div>' +
+      '<div style="font-size:.82rem;margin-top:4px">Cadastre um paciente para gerar o c\u00f3digo autom\u00e1tico.</div>' +
+      '</div>';
+    return;
+  }
+
+  el.innerHTML = pacs.map(function(p) {
+    var temTel = !!(p.telefone||'').replace(/[^0-9]/g,'');
+    var telLimpo = (p.telefone||'').replace(/[^0-9]/g,'');
+    var msg = 'Ol\u00e1 ' + (p.nome||'') + '! Seu c\u00f3digo de acesso ao portal NOC Cl\u00ednica \u00e9: *' + p.codigoAcesso + '*\n\nAcesse: https://ernandes-sobreira.github.io/NOC-saude/\n\nNa tela de login, escolha "Paciente" e digite seu c\u00f3digo.';
+    var wap = temTel ? 'https://wa.me/55' + telLimpo + '?text=' + encodeURIComponent(msg) : null;
+
+    return '<div id="card-cod-'+p.id+'" style="background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:10px;padding:14px 16px">' +
+
+      // Linha 1 — nome + médico
+      '<div class="flex justify-between align-center" style="margin-bottom:10px">' +
+      '<div>' +
+      '<div style="font-weight:700;font-size:.95rem">' + (p.nome||'\u2014') + '</div>' +
+      '<div style="font-size:.75rem;color:var(--gray);margin-top:2px">' +
+      'Dr(a). ' + (p.medNome||'\u2014') +
+      (p.telefone?' &middot; '+p.telefone:'<span style="color:var(--warn)"> &middot; Sem telefone</span>') +
+      '</div>' +
+      '</div>' +
+      // Badge sem telefone
+      (!temTel?'<span style="font-size:.7rem;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:99px;font-weight:700">Sem tel.</span>':'') +
+      '</div>' +
+
+      // Linha 2 — código + botões
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+
+      // Código em destaque
+      '<div style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:10px;padding:8px 14px;font-family:monospace;font-size:1.1rem;font-weight:900;color:var(--primary);letter-spacing:2px;flex:1;min-width:120px">' +
+      p.codigoAcesso +
+      '</div>' +
+
+      // Botão copiar
+      '<button id="btn-copiar-'+p.id+'" onclick="recCopiarCodigo(\''+p.codigoAcesso+'\',\''+p.id+'\')" ' +
+      'style="padding:8px 14px;background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap">' +
+      '&#128203; Copiar' +
+      '</button>' +
+
+      // Botão WhatsApp
+      (wap ?
+        '<a href="'+wap+'" target="_blank" ' +
+        'style="padding:8px 14px;background:#25D366;color:#fff;border-radius:10px;font-size:.82rem;font-weight:700;text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">' +
+        '&#128241; WhatsApp' +
+        '</a>'
+        :
+        '<button disabled style="padding:8px 14px;background:var(--gray-light);color:var(--gray);border:none;border-radius:10px;font-size:.82rem;cursor:not-allowed;white-space:nowrap">' +
+        '&#128241; Sem tel.' +
+        '</button>'
+      ) +
+
+      '</div></div>';
+  }).join('');
+}
+
+function recCopiarCodigo(codigo, pacId) {
+  var texto = 'Ol\u00e1! Seu c\u00f3digo de acesso ao portal NOC Cl\u00ednica \u00e9: ' + codigo + '. Acesse: https://ernandes-sobreira.github.io/NOC-saude/';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(function() {
+      _recFeedbackCopiado(pacId);
+    }).catch(function() { _recCopiarFallback(texto, pacId); });
+  } else {
+    _recCopiarFallback(texto, pacId);
+  }
+}
+
+function _recCopiarFallback(texto, pacId) {
+  var el = document.createElement('textarea');
+  el.value = texto;
+  el.style.position = 'fixed'; el.style.opacity = '0';
+  document.body.appendChild(el); el.select();
+  try { document.execCommand('copy'); _recFeedbackCopiado(pacId); } catch(e) {}
+  document.body.removeChild(el);
+}
+
+function _recFeedbackCopiado(pacId) {
+  toast('C\u00f3digo copiado! ✅','success');
+  var btn = document.getElementById('btn-copiar-'+pacId);
+  if (!btn) return;
+  var orig = btn.innerHTML;
+  btn.innerHTML = '&#10003; Copiado!';
+  btn.style.background = 'var(--success)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--success)';
+  setTimeout(function(){
+    if (btn) { btn.innerHTML = orig; btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; }
+  }, 2500);
 }
 
 
