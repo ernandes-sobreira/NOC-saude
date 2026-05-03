@@ -1834,19 +1834,20 @@ function adminCriarMedico() {
   }
 
   // Use secondary Firebase app so admin session is NOT replaced
+  // Always delete and recreate to avoid stale auth state
   var secondaryApp;
   try {
-    secondaryApp = firebase.app('secondary');
-  } catch(e) {
-    secondaryApp = firebase.initializeApp(firebase.app().options, 'secondary');
-  }
+    var existing = firebase.app('secondary');
+    existing.delete().catch(function(){});
+  } catch(e) {}
+  secondaryApp = firebase.initializeApp(firebase.app().options, 'secondary');
   var secondaryAuth = secondaryApp.auth();
 
   secondaryAuth.createUserWithEmailAndPassword(email, senha)
     .then(function(cred) {
       var uid = cred.user.uid;
       return salvarPerfil(uid).then(function() {
-        secondaryAuth.signOut();
+        secondaryAuth.signOut().then(function(){ secondaryApp.delete().catch(function(){}); });
         return uid;
       });
     })
@@ -1867,7 +1868,7 @@ function adminCriarMedico() {
         secondaryAuth.signInWithEmailAndPassword(email, senha)
           .then(function(cred) {
             return salvarPerfil(cred.user.uid).then(function() {
-              secondaryAuth.signOut();
+              secondaryAuth.signOut().then(function(){ secondaryApp.delete().catch(function(){}); });
             });
           })
           .then(function() {
@@ -1877,7 +1878,7 @@ function adminCriarMedico() {
           })
           .catch(function(e2) {
             resetBtn();
-            secondaryAuth.signOut();
+            secondaryAuth.signOut().then(function(){ secondaryApp.delete().catch(function(){}); });
             if (e2.message && (e2.message.indexOf('wrong-password')>=0 || e2.message.indexOf('INVALID_LOGIN_CREDENTIALS')>=0)) {
               toast('E-mail já cadastrado com senha diferente.','error');
             } else {
