@@ -6075,7 +6075,12 @@ function salvarFoto() {
 
   var storage = firebase.storage();
   var ts = Date.now();
-  var path = 'users/' + _fisicoMedUid + '/pacientes/' + _fisicoPacId + '/fotos/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  // Pacientes usam path próprio (não requer ser dono do médico)
+  // Médicos e admin usam path do médico
+  var ispaciente = (currentRole === 'paciente');
+  var path = ispaciente
+    ? 'pacienteFotos/' + _fisicoPacId + '/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_')
+    : 'users/' + _fisicoMedUid + '/pacientes/' + _fisicoPacId + '/fotos/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   var ref = storage.ref(path);
 
   var doUpload = function() {
