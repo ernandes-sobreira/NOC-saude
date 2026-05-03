@@ -3449,25 +3449,32 @@ function renderResumoCards(resultados, container) {
     var miniChart = hist.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="' + chartId + '"></canvas></div>' : '';
     var refLabel = formatRefLabel(refObj, latest.unidade||'');
     var dictNote = (refObj && refObj.fonte === 'dict') ? '<div style="font-size:.65rem;color:var(--gray);margin-top:2px;opacity:.7">¹ Ref. literatura (SBPC/ML)</div>' : '';
-    var card = '<div class="exam-card ' + s + '" style="margin-bottom:10px">' +
-      '<div class="flex justify-between align-center"><div style="font-weight:700;font-size:.9rem">' + nm + '</div>' +
-      '<div class="flex gap-1 align-center">' + trend + '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '">' + statusLabel(s) + '</span></div></div>' +
-      '<div class="exam-value" style="color:' + statusColor(s) + '">' + formatarValorDisplay(latest.valor) + ' <span style="font-size:1rem;font-weight:400;color:var(--gray)">' + (latest.unidade||'') + '</span></div>' +
-      '<div class="exam-bar"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--success),var(--warn),var(--danger))"></div>' +
+    var bgCard = s==='normal'?'#F0FDF4':s==='warn'?'#FFFBEB':'#FFF1F2';
+    var borda  = s==='normal'?'#86EFAC':s==='warn'?'#FCD34D':'#FCA5A5';
+    var card = '<div class="exam-card-grid ' + s + '" style="background:'+bgCard+';border:1.5px solid '+borda+';border-radius:12px;padding:12px 14px">' +
+      '<div style="font-size:.78rem;font-weight:700;color:var(--text-soft);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:75%">' + nm + '</span>' +
+      '<span class="badge badge-' + (s==='normal'?'success':s==='warn'?'warn':'danger') + '" style="font-size:.65rem">' + statusLabel(s) + '</span>' +
+      '</div>' +
+      '<div style="font-size:1.4rem;font-weight:900;color:' + statusColor(s) + ';line-height:1.1">' + formatarValorDisplay(latest.valor) +
+      '<span style="font-size:.7rem;font-weight:400;color:var(--gray);margin-left:3px">' + (latest.unidade||'') + '</span>' +
+      (trend ? '<span style="font-size:.72rem;margin-left:6px">' + trend + '</span>' : '') +
+      '</div>' +
+      '<div class="exam-bar" style="margin:6px 0 4px"><div class="exam-bar-fill" style="width:100%;background:linear-gradient(90deg,#22C55E,#F59E0B,#EF4444)"></div>' +
       '<div class="exam-bar-marker" style="left:' + pos + '%;background:' + statusColor(s) + '"></div></div>' +
-      '<div style="font-size:.72rem;color:var(--gray)">' + refLabel + '</div>' +
+      '<div style="font-size:.68rem;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + refLabel + '</div>' +
+      (histHtml ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + histHtml + '</div>' : '') +
       dictNote +
-      '<div class="flex flex-col gap-1 mt-1">' + histHtml + '</div>' +
-      miniChart +
       '</div>';
     if (s === 'danger') altCards += card;
     else if (s === 'warn') warnCards += card;
     else okCards += card;
   }
+  var gridStyle = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:16px';
   var html = '';
-  if (altCards) html += '<div class="section-title" style="color:var(--danger)">🔴 Requer Atenção</div>' + altCards;
-  if (warnCards) html += '<div class="section-title" style="color:var(--warn)">⚠️ Atenção</div>' + warnCards;
-  if (okCards) html += '<div class="section-title" style="color:var(--success)">✅ Normal</div>' + okCards;
+  if (altCards) html += '<div style="font-size:.75rem;font-weight:700;color:var(--danger);letter-spacing:.5px;margin-bottom:8px;margin-top:4px">🔴 REQUER ATENÇÃO</div><div style="'+gridStyle+'">' + altCards + '</div>';
+  if (warnCards) html += '<div style="font-size:.75rem;font-weight:700;color:var(--warn);letter-spacing:.5px;margin-bottom:8px;margin-top:4px">⚠️ ATENÇÃO</div><div style="'+gridStyle+'">' + warnCards + '</div>';
+  if (okCards) html += '<div style="font-size:.75rem;font-weight:700;color:var(--success);letter-spacing:.5px;margin-bottom:8px;margin-top:4px">✅ NORMAL</div><div style="'+gridStyle+'">' + okCards + '</div>';
   if (!html) html = '<div class="card" style="text-align:center;color:var(--gray);padding:40px">Nenhum parâmetro numérico encontrado.</div>';
   container.innerHTML = html;
   // render mini charts
@@ -6103,15 +6110,71 @@ function salvarFoto() {
       if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
     });
   };
-  // Se paciente (anônimo), garante sessão ativa
-  if (!auth.currentUser) {
+  // Paciente usa autenticação anônima — sempre garante sessão ativa antes do upload
+  if (currentRole === 'paciente') {
     suppressAuthStateChange = true;
-    auth.signInAnonymously()
-      .then(doUpload)
-      .catch(function(e) {
-        toast('Erro de autenticação: ' + e.message, 'error');
-        if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
-      });
+    var garantirAuth = function(callback) {
+      if (auth.currentUser) {
+        // Tem sessão — tenta direto, se falhar renova
+        callback();
+      } else {
+        auth.signInAnonymously()
+          .then(callback)
+          .catch(function(e) {
+            toast('Erro ao autenticar para upload: ' + e.message, 'error');
+            if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+          });
+      }
+    };
+    garantirAuth(function() {
+      // Tenta upload; se der permission error, renova sessão e tenta de novo
+      doUpload = (function(originalDoUpload) {
+        return function() {
+          var storage2 = firebase.storage();
+          var ref2 = storage2.ref(path);
+          ref2.put(file).then(function(snap) {
+            return snap.ref.getDownloadURL();
+          }).then(function(url) {
+            return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+              .collection('fisicoFotos').add({
+                url: url, storagePath: path,
+                data: data, dataTs: new Date(data).getTime(),
+                categoria: cat, obs: obs,
+                enviadoPor: currentRole, uid: currentUser.uid
+              });
+          }).then(function() {
+            toast('Foto enviada ao médico! ✅', 'success');
+            closeModal();
+            if (typeof renderPacienteEvolucao === 'function') renderPacienteEvolucao();
+          }).catch(function(e) {
+            if (e.message && e.message.indexOf('permission') >= 0) {
+              // Renova sessão e tenta de novo
+              auth.signInAnonymously().then(function() {
+                ref2.put(file).then(function(snap){ return snap.ref.getDownloadURL(); })
+                  .then(function(url) {
+                    return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+                      .collection('fisicoFotos').add({
+                        url: url, storagePath: path, data: data, dataTs: new Date(data).getTime(),
+                        categoria: cat, obs: obs, enviadoPor: currentRole, uid: currentUser.uid
+                      });
+                  }).then(function() {
+                    toast('Foto enviada ao médico! ✅', 'success');
+                    closeModal();
+                    if (typeof renderPacienteEvolucao === 'function') renderPacienteEvolucao();
+                  }).catch(function(e2) {
+                    toast('Erro ao enviar: ' + e2.message, 'error');
+                    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+                  });
+              });
+            } else {
+              toast('Erro ao enviar: ' + e.message, 'error');
+              if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+            }
+          });
+        };
+      })(doUpload);
+      doUpload();
+    });
   } else {
     doUpload();
   }
