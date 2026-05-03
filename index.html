@@ -890,22 +890,47 @@ function buildSidebar() {
       nav.appendChild(el);
     })(items[i]);
   }
-  // Atualiza visibilidade do botão voltar e banner
+  // Atualiza visibilidade dos botões voltar e banners
   setTimeout(function() {
+    // Botão voltar ao admin (modo médico)
     var btnVoltar = document.getElementById('btn-voltar-admin');
-    if (btnVoltar) btnVoltar.style.display = window._adminBackup ? 'block' : 'none';
-    var existing = document.getElementById('admin-view-banner');
-    if (window._adminBackup && !existing) {
+    if (btnVoltar) btnVoltar.style.display = (window._adminBackup || window._adminPacBackup) ? 'block' : 'none';
+    if (btnVoltar) {
+      if (window._adminPacBackup) {
+        btnVoltar.textContent = '\uD83D\uDD19 Voltar ao Admin';
+        btnVoltar.onclick = voltarDeVisualizacaoPaciente;
+      } else {
+        btnVoltar.textContent = '\uD83D\uDD19 Voltar ao Admin';
+        btnVoltar.onclick = voltarParaAdmin;
+      }
+    }
+    // Banner médico
+    var existingMed = document.getElementById('admin-view-banner');
+    if (window._adminBackup && !existingMed) {
       var sidebarEl = document.querySelector('.sidebar');
       if (sidebarEl) {
         var banner = document.createElement('div');
         banner.id = 'admin-view-banner';
         banner.style.cssText = 'background:#FEF3C7;color:#92400E;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #FCD34D';
-        banner.textContent = '👁 ADMIN visualizando como médico';
+        banner.textContent = '\uD83D\uDC41 ADMIN visualizando como médico';
         sidebarEl.insertBefore(banner, sidebarEl.firstChild);
       }
-    } else if (!window._adminBackup && existing) {
-      existing.remove();
+    } else if (!window._adminBackup && existingMed) {
+      existingMed.remove();
+    }
+    // Banner paciente
+    var existingPac = document.getElementById('pac-view-banner');
+    if (window._adminPacBackup && !existingPac) {
+      var sidebarEl2 = document.querySelector('.sidebar');
+      if (sidebarEl2) {
+        var bannerP = document.createElement('div');
+        bannerP.id = 'pac-view-banner';
+        bannerP.style.cssText = 'background:#EFF6FF;color:#1D4ED8;font-size:.72rem;font-weight:700;padding:6px 12px;text-align:center;border-bottom:1px solid #93C5FD';
+        bannerP.textContent = '\uD83D\uDC41 ADMIN visualizando como paciente';
+        sidebarEl2.insertBefore(bannerP, sidebarEl2.firstChild);
+      }
+    } else if (!window._adminPacBackup && existingPac) {
+      existingPac.remove();
     }
   }, 50);
 }
@@ -2064,8 +2089,7 @@ function renderAdminDash() {
     '<div class="card"><div class="section-title">👨‍⚕️ Médicos da NOC Clínica</div><div id="admin-medicos-list"><p style="color:var(--gray)">Carregando...</p></div></div>'
   );
   // Fonte de verdade: convitesMedico (evita duplicatas de UIDs anônimos de teste)
-  var _codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
-                  'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  var _codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
   Promise.all(_codigos.map(function(cod) {
     return db.collection('convitesMedico').doc(cod).get()
       .then(function(d){ return (d.exists && d.data().nome && d.data().uid) ? Object.assign({cod:cod},d.data()) : null; })
@@ -2162,8 +2186,7 @@ function adminVerComoMedico(uid) {
         return;
       }
       // Perfil ainda não criado (médico nunca logou) — busca dados do convite
-      var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
-                     'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+      var codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
       Promise.all(codigos.map(function(cod){
         return db.collection('convitesMedico').doc(cod).get()
           .then(function(d){ return d.exists && d.data().uid===uid ? d.data() : null; })
@@ -2389,7 +2412,7 @@ function renderAdminMedicos() {
   navTo_setActive('admin-medicos');
   setMainContent(
     '<div class="page-header flex justify-between align-center wrap gap-1">' +
-    '<div><h2>&#x1F9D1;&#x200D;&#x2695;&#xFE0F; Convites de M\u00e9dicos</h2><p style="color:var(--gray);font-size:.85rem">10 slots dispon\u00edveis. S\u00f3 o admin v\u00ea os c\u00f3digos.</p></div>' +
+    '<div><h2>&#x1F9D1;&#x200D;&#x2695;&#xFE0F; Convites de M\u00e9dicos</h2><p style="color:var(--gray);font-size:.85rem">3 slots dispon\u00edveis. C\u00f3digos seguros — s\u00f3 o admin v\u00ea.</p></div>' +
     '<button class="btn btn-gray btn-sm" onclick="renderAdminDash()">&#8592; Dashboard</button>' +
     '</div>' +
     '<div id="admin-convites-list"><p style="color:var(--gray)">Carregando...</p></div>'
@@ -2400,7 +2423,7 @@ function renderAdminMedicos() {
 function adminLoadConvites() {
   var listEl = document.getElementById('admin-convites-list');
   if (!listEl) return;
-  var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005','NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  var codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
   var promises = codigos.map(function(cod) {
     return db.collection('convitesMedico').doc(cod).get()
       .then(function(doc) { return { cod: cod, dados: doc.exists ? doc.data() : null }; })
@@ -2461,6 +2484,16 @@ function adminEditarConvite(cod) {
     );
     // uid sera definido automaticamente no primeiro login do medico
   });
+}
+
+function gerarCodigoSeguro() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function bloco(n) {
+    var s = '';
+    for (var i=0;i<n;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+  return 'NOC-' + bloco(4) + '-' + bloco(4);
 }
 
 function adminSalvarConvite(cod) {
@@ -2821,6 +2854,7 @@ function adminRenderPacsTable(items) {
       '<td>' + badge + '</td>' +
       '<td class="flex gap-1">' +
       '<button class="btn btn-outline btn-sm" onclick="adminVerProntuario(\'' + item.medUid + '\',\'' + item.pacId + '\')">📋</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="adminVerComoPaciente(\'' + item.medUid + '\',\'' + item.pacId + '\')">👁 Paciente</button>' +
       '<button class="btn btn-danger btn-sm" onclick="adminRemoverPaciente(\'' + item.medUid + '\',\'' + item.pacId + '\',\'' + (d.nome||'').replace(/'/g,'') + '\')">🗑️</button>' +
       '</td>' +
       '</tr>';
@@ -6712,8 +6746,7 @@ function renderAdminMigracao() {
 function analisarSlots() {
   var wrap = document.getElementById('slots-status');
   if (wrap) wrap.innerHTML = '<p style="color:var(--gray)">Analisando...</p>';
-  var codigos = ['NOC-MED-001','NOC-MED-002','NOC-MED-003','NOC-MED-004','NOC-MED-005',
-                 'NOC-MED-006','NOC-MED-007','NOC-MED-008','NOC-MED-009','NOC-MED-010'];
+  var codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
   Promise.all(codigos.map(function(cod) {
     return db.collection('convitesMedico').doc(cod).get()
       .then(function(d){ return d.exists ? Object.assign({cod:cod}, d.data()) : {cod:cod}; })
@@ -6879,6 +6912,49 @@ function migrarSlot(slot, todosUids, addLog) {
       addLog('Erro no slot ' + slot.cod + ': ' + e.message, '#DC2626');
       try { secondaryApp.delete(); } catch(ex){}
     });
+}
+function adminVerComoPaciente(medUid, pacId) {
+  db.collection('users').doc(medUid).collection('pacientes').doc(pacId).get()
+    .then(function(doc) {
+      if (!doc.exists) { toast('Paciente não encontrado','error'); return; }
+      var pac = Object.assign({}, doc.data(), {id: pacId});
+
+      // Salva contexto completo para retorno
+      window._adminPacBackup = {
+        role: currentRole,
+        user: Object.assign({}, currentUser),
+        perfil: Object.assign({}, currentPerfil),
+        source: 'admin-pacientes'
+      };
+
+      // Configura sessão de paciente
+      pacienteMedUid = medUid;
+      pacientePacId = pacId;
+      currentRole = 'paciente';
+      currentPerfil = { nome: pac.nome, tipo: 'paciente', email: pac.email||'' };
+      currentUser = { uid: 'pac_' + pacId, email: pac.email||pacId };
+      suppressAuthStateChange = true;
+
+      showApp();
+      toast('Visualizando como paciente: ' + (pac.nome||''), 'success');
+    })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function voltarDeVisualizacaoPaciente() {
+  var bk = window._adminPacBackup;
+  if (!bk) return;
+  currentRole = bk.role;
+  currentUser = bk.user;
+  currentPerfil = bk.perfil;
+  pacienteMedUid = null;
+  pacientePacId = null;
+  suppressAuthStateChange = false;
+  window._adminPacBackup = null;
+  var banner = document.getElementById('pac-view-banner');
+  if (banner) banner.remove();
+  showApp();
+  toast('Voltou ao painel Admin ✅','success');
 }
 
 // ============================================================
