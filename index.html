@@ -254,6 +254,7 @@ tr:hover td{background:var(--primary-light)}
     <div class="login-tabs">
       <div class="login-tab active" id="tab-medico" onclick="switchLoginTab('medico')">Médico</div>
       <div class="login-tab" id="tab-paciente" onclick="switchLoginTab('paciente')">Paciente</div>
+      <div class="login-tab" id="tab-recepcao" onclick="switchLoginTab('recepcao')">Recepção</div>
       <div class="login-tab" id="tab-admin" onclick="switchLoginTab('admin')">Admin</div>
     </div>
     <!-- MÉDICO LOGIN -->
@@ -317,6 +318,15 @@ tr:hover td{background:var(--primary-light)}
       <button class="btn btn-primary w-100" onclick="doPacienteLogin()">Entrar</button>
     </div>
     <!-- ADMIN LOGIN -->
+    <div id="form-recepcao" class="hidden">
+      <div class="mb-2">
+        <label>Código de acesso</label>
+        <input type="text" id="login-codigo-recepcao" placeholder="Ex: NOC-REC-001"
+          style="text-transform:uppercase" autocomplete="off"
+          onkeydown="if(event.key==='Enter') doLoginRecepcao()">
+      </div>
+      <button class="btn btn-primary w-100" onclick="doLoginRecepcao()">Entrar</button>
+    </div>
     <div id="form-admin" class="hidden">
       <div class="mb-2" style="background:var(--primary-light);border-radius:8px;padding:10px;font-size:.82rem;color:var(--text-soft)">
         🔐 Acesso restrito. Use o e-mail e senha do administrador da NOC Clínica.
@@ -469,7 +479,7 @@ function handleBackdropClick(e) {
 var loginTab = 'medico';
 function switchLoginTab(tab) {
   loginTab = tab;
-  var tabs = ['medico','paciente','admin'];
+  var tabs = ['medico','paciente','recepcao','admin'];
   for (var i = 0; i < tabs.length; i++) {
     var t = tabs[i];
     document.getElementById('tab-' + t).classList.toggle('active', t === tab);
@@ -836,6 +846,7 @@ function showApp() {
   buildSidebar();
   if (currentRole === 'admin') renderAdminDash();
   else if (currentRole === 'medico') renderMedicoDash();
+  else if (currentRole === 'recepcao') renderRecepcaoDash();
   else renderPacienteDash();
 }
 function buildSidebar() {
@@ -853,6 +864,8 @@ function buildSidebar() {
       else espLabels.push(espsArr[ei]);
     }
     role = espLabels.join(' · ');
+  } else if (currentRole === 'recepcao') {
+    role = 'Recepção';
   } else {
     role = 'Paciente';
   }
@@ -866,7 +879,8 @@ function buildSidebar() {
       {id:'admin-medicos',icon:'👨‍⚕️',label:'Médicos'},
       {id:'admin-pacientes',icon:'🧑‍🤝‍🧑',label:'Pacientes'},
       {id:'admin-clinica',icon:'🏥',label:'Clínica'},
-      {id:'admin-migracao',icon:'🔧',label:'Migração'}
+      {id:'admin-migracao',icon:'🔧',label:'Migração'},
+      {id:'admin-recepcao',icon:'🖥️',label:'Recepção'}
     ];
   } else if (currentRole === 'medico') {
     items = [
@@ -874,6 +888,13 @@ function buildSidebar() {
       {id:'medico-pacientes',icon:'👤',label:'Pacientes'},
       {id:'medico-agenda',icon:'📅',label:'Agenda'},
       {id:'medico-areas',icon:'⚗️',label:'Áreas de Exame'}
+    ];
+  } else if (currentRole === 'recepcao') {
+    items = [
+      {id:'rec-dash',icon:'📋',label:'Dashboard'},
+      {id:'rec-pacientes',icon:'👤',label:'Pacientes'},
+      {id:'rec-agenda',icon:'📅',label:'Agenda'},
+      {id:'rec-novo-paciente',icon:'➕',label:'Novo Paciente'}
     ];
   } else {
     items = [
@@ -950,10 +971,15 @@ function navTo(pageId) {
   else if (pageId === 'admin-pacientes') renderAdminPacientes();
   else if (pageId === 'admin-clinica') renderAdminClinica();
   else if (pageId === 'admin-migracao') renderAdminMigracao();
+  else if (pageId === 'admin-recepcao') renderAdminRecepcao();
   else if (pageId === 'medico-dash') renderMedicoDash();
   else if (pageId === 'medico-pacientes') renderMedicoPacientes();
   else if (pageId === 'medico-agenda') renderMedicoAgenda(null);
   else if (pageId === 'medico-areas') renderMedicoAreas();
+  else if (pageId === 'rec-dash') renderRecepcaoDash();
+  else if (pageId === 'rec-pacientes') renderRecepcaoPacientes();
+  else if (pageId === 'rec-agenda') renderRecepcaoAgenda();
+  else if (pageId === 'rec-novo-paciente') renderRecepcaoNovoPaciente();
   else if (pageId === 'pac-dash') renderPacienteDash();
   else if (pageId === 'pac-exames') renderPacienteExames();
   else if (pageId === 'pac-pedidos') renderPacientePedidos();
@@ -7425,6 +7451,336 @@ function consultaParaMeta() {
     '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
     '<button class="btn btn-primary" onclick="salvarMeta()">Criar Meta</button>'
   );
+}
+
+// ============================================================
+// RECEPÇÃO — Login
+// ============================================================
+function doLoginRecepcao() {
+  var codigo = (document.getElementById('login-codigo-recepcao').value||'').trim().toUpperCase();
+  if (!codigo) { showLoginError('Digite seu código de acesso.'); return; }
+  var btn = document.querySelector('#form-recepcao .btn-primary');
+  if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
+  function resetBtn() { if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; } }
+
+  db.collection('convitesRecepcao').doc(codigo).get()
+    .then(function(doc) {
+      if (!doc.exists || !doc.data().nome) {
+        resetBtn();
+        showLoginError('Código inválido. Solicite ao administrador.');
+        return;
+      }
+      var dados = doc.data();
+      var emailInterno = dados.emailInterno || ('rec_' + codigo.toLowerCase().replace(/-/g,'_') + '@noc.interno');
+      var senhaInterna = dados.senhaInterna || ('NOCrec#' + codigo + '#2025');
+      suppressAuthStateChange = true;
+
+      var entrarComCred = function(cred) {
+        var realUid = cred.user.uid;
+        currentRole = 'recepcao';
+        currentUser = { uid: realUid, email: dados.email || codigo };
+        currentPerfil = { nome: dados.nome, tipo: 'recepcao', email: dados.email||'',
+          clinica: dados.clinica||'NOC Clínica', codigoAcesso: codigo };
+        db.collection('users').doc(realUid).collection('perfil').doc('dados')
+          .set(currentPerfil, {merge:true}).catch(function(){});
+        db.collection('convitesRecepcao').doc(codigo)
+          .set({uid: realUid, emailInterno: emailInterno, senhaInterna: senhaInterna}, {merge:true})
+          .catch(function(){});
+        resetBtn(); clearLoginError();
+        suppressAuthStateChange = true;
+        showApp();
+      };
+
+      auth.signInWithEmailAndPassword(emailInterno, senhaInterna)
+        .then(entrarComCred)
+        .catch(function(e) {
+          var ehNovo = (e.code||'').indexOf('user-not-found') >= 0 ||
+            (e.code||'').indexOf('invalid-credential') >= 0 ||
+            (e.code||'').indexOf('wrong-password') >= 0 ||
+            (e.message||'').indexOf('INVALID_LOGIN_CREDENTIALS') >= 0;
+          if (ehNovo) {
+            auth.createUserWithEmailAndPassword(emailInterno, senhaInterna)
+              .then(entrarComCred)
+              .catch(function(e2) { suppressAuthStateChange = false; resetBtn(); showLoginError('Erro: ' + e2.message); });
+          } else {
+            suppressAuthStateChange = false; resetBtn(); showLoginError('Erro: ' + e.message);
+          }
+        });
+    })
+    .catch(function(e) { resetBtn(); showLoginError('Erro: ' + e.message); });
+}
+
+// ============================================================
+// RECEPÇÃO — Telas
+// ============================================================
+function getMedUidsParaRecepcao() {
+  // Recepção pode ver todos os médicos da clínica
+  var codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
+  return Promise.all(codigos.map(function(cod) {
+    return db.collection('convitesMedico').doc(cod).get()
+      .then(function(d){ return (d.exists && d.data().uid) ? d.data() : null; })
+      .catch(function(){ return null; });
+  })).then(function(slots){ return slots.filter(Boolean); });
+}
+
+function renderRecepcaoDash() {
+  navTo_setActive('rec-dash');
+  setMainContent(
+    '<div class="page-header"><h2>📋 Painel da Recepção</h2>' +
+    '<p style="color:var(--gray);font-size:.85rem">NOC Clínica · ' + (currentPerfil?currentPerfil.nome:'') + '</p></div>' +
+    '<div class="kpi-grid" id="rec-kpi-grid">' +
+    '<div class="kpi-card blue" style="cursor:pointer" onclick="navTo(\'rec-pacientes\')"><div class="kpi-icon">👤</div><div class="kpi-value" id="rec-kpi-pacs">...</div><div class="kpi-label">Pacientes</div></div>' +
+    '<div class="kpi-card green" style="cursor:pointer" onclick="navTo(\'rec-agenda\')"><div class="kpi-icon">📅</div><div class="kpi-value" id="rec-kpi-agenda">...</div><div class="kpi-label">Agenda Hoje</div></div>' +
+    '<div class="kpi-card yellow"><div class="kpi-icon">👨‍⚕️</div><div class="kpi-value" id="rec-kpi-medicos">...</div><div class="kpi-label">Médicos Ativos</div></div>' +
+    '</div>' +
+    '<div class="card mt-3">' +
+    '<div class="section-title mb-2">⚡ Ações Rápidas</div>' +
+    '<div class="flex gap-2 wrap">' +
+    '<button class="btn btn-primary" onclick="navTo(\'rec-novo-paciente\')">➕ Novo Paciente</button>' +
+    '<button class="btn btn-outline" onclick="navTo(\'rec-pacientes\')">🔍 Buscar Paciente</button>' +
+    '<button class="btn btn-outline" onclick="navTo(\'rec-agenda\')">📅 Ver Agenda</button>' +
+    '</div></div>'
+  );
+  getMedUidsParaRecepcao().then(function(slots) {
+    var kpiM = document.getElementById('rec-kpi-medicos');
+    if (kpiM) kpiM.textContent = slots.length;
+    var totalPacs = 0;
+    Promise.all(slots.map(function(s) {
+      return db.collection('users').doc(s.uid).collection('pacientes').get()
+        .then(function(snap){ return snap.size; }).catch(function(){ return 0; });
+    })).then(function(counts) {
+      counts.forEach(function(c){ totalPacs += c; });
+      var kpiP = document.getElementById('rec-kpi-pacs');
+      if (kpiP) kpiP.textContent = totalPacs;
+    });
+    var hoje = todayISO();
+    var totalAg = 0;
+    Promise.all(slots.map(function(s) {
+      return db.collection('users').doc(s.uid).collection('agendamentos')
+        .where('data','==',hoje).get()
+        .then(function(snap){ return snap.size; }).catch(function(){ return 0; });
+    })).then(function(counts) {
+      counts.forEach(function(c){ totalAg += c; });
+      var kpiA = document.getElementById('rec-kpi-agenda');
+      if (kpiA) kpiA.textContent = totalAg;
+    });
+  });
+}
+
+function renderRecepcaoPacientes() {
+  navTo_setActive('rec-pacientes');
+  setMainContent(
+    '<div class="page-header flex justify-between align-center">' +
+    '<h2>👤 Pacientes</h2>' +
+    '<button class="btn btn-primary btn-sm" onclick="navTo(\'rec-novo-paciente\')">➕ Novo Paciente</button>' +
+    '</div>' +
+    '<div class="card mb-3"><input id="rec-busca-pac" placeholder="🔍 Buscar por nome ou CPF..." oninput="recFiltrarPacientes()" style="width:100%"></div>' +
+    '<div id="rec-lista-pacs"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>'
+  );
+  getMedUidsParaRecepcao().then(function(slots) {
+    var todos = [];
+    Promise.all(slots.map(function(s) {
+      return db.collection('users').doc(s.uid).collection('pacientes').get()
+        .then(function(snap) {
+          snap.forEach(function(d) {
+            todos.push(Object.assign({}, d.data(), {id: d.id, medUid: s.uid, medNome: s.nome}));
+          });
+        }).catch(function(){});
+    })).then(function() {
+      window._recPacientes = todos;
+      recRenderPacientes(todos);
+    });
+  });
+}
+
+function recFiltrarPacientes() {
+  var q = (document.getElementById('rec-busca-pac').value||'').toLowerCase();
+  var todos = window._recPacientes || [];
+  recRenderPacientes(q ? todos.filter(function(p){ return (p.nome||'').toLowerCase().indexOf(q)>=0||(p.cpf||'').indexOf(q)>=0; }) : todos);
+}
+
+function recRenderPacientes(pacs) {
+  var el = document.getElementById('rec-lista-pacs');
+  if (!el) return;
+  if (!pacs.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:32px">Nenhum paciente encontrado.</div>'; return; }
+  el.innerHTML = pacs.map(function(p) {
+    return '<div class="card mb-2" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">' +
+      '<div>' +
+      '<div style="font-weight:700">' + (p.nome||'—') + '</div>' +
+      '<div style="font-size:.78rem;color:var(--gray)">' + (p.especialidade||'') + (p.cidade?' · '+p.cidade:'') + ' · Dr(a). ' + (p.medNome||'') + '</div>' +
+      '</div>' +
+      '<div class="flex gap-1">' +
+      (p.codigoAcesso?'<span style="font-family:monospace;font-size:.78rem;background:var(--primary-light);color:var(--primary);padding:4px 8px;border-radius:6px">🔑 '+p.codigoAcesso+'</span>':'') +
+      '</div></div>';
+  }).join('');
+}
+
+function renderRecepcaoAgenda() {
+  navTo_setActive('rec-agenda');
+  setMainContent(
+    '<div class="page-header"><h2>📅 Agenda</h2></div>' +
+    '<div id="rec-agenda-wrap"><p style="color:var(--gray);text-align:center;padding:32px">Carregando...</p></div>'
+  );
+  var hoje = todayISO();
+  getMedUidsParaRecepcao().then(function(slots) {
+    var agendamentos = [];
+    Promise.all(slots.map(function(s) {
+      return db.collection('users').doc(s.uid).collection('agendamentos')
+        .where('data','>=',hoje).orderBy('data').limit(30).get()
+        .then(function(snap) {
+          snap.forEach(function(d) {
+            agendamentos.push(Object.assign({}, d.data(), {id:d.id, medNome:s.nome}));
+          });
+        }).catch(function(){});
+    })).then(function() {
+      agendamentos.sort(function(a,b){ return (a.data+a.hora)>(b.data+b.hora)?1:-1; });
+      var el = document.getElementById('rec-agenda-wrap');
+      if (!el) return;
+      if (!agendamentos.length) {
+        el.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:32px">Nenhum agendamento próximo.</div>';
+        return;
+      }
+      el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Paciente</th><th>Médico</th><th>Tipo</th></tr></thead><tbody>' +
+        agendamentos.map(function(a) {
+          var d = a.data||''; var fmt = d.length===10?d.substr(8,2)+'/'+d.substr(5,2)+'/'+d.substr(0,4):d;
+          return '<tr><td>'+fmt+'</td><td>'+(a.hora||'—')+'</td><td style="font-weight:600">'+(a.pacienteNome||'—')+'</td><td>Dr(a). '+(a.medNome||'')+'</td><td>'+(a.tipo||'Consulta')+'</td></tr>';
+        }).join('') +
+        '</tbody></table></div>';
+    });
+  });
+}
+
+function renderRecepcaoNovoPaciente() {
+  navTo_setActive('rec-novo-paciente');
+  // Reutiliza o modal de novo paciente do médico — mas precisa do medUid
+  // Recepção escolhe o médico e cadastra em nome dele
+  getMedUidsParaRecepcao().then(function(slots) {
+    var opts = slots.map(function(s) {
+      return '<option value="'+s.uid+'">Dr(a). '+(s.nome||s.uid)+(s.especialidades?' — '+s.especialidades.join(', '):'')+'</option>';
+    }).join('');
+    setMainContent(
+      '<div class="page-header"><h2>➕ Novo Paciente</h2></div>' +
+      '<div class="card">' +
+      '<div class="mb-3"><label>Médico responsável *</label><select id="rec-med-uid" style="width:100%">'+opts+'</select></div>' +
+      '<div class="form-grid">' +
+      '<div style="grid-column:1/-1"><label>Nome completo *</label><input id="rec-pac-nome" placeholder="Nome do paciente"></div>' +
+      '<div><label>Data de nascimento</label><input type="date" id="rec-pac-nasc"></div>' +
+      '<div><label>Sexo</label><select id="rec-pac-sexo"><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option></select></div>' +
+      '<div><label>CPF</label><input id="rec-pac-cpf" placeholder="000.000.000-00"></div>' +
+      '<div><label>Telefone</label><input id="rec-pac-tel" placeholder="(65) 99999-9999"></div>' +
+      '<div><label>E-mail</label><input type="email" id="rec-pac-email"></div>' +
+      '<div><label>Cidade</label><input id="rec-pac-cidade" placeholder="Cáceres"></div>' +
+      '<div><label>Especialidade / Motivo</label><input id="rec-pac-esp" placeholder="Ex: Endocrinologia"></div>' +
+      '</div>' +
+      '<div class="flex gap-2 mt-3">' +
+      '<button class="btn btn-primary" onclick="recSalvarNovoPaciente()">💾 Cadastrar Paciente</button>' +
+      '<button class="btn btn-gray" onclick="navTo(\'rec-pacientes\')">Cancelar</button>' +
+      '</div></div>'
+    );
+  });
+}
+
+function recSalvarNovoPaciente() {
+  var medUid = (document.getElementById('rec-med-uid').value||'').trim();
+  var nome = (document.getElementById('rec-pac-nome').value||'').trim();
+  if (!medUid || !nome) { toast('Médico e nome são obrigatórios','error'); return; }
+  var codigo = 'PAC' + Math.random().toString(36).substr(2,6).toUpperCase();
+  var dados = {
+    nome: nome,
+    dataNasc: document.getElementById('rec-pac-nasc').value||'',
+    sexo: document.getElementById('rec-pac-sexo').value||'',
+    cpf: (document.getElementById('rec-pac-cpf').value||'').trim(),
+    telefone: (document.getElementById('rec-pac-tel').value||'').trim(),
+    email: (document.getElementById('rec-pac-email').value||'').trim(),
+    cidade: (document.getElementById('rec-pac-cidade').value||'').trim(),
+    especialidade: (document.getElementById('rec-pac-esp').value||'').trim(),
+    codigoAcesso: codigo,
+    cadastradoPor: 'recepcao'
+  };
+  db.collection('users').doc(medUid).collection('pacientes').add(dados)
+    .then(function() {
+      toast('Paciente cadastrado! Código: ' + codigo + ' ✅','success');
+      navTo('rec-pacientes');
+    })
+    .catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+// ============================================================
+// ADMIN — Gestão de slots de Recepção
+// ============================================================
+function renderAdminRecepcao() {
+  navTo_setActive('admin-recepcao');
+  var codigos = ['NOC-REC-001','NOC-REC-002','NOC-REC-003'];
+  setMainContent(
+    '<div class="page-header flex justify-between align-center">' +
+    '<div><h2>🖥️ Recepção / Secretaria</h2><p style="color:var(--gray);font-size:.85rem">Slots de acesso para a equipe de recepção.</p></div>' +
+    '</div>' +
+    '<div id="rec-slots-wrap"><p style="color:var(--gray)">Carregando...</p></div>'
+  );
+  Promise.all(codigos.map(function(cod) {
+    return db.collection('convitesRecepcao').doc(cod).get()
+      .then(function(d){ return d.exists ? Object.assign({cod:cod},d.data()) : {cod:cod}; })
+      .catch(function(){ return {cod:cod}; });
+  })).then(function(slots) {
+    var html = '';
+    slots.forEach(function(s) {
+      var ativo = !!s.nome;
+      html += '<div class="card mb-2" style="border-left:4px solid '+(ativo?'var(--success)':'var(--gray-200)')+'">' +
+        '<div class="flex justify-between align-center">' +
+        '<div><span style="font-family:monospace;font-weight:700;color:var(--primary)">' + s.cod + '</span> ' +
+        '<span class="badge badge-'+(ativo?'success':'gray')+'">'+(ativo?'Ativo':'Vazio')+'</span>' +
+        (ativo?'<div style="font-size:.85rem;margin-top:4px">' + (s.nome||'') + ' · ' + (s.email||'') + '</div>':'') +
+        '</div>' +
+        '<div class="flex gap-1">' +
+        '<button class="btn btn-outline btn-sm" onclick="adminEditarRecepcao(\''+s.cod+'\')">✏️ Editar</button>' +
+        (ativo?'<button class="btn btn-danger btn-sm" onclick="adminLimparRecepcao(\''+s.cod+'\')">Limpar</button>':'') +
+        '</div></div></div>';
+    });
+    var el = document.getElementById('rec-slots-wrap');
+    if (el) el.innerHTML = html;
+  });
+}
+
+function adminEditarRecepcao(cod) {
+  db.collection('convitesRecepcao').doc(cod).get().then(function(doc) {
+    var d = doc.exists ? doc.data() : {};
+    showModal('Slot: ' + cod,
+      '<div class="form-grid">' +
+      '<div><label>Nome completo</label><input id="rec-nome" value="'+(d.nome||'')+'" placeholder="Maria Silva"></div>' +
+      '<div><label>E-mail</label><input type="email" id="rec-email" value="'+(d.email||'')+'"></div>' +
+      '</div>',
+      '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn btn-primary" onclick="adminSalvarRecepcao(\''+cod+'\')">Salvar</button>'
+    );
+  });
+}
+
+function adminSalvarRecepcao(cod) {
+  var nome = (document.getElementById('rec-nome').value||'').trim();
+  var email = (document.getElementById('rec-email').value||'').trim();
+  if (!nome) { toast('Nome obrigatório','error'); return; }
+  db.collection('convitesRecepcao').doc(cod).get().then(function(docAtual) {
+    var atual = docAtual.exists ? docAtual.data() : {};
+    var emailInterno = atual.emailInterno || ('rec_' + cod.toLowerCase().replace(/-/g,'_') + '@noc.interno');
+    var senhaInterna = atual.senhaInterna || ('NOCrec#' + cod + '#2025');
+    var dados = { nome:nome, email:email, clinica:'NOC Clínica', cod:cod,
+      emailInterno:emailInterno, senhaInterna:senhaInterna };
+    if (atual.uid) dados.uid = atual.uid;
+    return db.collection('convitesRecepcao').doc(cod).set(dados);
+  }).then(function() {
+    closeModal(); toast('Slot '+cod+' salvo ✅','success'); renderAdminRecepcao();
+  }).catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function adminLimparRecepcao(cod) {
+  if (!confirm('Limpar slot '+cod+'? O acesso será removido.')) return;
+  db.collection('convitesRecepcao').doc(cod).get().then(function(doc) {
+    var atual = doc.exists ? doc.data() : {};
+    var stub = { cod:cod };
+    if (atual.emailInterno) stub.emailInterno = atual.emailInterno;
+    if (atual.senhaInterna) stub.senhaInterna = atual.senhaInterna;
+    return db.collection('convitesRecepcao').doc(cod).set(stub);
+  }).then(function() { toast('Slot limpo','success'); renderAdminRecepcao(); });
 }
 
 
