@@ -1862,28 +1862,27 @@ function adminCriarMedico() {
     })
     .catch(function(e) {
       var msg = e.message||'';
-      // Se já existe, tenta logar com a senha e completar o perfil
+      secondaryApp.delete().catch(function(){});
+      // Se email ja existe no Auth, busca UID no adminIndex e atualiza apenas o perfil Firestore
       if (msg.indexOf('email-already-in-use') >= 0) {
         if (btn) btn.textContent = 'Atualizando...';
-        secondaryAuth.signInWithEmailAndPassword(email, senha)
-          .then(function(cred) {
-            return salvarPerfil(cred.user.uid).then(function() {
-              secondaryAuth.signOut().then(function(){ secondaryApp.delete().catch(function(){}); });
+        db.collection('adminIndex').where('email','==',email).get()
+          .then(function(snap) {
+            if (snap.empty) {
+              resetBtn();
+              toast('E-mail ja cadastrado. UID nao encontrado no indice. Verifique o Firebase Console.','error');
+              return;
+            }
+            var uid = snap.docs[0].id;
+            return salvarPerfil(uid).then(function() {
+              resetBtn();
+              toast('Perfil do médico atualizado! ✅','success');
+              adminLoadMedicos();
             });
-          })
-          .then(function() {
-            resetBtn();
-            toast('Perfil do médico atualizado! ✅','success');
-            adminLoadMedicos();
           })
           .catch(function(e2) {
             resetBtn();
-            secondaryAuth.signOut().then(function(){ secondaryApp.delete().catch(function(){}); });
-            if (e2.message && (e2.message.indexOf('wrong-password')>=0 || e2.message.indexOf('INVALID_LOGIN_CREDENTIALS')>=0)) {
-              toast('E-mail já cadastrado com senha diferente.','error');
-            } else {
-              toast(traduzirErroFirebase(e2.message),'error');
-            }
+            toast(traduzirErroFirebase(e2.message),'error');
           });
       } else {
         resetBtn();
