@@ -6126,54 +6126,43 @@ function salvarFoto() {
           });
       }
     };
+    // Paciente salva foto como base64 no Firestore — não depende do Storage
     garantirAuth(function() {
-      // Tenta upload; se der permission error, renova sessão e tenta de novo
-      doUpload = (function(originalDoUpload) {
-        return function() {
-          var storage2 = firebase.storage();
-          var ref2 = storage2.ref(path);
-          ref2.put(file).then(function(snap) {
-            return snap.ref.getDownloadURL();
-          }).then(function(url) {
-            return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
-              .collection('fisicoFotos').add({
-                url: url, storagePath: path,
-                data: data, dataTs: new Date(data).getTime(),
-                categoria: cat, obs: obs,
-                enviadoPor: currentRole, uid: currentUser.uid
-              });
-          }).then(function() {
-            toast('Foto enviada ao médico! ✅', 'success');
-            closeModal();
-            if (typeof renderPacienteEvolucao === 'function') renderPacienteEvolucao();
-          }).catch(function(e) {
-            if (e.message && e.message.indexOf('permission') >= 0) {
-              // Renova sessão e tenta de novo
-              auth.signInAnonymously().then(function() {
-                ref2.put(file).then(function(snap){ return snap.ref.getDownloadURL(); })
-                  .then(function(url) {
-                    return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
-                      .collection('fisicoFotos').add({
-                        url: url, storagePath: path, data: data, dataTs: new Date(data).getTime(),
-                        categoria: cat, obs: obs, enviadoPor: currentRole, uid: currentUser.uid
-                      });
-                  }).then(function() {
-                    toast('Foto enviada ao médico! ✅', 'success');
-                    closeModal();
-                    if (typeof renderPacienteEvolucao === 'function') renderPacienteEvolucao();
-                  }).catch(function(e2) {
-                    toast('Erro ao enviar: ' + e2.message, 'error');
-                    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
-                  });
-              });
-            } else {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var base64url = ev.target.result;
+        // Comprime se muito grande (>500KB vira thumbnail)
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement('canvas');
+          var maxW = 1200; var maxH = 1600;
+          var w = img.width; var h = img.height;
+          if (w > maxW) { h = Math.round(h*maxW/w); w = maxW; }
+          if (h > maxH) { w = Math.round(w*maxH/h); h = maxH; }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          var compressed = canvas.toDataURL('image/jpeg', 0.75);
+          db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+            .collection('fisicoFotos').add({
+              url: compressed,
+              storagePath: '',
+              data: data, dataTs: new Date(data).getTime(),
+              categoria: cat, obs: obs,
+              enviadoPor: 'paciente', uid: currentUser.uid,
+              pendenteMedico: true
+            }).then(function() {
+              toast('Foto enviada ao médico! ✅', 'success');
+              closeModal();
+              if (typeof renderPacienteEvolucao === 'function') renderPacienteEvolucao();
+              if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+            }).catch(function(e) {
               toast('Erro ao enviar: ' + e.message, 'error');
               if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
-            }
-          });
+            });
         };
-      })(doUpload);
-      doUpload();
+        img.src = base64url;
+      };
+      reader.readAsDataURL(file);
     });
   } else {
     doUpload();
