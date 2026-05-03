@@ -7946,13 +7946,16 @@ function renderAdminRecepcao() {
     var html = '';
     slots.forEach(function(s) {
       var ativo = !!s.nome;
+      var temUid = !!s.uid;
       html += '<div class="card mb-2" style="border-left:4px solid '+(ativo?'var(--success)':'var(--gray-200)')+'">' +
         '<div class="flex justify-between align-center">' +
         '<div><span style="font-family:monospace;font-weight:700;color:var(--primary)">' + s.cod + '</span> ' +
         '<span class="badge badge-'+(ativo?'success':'gray')+'">'+(ativo?'Ativo':'Vazio')+'</span>' +
+        (ativo&&!temUid?'<span class="badge" style="background:#FEF3C7;color:#92400E;margin-left:6px">⚠️ Sem conta</span>':'') +
         (ativo?'<div style="font-size:.85rem;margin-top:4px">' + (s.nome||'') + ' · ' + (s.email||'') + '</div>':'') +
         '</div>' +
         '<div class="flex gap-1">' +
+        (ativo&&!temUid?'<button class="btn btn-primary btn-sm" onclick="adminCriarContaRecepcao(\''+s.cod+'\')">⚡ Criar Conta</button>':'') +
         '<button class="btn btn-outline btn-sm" onclick="adminEditarRecepcao(\''+s.cod+'\')">✏️ Editar</button>' +
         (ativo?'<button class="btn btn-danger btn-sm" onclick="adminLimparRecepcao(\''+s.cod+'\')">Limpar</button>':'') +
         '</div></div></div>';
@@ -7991,6 +7994,67 @@ function adminSalvarRecepcao(cod) {
   }).then(function() {
     closeModal(); toast('Slot '+cod+' salvo ✅','success'); renderAdminRecepcao();
   }).catch(function(e){ toast('Erro: '+e.message,'error'); });
+}
+
+function adminCriarContaRecepcao(cod) {
+  var btn = event.target;
+  if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
+
+  db.collection('convitesRecepcao').doc(cod).get().then(function(doc) {
+    if (!doc.exists) { toast('Slot não encontrado','error'); return; }
+    var dados = doc.data();
+    var emailInterno = dados.emailInterno || ('rec_' + cod.toLowerCase().replace(/-/g,'_') + '@noc.interno');
+    var senhaInterna = dados.senhaInterna || ('NOCrec#' + cod + '#2025');
+
+    // Usa app secundário para não deslogar o admin
+    var appName = 'rec_create_' + Date.now();
+    var secApp = firebase.initializeApp(firebase.app().options, appName);
+    var secAuth = secApp.auth();
+
+    secAuth.createUserWithEmailAndPassword(emailInterno, senhaInterna)
+      .then(function(cred) {
+        var uid = cred.user.uid;
+        secAuth.signOut().catch(function(){});
+        secApp.delete().catch(function(){});
+
+        // Salva uid no convite e cria perfil
+        return Promise.all([
+          db.collection('convitesRecepcao').doc(cod).set({uid: uid, emailInterno: emailInterno, senhaInterna: senhaInterna}, {merge:true}),
+          db.collection('users').doc(uid).collection('perfil').doc('dados').set({
+            nome: dados.nome, tipo: 'recepcao', email: dados.email||'', clinica: dados.clinica||'NOC Clínica'
+          }, {merge:true})
+        ]);
+      })
+      .then(function() {
+        toast('Conta criada! Recepção já pode entrar com ' + cod + ' ✅', 'success');
+        renderAdminRecepcao();
+      })
+      .catch(function(e) {
+        try { firebase.app(appName).delete(); } catch(ex){}
+        if (e.code === 'auth/email-already-in-use') {
+          // Conta já existe — só busca o UID
+          var secApp2 = firebase.initializeApp(firebase.app().options, appName+'_2');
+          var secAuth2 = secApp2.auth();
+          secAuth2.signInWithEmailAndPassword(emailInterno, senhaInterna)
+            .then(function(cred) {
+              var uid = cred.user.uid;
+              secAuth2.signOut().catch(function(){});
+              secApp2.delete().catch(function(){});
+              return db.collection('convitesRecepcao').doc(cod).set({uid: uid}, {merge:true});
+            })
+            .then(function() {
+              toast('Conta vinculada! ✅', 'success');
+              renderAdminRecepcao();
+            })
+            .catch(function(e2) {
+              try { firebase.app(appName+'_2').delete(); } catch(ex){}
+              toast('Erro: ' + e2.message, 'error');
+            });
+        } else {
+          toast('Erro ao criar conta: ' + e.message, 'error');
+        }
+      });
+  });
 }
 
 function adminLimparRecepcao(cod) {
