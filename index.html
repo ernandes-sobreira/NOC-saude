@@ -757,6 +757,12 @@ function doRegister() {
     .catch(function(e) { showLoginError(traduzirErroFirebase(e.message)); });
 }
 function doLogout() {
+  // Limpa timer de inatividade
+  if (typeof _nocInativTimer !== 'undefined') clearTimeout(_nocInativTimer);
+  // Remove banner LGPD se existir
+  var b = document.getElementById('noc-lgpd-banner');
+  if (b) b.remove();
+  _lgpdMostrado = false;
   currentUser = null;
   currentRole = null;
   currentPerfil = null;
@@ -834,6 +840,12 @@ function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   buildSidebar();
+  // Inicia timeout de inatividade
+  if (typeof _nocResetInatividade === 'function') _nocResetInatividade();
+  // Mostra banner LGPD (não bloqueante)
+  setTimeout(function() {
+    if (typeof _nocMostrarLGPD === 'function') _nocMostrarLGPD();
+  }, 1500);
   if (currentRole === 'admin') renderAdminDash();
   else if (currentRole === 'medico') renderMedicoDash();
   else if (currentRole === 'recepcao') renderRecepcaoDash();
@@ -3230,6 +3242,8 @@ function abrirProntuario(pacId) {
 }
 function renderProntuario() {
   var p = prontuarioPac;
+  // LOG: registra abertura do prontuário
+  _nocRegistrarAcesso(prontuarioPacId, p ? p.nome : '');
   navTo_setActive('medico-pacientes');
   setMainContent(
     '<div class="flex align-center gap-2 mb-2 wrap">' +
@@ -8282,6 +8296,113 @@ function _recFeedbackCopiado(pacId) {
   setTimeout(function(){
     if (btn) { btn.innerHTML = orig; btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; }
   }, 2500);
+}
+
+// ============================================================
+// TIMEOUT DE INATIVIDADE — logout automático após 30min
+// Aplica apenas para médico, admin e recepção (não paciente)
+// ============================================================
+var _nocInativTimer = null;
+var _NOC_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+
+function _nocResetInatividade() {
+  if (!currentRole || currentRole === 'paciente') return;
+  clearTimeout(_nocInativTimer);
+  _nocInativTimer = setTimeout(function() {
+    if (currentRole && currentRole !== 'paciente') {
+      toast('Sessão encerrada por inatividade (30 min). Faça login novamente.', 'error');
+      setTimeout(function() { doLogout(); }, 2500);
+    }
+  }, _NOC_TIMEOUT_MS);
+}
+
+['click','keydown','mousemove','touchstart','scroll'].forEach(function(ev) {
+  document.addEventListener(ev, _nocResetInatividade, { passive: true });
+});
+
+// ============================================================
+// LOG DE ACESSO A PRONTUÁRIOS
+// Grava no Firestore quem abriu qual prontuário e quando
+// ============================================================
+function _nocRegistrarAcesso(pacId, pacNome) {
+  var uid = getMedUid ? getMedUid() : null;
+  if (!uid || !pacId || !db) return;
+  db.collection('logs').add({
+    acao: 'prontuario_aberto',
+    medUid: uid,
+    medNome: currentPerfil ? (currentPerfil.nome || '') : '',
+    role: currentRole || '',
+    pacId: pacId,
+    pacNome: pacNome || '',
+    quando: new Date().toISOString(),
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: new Date().toLocaleTimeString('pt-BR')
+  }).catch(function() {}); // silencioso — não bloqueia o fluxo
+}
+
+// ============================================================
+// CONSENTIMENTO LGPD — check voluntário para o médico
+// Aparece uma vez por sessão, não impede navegação
+// ============================================================
+var _lgpdMostrado = false;
+
+function _nocMostrarLGPD() {
+  if (_lgpdMostrado) return;
+  if (currentRole !== 'medico' && currentRole !== 'admin') return;
+  _lgpdMostrado = true;
+
+  // Verifica se já aceitou nesta sessão
+  try {
+    if (sessionStorage.getItem('_noc_lgpd_ok')) return;
+  } catch(e) {}
+
+  // Cria banner não bloqueante no topo
+  var existing = document.getElementById('noc-lgpd-banner');
+  if (existing) return;
+
+  var banner = document.createElement('div');
+  banner.id = 'noc-lgpd-banner';
+  banner.style.cssText = [
+    'position:fixed', 'bottom:0', 'left:0', 'right:0',
+    'background:#1E3A5F', 'color:#fff', 'padding:12px 20px',
+    'display:flex', 'align-items:center', 'justify-content:space-between',
+    'gap:16px', 'z-index:9999', 'box-shadow:0 -2px 12px rgba(0,0,0,.3)',
+    'flex-wrap:wrap', 'font-size:.82rem', 'line-height:1.5'
+  ].join(';');
+
+  banner.innerHTML =
+    '<div style="flex:1;min-width:200px">' +
+    '<strong>🔒 Proteção de Dados (LGPD)</strong> — ' +
+    'Este sistema armazena dados sensíveis de saúde. ' +
+    'Ao usar o sistema, o profissional confirma que está autorizado e adota medidas de sigilo conforme a Lei 13.709/2018.' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;align-items:center;flex-shrink:0">' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600">' +
+    '<input type="checkbox" id="lgpd-check" style="width:16px;height:16px;cursor:pointer"> Estou ciente' +
+    '</label>' +
+    '<button onclick="_nocFecharLGPD()" style="background:#fff;color:#1E3A5F;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:.82rem">OK</button>' +
+    '</div>';
+
+  document.body.appendChild(banner);
+}
+
+function _nocFecharLGPD() {
+  var banner = document.getElementById('noc-lgpd-banner');
+  if (banner) banner.remove();
+  var check = document.getElementById('lgpd-check');
+  var aceitou = check && check.checked;
+  try { sessionStorage.setItem('_noc_lgpd_ok', '1'); } catch(e) {}
+
+  // Se marcou o check, registra no Firestore (não obrigatório)
+  if (aceitou && currentUser && currentUser.uid && db) {
+    db.collection('logs').add({
+      acao: 'lgpd_aceito',
+      uid: currentUser.uid,
+      nome: currentPerfil ? (currentPerfil.nome || '') : '',
+      role: currentRole || '',
+      quando: new Date().toISOString()
+    }).catch(function() {});
+  }
 }
 
 
