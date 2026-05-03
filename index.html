@@ -371,11 +371,12 @@ tr:hover td{background:var(--primary-light)}
       </div>
     </div>
     <nav class="sidebar-nav" id="sidebar-nav"></nav>
-    <div class="sidebar-footer">
-      <div style="font-size:.72rem;color:var(--gray);margin-bottom:8px;line-height:1.5">
+    <div class="sidebar-footer" id="sidebar-footer">
+      <div style="font-size:.72rem;color:var(--gray);margin-bottom:8px;line-height:1.5" id="sidebar-address">
         📍 Av. Bosque da Saúde, 173<br>Cuiabá-MT · (65) 99360-5857
       </div>
-      <button class="btn btn-gray w-100 btn-sm" onclick="doLogout()">Sair</button>
+      <button id="btn-voltar-admin" onclick="voltarParaAdmin()" style="display:none;width:100%;margin-bottom:8px;padding:12px;background:#DC2626;color:#fff;border:none;border-radius:10px;font-size:.88rem;font-weight:700;cursor:pointer;min-height:48px">🔙 Voltar ao Admin</button>
+      <button class="btn-sair" onclick="doLogout()">↩ Sair</button>
     </div>
   </div>
   <main class="main-content" id="main-content"></main>
@@ -889,17 +890,10 @@ function buildSidebar() {
       nav.appendChild(el);
     })(items[i]);
   }
-  // Logout button - always visible, big touch target
-  var footer = document.getElementById('sidebar-footer');
-  if (footer) {
-    footer.innerHTML = '<button class="btn-sair" onclick="doLogout()">↩ Sair</button>' +
-      '<button id="btn-voltar-admin" onclick="voltarParaAdmin()" style="display:none;width:100%;margin-top:8px;padding:10px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer">🔙 Voltar ao Admin</button>';
-  }
-  // Atualiza visibilidade do botão e banner conforme modo atual
+  // Atualiza visibilidade do botão voltar e banner
   setTimeout(function() {
     var btnVoltar = document.getElementById('btn-voltar-admin');
     if (btnVoltar) btnVoltar.style.display = window._adminBackup ? 'block' : 'none';
-    // Banner
     var existing = document.getElementById('admin-view-banner');
     if (window._adminBackup && !existing) {
       var sidebarEl = document.querySelector('.sidebar');
@@ -6046,24 +6040,38 @@ function salvarFoto() {
   var path = 'users/' + _fisicoMedUid + '/pacientes/' + _fisicoPacId + '/fotos/' + ts + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   var ref = storage.ref(path);
 
-  ref.put(file).then(function(snap) {
-    return snap.ref.getDownloadURL();
-  }).then(function(url) {
-    return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
-      .collection('fisicoFotos').add({
-        url: url, storagePath: path,
-        data: data, dataTs: new Date(data).getTime(),
-        categoria: cat, obs: obs,
-        enviadoPor: currentRole, uid: currentUser.uid
+  var doUpload = function() {
+    ref.put(file).then(function(snap) {
+      return snap.ref.getDownloadURL();
+    }).then(function(url) {
+      return db.collection('users').doc(_fisicoMedUid).collection('pacientes').doc(_fisicoPacId)
+        .collection('fisicoFotos').add({
+          url: url, storagePath: path,
+          data: data, dataTs: new Date(data).getTime(),
+          categoria: cat, obs: obs,
+          enviadoPor: currentRole, uid: currentUser.uid
+        });
+    }).then(function() {
+      toast('Foto salva! ✅', 'success');
+      closeModal();
+      loadAvaliacaoFisica();
+    }).catch(function(e) {
+      toast('Erro ao enviar: ' + e.message, 'error');
+      if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
+    });
+  };
+  // Se paciente (anônimo), garante sessão ativa
+  if (!auth.currentUser) {
+    suppressAuthStateChange = true;
+    auth.signInAnonymously()
+      .then(doUpload)
+      .catch(function(e) {
+        toast('Erro de autenticação: ' + e.message, 'error');
+        if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
       });
-  }).then(function() {
-    toast('Foto salva! ✅', 'success');
-    closeModal();
-    loadAvaliacaoFisica();
-  }).catch(function(e) {
-    toast('Erro ao enviar: ' + e.message, 'error');
-    if (btn) { btn.textContent = 'Salvar'; btn.disabled = false; }
-  });
+  } else {
+    doUpload();
+  }
 }
 
 function deletarFoto(id, path) {
