@@ -627,21 +627,24 @@ function doPacienteLogin() {
   }
 
   function fazerBusca() {
-    var uids = [];
-    db.collection('adminIndex').get()
-      .then(function(s) {
-        s.forEach(function(d) { if (d.data().tipo !== 'admin') uids.push(d.id); });
-        // Also try all users as fallback
-        return db.collection('users').get().catch(function() { return {forEach:function(){}}; });
-      })
-      .then(function(s2) {
-        s2.forEach(function(d) { if (uids.indexOf(d.id) < 0) uids.push(d.id); });
-        buscarCodigo(uids);
-      })
-      .catch(function(e) {
+    // Busca UIDs dos médicos via convitesMedico (allow read: if true — não precisa de auth)
+    var codigos = ['NOC-MED-001','NOC-K7X2-M9P4','NOC-R3W8-B6T1'];
+    Promise.all(codigos.map(function(cod) {
+      return db.collection('convitesMedico').doc(cod).get()
+        .then(function(d) { return (d.exists && d.data().uid) ? d.data().uid : null; })
+        .catch(function() { return null; });
+    })).then(function(uids) {
+      var validos = uids.filter(Boolean);
+      if (!validos.length) {
         resetBtn();
-        showLoginError('Erro acesso: '+(e&&e.message?e.message:e));
-      });
+        showLoginError('Nenhum médico cadastrado no sistema.');
+        return;
+      }
+      buscarCodigo(validos);
+    }).catch(function(e) {
+      resetBtn();
+      showLoginError('Erro ao buscar médicos: ' + (e&&e.message?e.message:e));
+    });
   }
 
   // Use current session if available, otherwise sign in anonymously
@@ -4837,7 +4840,7 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
   // Filter resultados by selected dates
   var resFiltrados = resultados.filter(function(r) { return datasSelecionadas[r.data]; });
 
-  // Gather all params from filtered results
+  // Gather all params from filtered results (para exibição)
   var allP = {};
   for (var i=0;i<resFiltrados.length;i++) {
     var r=resFiltrados[i]; var vals=r.valores||{};
@@ -4847,6 +4850,15 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
     });
   }
   var pkeys = Object.keys(allP);
+  // Histórico completo (todos os resultados) para os minigráficos
+  var allPHist = {};
+  for (var hi=0;hi<resultados.length;hi++) {
+    var hr=resultados[hi]; var hvals=hr.valores||{};
+    Object.keys(hvals).forEach(function(k) {
+      if (!allPHist[k]) allPHist[k]=[];
+      allPHist[k].push(Object.assign({},hvals[k],{data:hr.data}));
+    });
+  }
 
   var sc = calcHealthScore(resFiltrados);
   var score=sc.score, normal=sc.normal, warn=sc.warn, alt=sc.alt, total=sc.total;
@@ -4980,7 +4992,8 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
       var bgCard = s2==='normal'?'#F0FDF4':s2==='warn'?'#FFFBEB':'#FFF1F2';
       var borda  = s2==='normal'?'#86EFAC':s2==='warn'?'#FCD34D':'#FCA5A5';
       var chartIdPac = 'pacc-' + nm.replace(/[^a-zA-Z0-9]/g,'_') + '_' + si;
-      var miniChartPac = hist.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="'+chartIdPac+'"></canvas></div>' : '';
+      var histGraf = (allPHist[nm]||hist).slice().sort(function(a,b){return (a.data||'')>(b.data||'')?1:-1;});
+      var miniChartPac = histGraf.length >= 2 ? '<div class="mini-chart-wrap"><canvas id="'+chartIdPac+'"></canvas></div>' : '';
       bodyHtml+='<div style="background:'+bgCard+';border:1.5px solid '+borda+';border-radius:12px;padding:12px 14px;position:relative">'+
         '<div style="font-size:.78rem;font-weight:700;color:var(--text-soft);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div>'+
         '<div style="font-size:1.4rem;font-weight:900;color:'+statusColor(s2)+';line-height:1.1">'+formatarValorDisplay(lat2.valor)+'<span style="font-size:.7rem;font-weight:400;color:var(--gray);margin-left:3px">'+(rObj?rObj.un||lat2.unidade||'':lat2.unidade||'')+'</span></div>'+
@@ -4990,7 +5003,7 @@ function _renderVisaoPacienteComDatas(datasSelecionadas) {
         (dateStr?'<div style="font-size:.65rem;color:var(--gray);margin-top:2px">'+dateStr+'</div>':'')+
         miniChartPac+
         '</div>';
-      if (hist.length >= 2) window._pacMiniCharts = (window._pacMiniCharts||[]).concat([{id:chartIdPac,hist:hist,cor:statusColor(s2)}]);
+      if (histGraf.length >= 2) window._pacMiniCharts = (window._pacMiniCharts||[]).concat([{id:chartIdPac,hist:histGraf,cor:statusColor(s2)}]);
     }
     var dot=sysAlt>0?'🔴':'🟢';
     html+='<div class="body-system-card" style="margin-bottom:10px">'+
