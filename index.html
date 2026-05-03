@@ -78,6 +78,13 @@ tr:hover td{background:var(--primary-light)}
 .toast{background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:.88rem;font-weight:500;opacity:0;transform:translateX(60px);animation:toastIn .3s forwards;max-width:320px}
 .toast.success{background:var(--success)}.toast.error{background:var(--danger)}.toast.warn{background:var(--warn)}
 @keyframes toastIn{to{opacity:1;transform:translateX(0)}}
+
+/* TOGGLE SENHA */
+.senha-wrap{position:relative}
+.senha-wrap input{padding-right:42px}
+.senha-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:1.1rem;padding:4px;line-height:1}
+.senha-toggle:hover{color:var(--primary)}
+
 /* LOGIN */
 #login-screen{min-height:100vh;background:var(--noc-marble);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 #login-screen::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(45,80,22,.06) 0%,transparent 70%)}
@@ -292,11 +299,17 @@ tr:hover td{background:var(--primary-light)}
       </div>
       <div class="mb-2">
         <label>Senha</label>
-        <input type="password" id="admin-senha" placeholder="••••••••">
+        <div class="senha-wrap">
+          <input type="password" id="admin-senha" placeholder="••••••••">
+          <button class="senha-toggle" type="button" onclick="toggleSenha('admin-senha',this)" title="Mostrar/ocultar">&#128065;</button>
+        </div>
       </div>
       <div class="mb-2">
         <label>Código de acesso</label>
-        <input type="password" id="admin-code" placeholder="Código NOC">
+        <div class="senha-wrap">
+          <input type="password" id="admin-code" placeholder="Código NOC">
+          <button class="senha-toggle" type="button" onclick="toggleSenha('admin-code',this)" title="Mostrar/ocultar">&#128065;</button>
+        </div>
       </div>
       <button class="btn btn-primary w-100" onclick="doAdminLogin()">Entrar como Admin</button>
       <div style="text-align:center;margin-top:10px">
@@ -403,6 +416,17 @@ function openModal(html) {
   var c = document.getElementById('modal-container');
   c.innerHTML = '<div class="modal-backdrop" id="modal-backdrop" onclick="handleBackdropClick(event)">' + html + '</div>';
 }
+function toggleSenha(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (el.type === 'password') {
+    el.type = 'text';
+    btn.innerHTML = '&#128064;';
+  } else {
+    el.type = 'password';
+    btn.innerHTML = '&#128065;';
+  }
+}
 function closeModal() {
   document.getElementById('modal-container').innerHTML = '';
 }
@@ -465,18 +489,29 @@ function doLogin() {
       suppressAuthStateChange = true;
       var doEntrar = function() {
         auth.signInAnonymously().then(function(cred) {
-          // Salva uid anonimo vinculado ao convite para operacoes Firestore
+          // uid real do Firebase Auth anonimo — unico que passa nas regras Firestore
+          var realUid = cred.user.uid;
           currentRole = 'medico';
-          currentUser = { uid: dados.uid || cred.user.uid, email: dados.email || codigo };
+          currentUser = { uid: realUid, email: dados.email || codigo };
           currentPerfil = { nome: dados.nome, tipo: 'medico', crm: dados.crm||'',
             especialidade: dados.especialidades ? dados.especialidades[0] : '',
             especialidades: dados.especialidades||[], clinica: dados.clinica||'NOC Clínica',
             codigoAcesso: codigo };
-          // Garante que o perfil existe no Firestore com o uid do convite
-          if (dados.uid) {
-            db.collection('users').doc(dados.uid).collection('perfil').doc('dados')
-              .set(currentPerfil, {merge:true}).catch(function(){});
-          }
+          // Salva perfil com uid anonimo real + atualiza uid no convite para busca de pacientes
+          var batch = db.batch();
+          batch.set(
+            db.collection('users').doc(realUid).collection('perfil').doc('dados'),
+            currentPerfil, {merge:true}
+          );
+          batch.set(
+            db.collection('adminIndex').doc(realUid),
+            {tipo:'medico', email: dados.email||'', nome: dados.nome, codigoAcesso: codigo},
+            {merge:true}
+          );
+          batch.commit().catch(function(){});
+          // Atualiza uid no convite para que admin veja dados corretos
+          db.collection('convitesMedico').doc(codigo)
+            .set({uid: realUid}, {merge:true}).catch(function(){});
           resetBtn(); clearLoginError();
           suppressAuthStateChange = true;
           showApp();
@@ -2100,9 +2135,7 @@ function adminEditarConvite(cod) {
       '<button class="btn btn-gray" onclick="closeModal()">Cancelar</button>' +
       '<button class="btn btn-primary" onclick="adminSalvarConvite(\'' + cod + '\')">Salvar</button>'
     );
-    if (!d.uid) {
-      db.collection('convitesMedico').doc(cod).set({ uid: 'medico_' + cod.replace(/-/g,'_') }, {merge:true}).catch(function(){});
-    }
+    // uid sera definido automaticamente no primeiro login do medico
   });
 }
 
@@ -2115,18 +2148,12 @@ function adminSalvarConvite(cod) {
   var esps = [];
   for (var i=0;i<chks.length;i++) esps.push(chks[i].value);
   if (!nome) { toast('Nome obrigat\u00f3rio','error'); return; }
-  var uid = 'medico_' + cod.replace(/-/g,'_');
+  // uid sera preenchido no primeiro login anonimo do medico
   var dados = { nome:nome, email:email, crm:crm, clinica:clinica,
-    especialidade: esps[0]||'', especialidades:esps, uid:uid, codigo:cod };
+    especialidade: esps[0]||'', especialidades:esps, codigo:cod };
   db.collection('convitesMedico').doc(cod).set(dados)
-    .then(function() {
-      return db.collection('users').doc(uid).collection('perfil').doc('dados')
-        .set({ nome:nome, tipo:'medico', email:email, crm:crm,
-          especialidade:esps[0]||'', especialidades:esps, clinica:clinica }, {merge:true});
-    })
-    .then(function() {
-      return db.collection('adminIndex').doc(uid).set({tipo:'medico',email:email,nome:nome},{merge:true});
-    })
+    // Perfil Firestore sera criado no primeiro login do medico
+    // adminIndex sera atualizado automaticamente
     .then(function() {
       closeModal();
       toast('Slot ' + cod + ' salvo! \u2705','success');
